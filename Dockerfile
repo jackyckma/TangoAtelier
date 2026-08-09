@@ -1,8 +1,8 @@
 # Unified image: Vite build + FastAPI (API + SPA) for Zeabur single-service deploy.
-FROM node:20-bookworm-slim AS frontend
+FROM node:22-bookworm-slim AS frontend
 WORKDIR /frontend
-RUN corepack enable
-COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
+RUN corepack enable && corepack prepare pnpm@10.15.0 --activate
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY frontend/ ./
 RUN pnpm build
