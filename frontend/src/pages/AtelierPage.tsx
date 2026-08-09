@@ -7,6 +7,7 @@ import {
   renderSkeleton,
 } from '../api'
 import { ensureAudioReady, playNotes, stopPlayback } from '../audio/pianoPlayer'
+import { ChordProgressionView } from '../components/ChordProgressionView'
 import { useLocalized } from '../hooks/useLocalized'
 import type {
   AtelierOptions,
@@ -46,6 +47,7 @@ export function AtelierPage() {
   const [instrumentsTouched, setInstrumentsTouched] = useState(false)
   const [busy, setBusy] = useState(false)
   const [playing, setPlaying] = useState(false)
+  const [activeBar, setActiveBar] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -83,6 +85,7 @@ export function AtelierPage() {
     setError(null)
     stopPlayback()
     setPlaying(false)
+    setActiveBar(null)
     setPiece(null)
     setInstrumentsTouched(false)
     try {
@@ -112,6 +115,7 @@ export function AtelierPage() {
     setError(null)
     stopPlayback()
     setPlaying(false)
+    setActiveBar(null)
     setStyleId(id)
     try {
       const rendered = await renderSkeleton(skeleton, id, {
@@ -139,6 +143,7 @@ export function AtelierPage() {
     setError(null)
     stopPlayback()
     setPlaying(false)
+    setActiveBar(null)
     try {
       const rendered = await renderSkeleton(skeleton, styleId, {
         instruments: next,
@@ -156,9 +161,21 @@ export function AtelierPage() {
     try {
       await ensureAudioReady()
       setPlaying(true)
-      await playNotes(piece.notes, () => setPlaying(false))
+      setActiveBar(0)
+      const beats = piece.time_signature[0] || 2
+      const barDurationSeconds = (60 / piece.bpm) * beats
+      await playNotes(piece.notes, {
+        barDurationSeconds,
+        bars: piece.bars,
+        onBar: (bar) => setActiveBar(bar),
+        onEnded: () => {
+          setPlaying(false)
+          setActiveBar(null)
+        },
+      })
     } catch {
       setPlaying(false)
+      setActiveBar(null)
       setError(t('generator.audioError'))
     }
   }
@@ -166,6 +183,7 @@ export function AtelierPage() {
   const onStop = () => {
     stopPlayback()
     setPlaying(false)
+    setActiveBar(null)
   }
 
   const styleLabel = (id: string) => {
@@ -393,35 +411,38 @@ export function AtelierPage() {
               </div>
 
               {piece && (
-                <dl className="params-grid params-grid-result">
-                  <div>
-                    <dt>{t('atelier.rendering')}</dt>
-                    <dd>{styleLabel(piece.orchestra_id)}</dd>
-                  </div>
-                  <div>
-                    <dt>{t('generator.meta.rhythm')}</dt>
-                    <dd>{piece.rhythm_pattern}</dd>
-                  </div>
-                  <div>
-                    <dt>{t('atelier.decoration')}</dt>
-                    <dd>
-                      {piece.decoration != null
-                        ? `${Math.round(piece.decoration * 100)}%`
-                        : '—'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>{t('generator.meta.bpm')}</dt>
-                    <dd>{Math.round(piece.bpm)}</dd>
-                  </div>
-                  <div>
-                    <dt>{t('generator.meta.duration')}</dt>
-                    <dd>
-                      {Math.round(piece.duration_seconds)}
-                      {t('generator.seconds')}
-                    </dd>
-                  </div>
-                </dl>
+                <>
+                  <dl className="params-grid params-grid-result">
+                    <div>
+                      <dt>{t('atelier.rendering')}</dt>
+                      <dd>{styleLabel(piece.orchestra_id)}</dd>
+                    </div>
+                    <div>
+                      <dt>{t('generator.meta.rhythm')}</dt>
+                      <dd>{piece.rhythm_pattern}</dd>
+                    </div>
+                    <div>
+                      <dt>{t('atelier.decoration')}</dt>
+                      <dd>
+                        {piece.decoration != null
+                          ? `${Math.round(piece.decoration * 100)}%`
+                          : '—'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{t('generator.meta.bpm')}</dt>
+                      <dd>{Math.round(piece.bpm)}</dd>
+                    </div>
+                    <div>
+                      <dt>{t('generator.meta.duration')}</dt>
+                      <dd>
+                        {Math.round(piece.duration_seconds)}
+                        {t('generator.seconds')}
+                      </dd>
+                    </div>
+                  </dl>
+                  <ChordProgressionView piece={piece} activeBar={activeBar} />
+                </>
               )}
             </>
           )}

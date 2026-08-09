@@ -27,27 +27,27 @@ SIMPLE_PROFILE = {
     "instrumentation_defaults": ["piano"],
 }
 
-# Relative mix + decoration bias by personality (teaching caricature, not archival fidelity)
+# Relative mix — decoration is "chance of a phrase-end ornament", not per-note density
 PERSONALITY_MIX = {
     "neutral": {
-        "decoration": 0.1,
+        "decoration": 0.15,
         "volumes": {"piano_lh": 0.75, "piano_rh": 0.9, "bandoneon": 0.0, "strings": 0.0},
     },
     "rhythmic": {
         "decoration": 0.35,
-        "volumes": {"piano_lh": 1.0, "piano_rh": 0.78, "bandoneon": 0.55, "strings": 0.3},
+        "volumes": {"piano_lh": 1.0, "piano_rh": 0.78, "bandoneon": 0.5, "strings": 0.25},
     },
     "lyrical": {
         "decoration": 0.55,
-        "volumes": {"piano_lh": 0.55, "piano_rh": 0.85, "bandoneon": 1.0, "strings": 0.7},
+        "volumes": {"piano_lh": 0.55, "piano_rh": 0.85, "bandoneon": 0.85, "strings": 0.65},
     },
     "smooth_powerful": {
-        "decoration": 0.25,
-        "volumes": {"piano_lh": 0.95, "piano_rh": 0.7, "bandoneon": 0.45, "strings": 0.75},
+        "decoration": 0.3,
+        "volumes": {"piano_lh": 0.95, "piano_rh": 0.7, "bandoneon": 0.55, "strings": 0.7},
     },
     "dramatic": {
-        "decoration": 0.7,
-        "volumes": {"piano_lh": 0.9, "piano_rh": 0.85, "bandoneon": 0.8, "strings": 0.85},
+        "decoration": 0.65,
+        "volumes": {"piano_lh": 0.9, "piano_rh": 0.85, "bandoneon": 0.7, "strings": 0.8},
     },
 }
 
@@ -106,7 +106,41 @@ def _apply_vel(base: int, track_vol: float) -> int:
     return max(1, min(127, int(base * track_vol)))
 
 
-def _decorate_melody(
+def _phrase_end_ornament(
+    rng: random.Random,
+    pitch: int,
+    start: float,
+    dur: float,
+    spb: float,
+    vel: int,
+) -> list[NoteEvent]:
+    """Sparse tango-ish cadential ornaments (grace from below, or short turn)."""
+    kind = rng.choice(["grace_below", "grace_below", "turn"])
+    out: list[NoteEvent] = []
+    if kind == "grace_below":
+        grace = pitch - rng.choice([1, 2])
+        out.append(
+            NoteEvent(
+                grace,
+                max(0.0, start - spb * 0.1),
+                spb * 0.08,
+                max(48, vel - 20),
+                "piano_rh",
+            )
+        )
+    else:
+        # Upper neighbor → return (keep short; no mid-note clutter)
+        upper = pitch + 1
+        out.append(
+            NoteEvent(upper, start + max(0.0, dur - spb * 0.22), spb * 0.08, vel - 12, "piano_rh")
+        )
+        out.append(
+            NoteEvent(pitch, start + max(0.0, dur - spb * 0.12), spb * 0.1, vel - 8, "piano_rh")
+        )
+    return out
+
+
+def _render_melody(
     rng: random.Random,
     melody: list[dict],
     *,
@@ -120,54 +154,56 @@ def _decorate_melody(
         dur = float(m["duration_beats"]) * spb
         pitch = int(m["pitch"])
         if staccato == "high":
-            dur *= 0.55
+            dur *= 0.65
         elif staccato == "low":
-            dur *= 1.1
+            dur *= 1.05
         vel = 82 if staccato != "low" else 74
-        notes.append(
-            NoteEvent(pitch, start, max(0.05, dur), vel, "piano_rh")
-        )
-        # grace / turn decorations
-        if rng.random() < decoration * 0.65:
-            grace_pitch = pitch + rng.choice([-1, 1, 2, -2])
-            notes.append(
-                NoteEvent(
-                    grace_pitch,
-                    max(0.0, start - spb * 0.12),
-                    spb * 0.1,
-                    max(50, vel - 18),
-                    "piano_rh",
+        notes.append(NoteEvent(pitch, start, max(0.05, dur), vel, "piano_rh"))
+
+        # Ornaments ONLY at marked phrase endings (answers), never per-note spray
+        if m.get("phrase_end") and m.get("phrase_role") == "answer":
+            if rng.random() < decoration:
+                notes.extend(
+                    _phrase_end_ornament(rng, pitch, start, dur, spb, vel)
                 )
-            )
-        if rng.random() < decoration * 0.35:
-            # mordent-like neighbor
-            notes.append(
-                NoteEvent(pitch + 1, start + dur * 0.35, dur * 0.2, vel - 10, "piano_rh")
-            )
     return notes
 
 
-def _bandoneon_line(
-    rng: random.Random,
-    melody: list[dict],
+def _bandoneon_pads(
+    skeleton: dict,
     *,
     spb: float,
-    decoration: float,
+    tonic: int,
+    mode: str,
     lyrical: bool,
 ) -> list[NoteEvent]:
+    """Long mid-register chord holds — harmonic backdrop, not melody doubling."""
     notes: list[NoteEvent] = []
-    for i, m in enumerate(melody):
-        # Often double melody an octave below / unison with lag
-        pitch = int(m["pitch"]) - (12 if lyrical else 0)
-        start = float(m["start_beat"]) * spb + (spb * 0.05 if lyrical else 0)
-        dur = float(m["duration_beats"]) * spb * (1.2 if lyrical else 0.9)
-        if i % 3 == 2 and rng.random() < 0.4 + decoration * 0.3:
-            continue  # leave air
-        notes.append(NoteEvent(pitch, start, max(0.08, dur), 78, "bandoneon"))
-        if rng.random() < decoration * 0.4:
+    beats_per_bar = int(skeleton["beats_per_bar"])
+    bar_len = beats_per_bar * spb
+    chords = skeleton["chords"]
+    i = 0
+    while i < len(chords):
+        ch = chords[i]
+        symbol = ch["symbol"]
+        # Hold through consecutive identical symbols (up to 2 bars)
+        hold_bars = 1
+        while (
+            i + hold_bars < len(chords)
+            and chords[i + hold_bars]["symbol"] == symbol
+            and hold_bars < 2
+        ):
+            hold_bars += 1
+        pitches = chord_pitches(tonic, mode, symbol, octave_shift=0)
+        # Mid register: around C3–A4; take root + 3rd (and 5th if lyrical)
+        mid = [p + 12 for p in pitches[: (3 if lyrical else 2)]]
+        start = int(ch["bar"]) * bar_len
+        dur = hold_bars * bar_len * (0.95 if lyrical else 0.88)
+        for p in mid:
             notes.append(
-                NoteEvent(pitch + rng.choice([3, 4, 5]), start + dur * 0.5, dur * 0.4, 64, "bandoneon")
+                NoteEvent(p, start, dur, 62 if lyrical else 54, "bandoneon")
             )
+        i += hold_bars
     return notes
 
 
@@ -184,14 +220,14 @@ def _strings_pads(
     bar_len = beats_per_bar * spb
     for ch in skeleton["chords"]:
         bar = int(ch["bar"])
-        # Hold every other bar for breathing, denser if dramatic
         if not dramatic and bar % 2 == 1:
             continue
         pitches = chord_pitches(tonic, mode, ch["symbol"], octave_shift=1)
         start = bar * bar_len
-        dur = bar_len * (1.8 if dramatic and bar % 4 == 0 else 1.5)
-        for p in pitches[:3]:
-            notes.append(NoteEvent(p + 12, start, dur, 48 if not dramatic else 58, "strings"))
+        dur = bar_len * (1.85 if dramatic and bar % 4 == 0 else 1.6)
+        # Higher soft pad; avoid doubling melody register aggressively
+        for p in pitches[:2]:
+            notes.append(NoteEvent(p + 12, start, dur, 42 if not dramatic else 52, "strings"))
     return notes
 
 
@@ -220,14 +256,13 @@ def render_skeleton(
     mix = _mix_for(profile)
     vols = dict(mix["volumes"])
     decoration = float(mix["decoration"])
-    # Boost decoration from profile articulation contrast
     decoration = min(
         1.0,
-        decoration * 0.6
-        + 0.4 * _level_to_01(str(articulation.get("dynamic_contrast", "medium"))),
+        decoration * 0.75
+        + 0.25 * _level_to_01(str(articulation.get("dynamic_contrast", "medium"))),
     )
     if profile.get("id") == "simple":
-        decoration = 0.05
+        decoration = 0.12
 
     enabled = _default_instruments(profile)
     if instruments:
@@ -235,23 +270,29 @@ def render_skeleton(
             if k in instruments:
                 enabled[k] = bool(instruments[k])
 
-    # If user turns on a layer that personality mix muted, give it an audible floor
-    for layer, floor in (("bandoneon", 0.55), ("strings", 0.5)):
+    for layer, floor in (("bandoneon", 0.5), ("strings", 0.45)):
         if enabled.get(layer) and vols.get(layer, 0) < 0.15:
             vols[layer] = floor
 
     notes: list[NoteEvent] = []
     chord_events: list[ChordEvent] = []
 
+    for ch in skeleton["chords"]:
+        bar = int(ch["bar"])
+        chord_events.append(
+            ChordEvent(
+                bar=bar,
+                symbol=ch["symbol"],
+                start=bar * bar_len,
+                duration=bar_len,
+            )
+        )
+
     if enabled.get("piano", True):
         for ch in skeleton["chords"]:
             bar = int(ch["bar"])
-            symbol = ch["symbol"]
-            pitches = chord_pitches(tonic, mode, symbol)
+            pitches = chord_pitches(tonic, mode, ch["symbol"])
             bar_start = bar * bar_len
-            chord_events.append(
-                ChordEvent(bar=bar, symbol=symbol, start=bar_start, duration=bar_len)
-            )
             lh = left_hand_for_bar(
                 rhythm, bar, bar_start, bar_len, pitches, articulation
             )
@@ -259,7 +300,7 @@ def render_skeleton(
                 n.velocity = _apply_vel(n.velocity, vols.get("piano_lh", 0.8))
                 notes.append(n)
 
-        rh = _decorate_melody(
+        rh = _render_melody(
             rng,
             skeleton["melody"],
             decoration=decoration,
@@ -272,26 +313,14 @@ def render_skeleton(
             else:
                 n.velocity = _apply_vel(n.velocity, vols.get("piano_rh", 0.85))
             notes.append(n)
-    else:
-        for ch in skeleton["chords"]:
-            bar = int(ch["bar"])
-            chord_events.append(
-                ChordEvent(
-                    bar=bar,
-                    symbol=ch["symbol"],
-                    start=bar * bar_len,
-                    duration=bar_len,
-                )
-            )
 
     if enabled.get("bandoneon"):
-        lyrical = profile.get("personality_type") == "lyrical"
-        bn = _bandoneon_line(
-            rng,
-            skeleton["melody"],
+        bn = _bandoneon_pads(
+            skeleton,
             spb=spb,
-            decoration=decoration,
-            lyrical=lyrical,
+            tonic=tonic,
+            mode=mode,
+            lyrical=profile.get("personality_type") == "lyrical",
         )
         for n in bn:
             n.velocity = _apply_vel(n.velocity, vols.get("bandoneon", 0.7))

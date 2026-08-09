@@ -106,7 +106,13 @@ export type Skeleton = {
     start_beat: number
     duration_beats: number
   }[]
-  melody: { pitch: number; start_beat: number; duration_beats: number }[]
+  melody: {
+    pitch: number
+    start_beat: number
+    duration_beats: number
+    phrase_role?: string
+    phrase_end?: boolean
+  }[]
 }
 
 export type SkeletonRequest = {

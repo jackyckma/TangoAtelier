@@ -14,7 +14,8 @@ from app.engine.harmony import HARMONIC_MINOR, MAJOR_SCALE, TONICS, chord_pitche
 
 Level = Literal["low", "medium", "high"]
 
-DENSITY_NOTES = {"low": 2, "medium": 4, "high": 6}
+# Notes per half-phrase (1 bar of a 2-bar Q or A cell)
+DENSITY_NOTES = {"low": 2, "medium": 3, "high": 5}
 VARIATION_STRENGTH = {"low": 0.15, "medium": 0.4, "high": 0.7}
 
 
@@ -51,51 +52,128 @@ def _chord_pool(tonic: int, mode: str, symbol: str) -> list[int]:
     return [_clamp_melody(p + 12) for p in chord_pitches(tonic, mode, symbol)]
 
 
-def _build_motif(
+def _nearest(pool: list[int], target: int) -> int:
+    return min(pool, key=lambda p: abs(p - target))
+
+
+def _step_toward(
     rng: random.Random,
+    prev: int,
+    target: int,
+    chord: list[int],
+    scale: list[int],
+    *,
+    must_chord: bool,
+) -> int:
+    pool = chord if must_chord else (chord + [p for p in scale if abs(p - prev) <= 4])
+    # Prefer moving toward target pitch contour
+    scored = sorted(pool, key=lambda p: (abs(p - target) * 2 + abs(p - prev), rng.random()))
+    return scored[0]
+
+
+def _phrase_contour(
+    rng: random.Random,
+    *,
+    n: int,
+    role: Literal["question", "answer"],
     tonic: int,
     mode: str,
     symbol: str,
-    length: int,
+    start_pitch: int | None,
+    variation: float,
 ) -> list[int]:
+    """Build a short contour that lands on chord tones at start/end; Q rises, A falls."""
     chord = _chord_pool(tonic, mode, symbol)
     scale = _scale_pool(tonic, mode)
-    motif = [rng.choice(chord)]
-    for _ in range(length - 1):
-        prev = motif[-1]
-        candidates = [p for p in (chord + scale) if abs(p - prev) <= 7]
-        if not candidates:
-            candidates = chord
-        # Prefer stepwise
-        step = [p for p in candidates if abs(p - prev) <= 3]
-        motif.append(rng.choice(step or candidates))
-    return motif
+    start = start_pitch if start_pitch is not None else rng.choice(chord)
+    start = _nearest(chord, start)
 
+    if role == "question":
+        # Rise / open: end on 3rd or 5th (or scale tension near chord)
+        end_candidates = chord[1:] or chord
+        end = rng.choice(end_candidates)
+        if end <= start:
+            end = _clamp_melody(start + rng.choice([2, 3, 4, 5]))
+            end = _nearest(chord + scale, end)
+        peak = _clamp_melody(max(start, end) + rng.choice([0, 2, 3]))
+    else:
+        # Fall / close: end on root (or chord tone)
+        end = chord[0]
+        if variation > 0.5 and rng.random() < 0.35:
+            end = rng.choice(chord)
+        peak = start if start >= end else _clamp_melody(start + 2)
 
-def _vary_motif(
-    rng: random.Random,
-    motif: list[int],
-    strength: float,
-    tonic: int,
-    mode: str,
-    symbol: str,
-) -> list[int]:
-    if strength <= 0:
-        return list(motif)
-    scale = _scale_pool(tonic, mode)
-    chord = _chord_pool(tonic, mode, symbol)
-    out = []
-    for p in motif:
-        if rng.random() < strength:
-            options = [x for x in chord + scale if abs(x - p) <= 5]
-            out.append(rng.choice(options) if options else p)
+    pitches: list[int] = []
+    for i in range(n):
+        t = i / max(1, n - 1)
+        if role == "question":
+            # arch: start → peak → slightly open end
+            if t < 0.55:
+                target = int(start + (peak - start) * (t / 0.55))
+            else:
+                target = int(peak + (end - peak) * ((t - 0.55) / 0.45))
         else:
-            out.append(p)
-    # occasional sequence transposition
-    if rng.random() < strength * 0.5:
-        shift = rng.choice([-2, -1, 1, 2])
-        out = [_clamp_melody(p + shift) for p in out]
-    return out
+            # descend toward resolution
+            target = int(start + (end - start) * t)
+
+        must_chord = i == 0 or i == n - 1 or (n >= 4 and i == n // 2)
+        prev = pitches[-1] if pitches else start
+        pitches.append(
+            _step_toward(rng, prev, target, chord, scale, must_chord=must_chord)
+        )
+
+    # Enforce chord tone endpoints after contour noise
+    pitches[0] = _nearest(chord, pitches[0])
+    pitches[-1] = _nearest(chord, pitches[-1] if role == "question" else chord[0])
+    if role == "answer":
+        pitches[-1] = chord[0] if rng.random() > variation * 0.3 else _nearest(chord, pitches[-1])
+    return pitches
+
+
+def _emit_bar_notes(
+    *,
+    bar: int,
+    beats_per_bar: int,
+    pitches: list[int],
+    density: Level,
+    variation: Level,
+    phrase_end: bool,
+    role: str,
+) -> list[dict[str, Any]]:
+    n = len(pitches)
+    if n == 0:
+        return []
+    # Leave air at phrase ends (especially answers)
+    active = n
+    if density != "high" and phrase_end:
+        active = max(1, n - 1)
+    if density == "low" and role == "answer":
+        active = max(1, min(active, 2))
+
+    step = beats_per_bar / max(active, 1)
+    notes: list[dict[str, Any]] = []
+    cursor = 0.0
+    for j, pitch in enumerate(pitches[:active]):
+        offset = 0.0
+        if variation == "high" and j > 0 and j % 2 == 1:
+            offset = min(step * 0.12, beats_per_bar - cursor - 0.1)
+        # Longer values on cadence landing
+        is_last = j == active - 1
+        dur = step * (1.25 if is_last and phrase_end else 0.9)
+        dur = min(dur, beats_per_bar - cursor - offset)
+        if dur <= 0.05:
+            break
+        note: dict[str, Any] = {
+            "pitch": int(pitch),
+            "start_beat": round(bar * beats_per_bar + cursor + offset, 3),
+            "duration_beats": round(dur, 3),
+            "phrase_role": role,
+        }
+        if is_last and phrase_end:
+            note["phrase_end"] = True
+        notes.append(note)
+        cursor += step
+    return notes
 
 
 def _melody_for_section(
@@ -110,55 +188,100 @@ def _melody_for_section(
     density: Level,
     variation: Level,
     section_name: str,
-) -> list[dict[str, float | int]]:
-    notes_per_bar = DENSITY_NOTES[density]
+) -> list[dict[str, Any]]:
+    notes_per_half = DENSITY_NOTES[density]
     var = VARIATION_STRENGTH[variation]
-    # Motif length ~ half bar to full bar of notes
-    motif_len = max(2, notes_per_bar // 2)
-    first_symbol = chords_for_bars[0]
-    motif = _build_motif(rng, tonic, mode, first_symbol, motif_len)
+    notes: list[dict[str, Any]] = []
+    last_pitch: int | None = None
+    question_memory: list[int] | None = None
 
-    notes: list[dict[str, float | int]] = []
-    for i in range(bars):
-        bar = start_bar + i
-        symbol = chords_for_bars[i]
-        use_motif = list(motif)
-        if section_name in ("A_prime", "B") or i > 0:
-            use_motif = _vary_motif(rng, motif, var + (0.15 if section_name == "B" else 0), tonic, mode, symbol)
+    # Process in 2-bar Q/A cells; leftover single bar treated as answer fragment
+    i = 0
+    while i < bars:
+        bar_q = start_bar + i
+        symbol_q = chords_for_bars[i]
+        is_pair = i + 1 < bars
+        role_first: Literal["question", "answer"] = "question" if is_pair else "answer"
 
-        # Expand / shrink motif to notes_per_bar
-        pitches: list[int] = []
-        while len(pitches) < notes_per_bar:
-            pitches.extend(use_motif)
-        pitches = pitches[:notes_per_bar]
-
-        # Phrase arc: slight rise mid-phrase
-        if notes_per_bar >= 4:
-            mid = notes_per_bar // 2
-            pitches[mid] = _clamp_melody(pitches[mid] + rng.choice([0, 2, 3]))
-
-        step = beats_per_bar / notes_per_bar
-        # Leave a breath at end of every 2 bars when density not high
-        active = notes_per_bar if density == "high" or i % 2 == 0 else max(2, notes_per_bar - 1)
-        cursor = 0.0
-        for j, pitch in enumerate(pitches[:active]):
-            # syncopation hint for high variation
-            offset = step * 0.15 if variation == "high" and j % 2 == 1 else 0.0
-            dur = step * (0.85 if density == "high" else 1.05)
-            dur = min(dur, beats_per_bar - cursor - offset)
-            if dur <= 0.05:
-                break
-            notes.append(
-                {
-                    "pitch": int(pitch),
-                    "start_beat": round(bar * beats_per_bar + cursor + offset, 3),
-                    "duration_beats": round(dur, 3),
-                }
+        # Reuse / sequence prior question under variation
+        if (
+            question_memory
+            and role_first == "question"
+            and section_name in ("A_prime", "A")
+            and rng.random() > var
+        ):
+            q_pitches = [
+                _nearest(_chord_pool(tonic, mode, symbol_q), p + rng.choice([0, 0, 2, -2]))
+                for p in question_memory
+            ]
+            q_pitches = q_pitches[:notes_per_half]
+            while len(q_pitches) < notes_per_half:
+                q_pitches.append(q_pitches[-1])
+        else:
+            q_pitches = _phrase_contour(
+                rng,
+                n=notes_per_half,
+                role=role_first,
+                tonic=tonic,
+                mode=mode,
+                symbol=symbol_q,
+                start_pitch=last_pitch,
+                variation=var,
             )
-            cursor += step
-        # Update motif memory occasionally
-        if rng.random() < var:
-            motif = pitches[:motif_len]
+
+        if role_first == "question":
+            question_memory = list(q_pitches)
+
+        phrase_end_q = not is_pair
+        notes.extend(
+            _emit_bar_notes(
+                bar=bar_q,
+                beats_per_bar=beats_per_bar,
+                pitches=q_pitches,
+                density=density,
+                variation=variation,
+                phrase_end=phrase_end_q,
+                role=role_first,
+            )
+        )
+        last_pitch = q_pitches[-1]
+        i += 1
+
+        if not is_pair:
+            break
+
+        bar_a = start_bar + i
+        symbol_a = chords_for_bars[i]
+        # Answer starts near question end, resolves into current harmony
+        a_start = last_pitch
+        if var > 0.3 and question_memory:
+            # Sequence answer from inverted/falling transform of question
+            mirrored = list(reversed(question_memory))
+            a_start = mirrored[0]
+        a_pitches = _phrase_contour(
+            rng,
+            n=notes_per_half,
+            role="answer",
+            tonic=tonic,
+            mode=mode,
+            symbol=symbol_a,
+            start_pitch=a_start,
+            variation=var + (0.1 if section_name == "B" else 0),
+        )
+        notes.extend(
+            _emit_bar_notes(
+                bar=bar_a,
+                beats_per_bar=beats_per_bar,
+                pitches=a_pitches,
+                density=density,
+                variation=variation,
+                phrase_end=True,
+                role="answer",
+            )
+        )
+        last_pitch = a_pitches[-1]
+        i += 1
+
     return notes
 
 
@@ -202,7 +325,7 @@ def build_skeleton(
     bars_per_chord = int(dance["bars_per_chord"])
 
     chords: list[dict[str, Any]] = []
-    melody: list[dict[str, float | int]] = []
+    melody: list[dict[str, Any]] = []
     form_labels: list[str] = []
     bar = 0
     prog_i = 0
@@ -229,7 +352,6 @@ def build_skeleton(
             )
             bar += 1
 
-        # Intro/coda: slightly sparser melody
         dens: Level = melody_density
         if section_name in ("intro", "coda") and melody_density == "high":
             dens = "medium"

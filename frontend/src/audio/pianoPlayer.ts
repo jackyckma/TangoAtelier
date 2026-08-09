@@ -5,9 +5,18 @@ import type { NoteEvent } from '../types'
 const SALAMANDER_BASE = 'https://tonejs.github.io/audio/salamander/'
 
 let sampler: Tone.Sampler | null = null
-let bandoneon: Tone.Synth | null = null
+let bandoneon: Tone.PolySynth | null = null
 let strings: Tone.PolySynth | null = null
 let loadPromise: Promise<void> | null = null
+
+export type PlaybackHandlers = {
+  onEnded?: () => void
+  /** Called when playback enters a bar (0-based). */
+  onBar?: (barIndex: number) => void
+  /** Bar length in seconds — required for onBar scheduling. */
+  barDurationSeconds?: number
+  bars?: number
+}
 
 async function ensureInstruments(): Promise<void> {
   if (sampler?.loaded && bandoneon && strings) return
@@ -50,18 +59,20 @@ async function ensureInstruments(): Promise<void> {
         baseUrl: SALAMANDER_BASE,
       }).toDestination()
 
-      // Interim stand-ins until real bandoneón / string samples
-      const bn = new Tone.Synth({
+      // Interim stand-ins — PolySynth so bandoneón can hold chords
+      const bn = new Tone.PolySynth(Tone.Synth, {
         oscillator: { type: 'sawtooth' },
-        envelope: { attack: 0.04, decay: 0.2, sustain: 0.55, release: 0.35 },
+        envelope: { attack: 0.08, decay: 0.3, sustain: 0.65, release: 0.6 },
       }).toDestination()
-      bn.volume.value = -8
+      bn.volume.value = -12
+      bn.maxPolyphony = 8
 
       const st = new Tone.PolySynth(Tone.Synth, {
         oscillator: { type: 'triangle' },
-        envelope: { attack: 0.25, decay: 0.4, sustain: 0.7, release: 1.2 },
+        envelope: { attack: 0.3, decay: 0.4, sustain: 0.75, release: 1.4 },
       }).toDestination()
-      st.volume.value = -14
+      st.volume.value = -16
+      st.maxPolyphony = 8
 
       await Tone.loaded()
       sampler = s
@@ -82,7 +93,7 @@ export function stopPlayback() {
   transport.stop()
   transport.cancel(0)
   sampler?.releaseAll()
-  bandoneon?.triggerRelease()
+  bandoneon?.releaseAll()
   strings?.releaseAll()
 }
 
@@ -94,18 +105,23 @@ function trigger(
   vel: number,
 ) {
   if (track === 'bandoneon' && bandoneon) {
-    bandoneon.triggerAttackRelease(midiNote, dur, time, vel * 0.7)
+    bandoneon.triggerAttackRelease(midiNote, dur, time, vel * 0.55)
     return
   }
   if (track === 'strings' && strings) {
-    strings.triggerAttackRelease(midiNote, dur, time, vel * 0.45)
+    strings.triggerAttackRelease(midiNote, dur, time, vel * 0.4)
     return
   }
-  // piano_lh / piano_rh / fallback
   sampler?.triggerAttackRelease(midiNote, dur, time, vel)
 }
 
-export async function playNotes(notes: NoteEvent[], onEnded?: () => void) {
+export async function playNotes(
+  notes: NoteEvent[],
+  handlers?: PlaybackHandlers | (() => void),
+) {
+  const h: PlaybackHandlers =
+    typeof handlers === 'function' ? { onEnded: handlers } : handlers ?? {}
+
   await ensureAudioReady()
   stopPlayback()
   const transport = Tone.getTransport()
@@ -122,8 +138,23 @@ export async function playNotes(notes: NoteEvent[], onEnded?: () => void) {
     }, n.start)
   }
 
-  transport.schedule(() => {
-    onEnded?.()
+  const barDur = h.barDurationSeconds
+  const barCount = h.bars ?? 0
+  if (h.onBar && barDur && barDur > 0 && barCount > 0) {
+    for (let b = 0; b < barCount; b++) {
+      const bar = b
+      transport.schedule((time) => {
+        Tone.getDraw().schedule(() => {
+          h.onBar?.(bar)
+        }, time)
+      }, bar * barDur)
+    }
+  }
+
+  transport.schedule((time) => {
+    Tone.getDraw().schedule(() => {
+      h.onEnded?.()
+    }, time)
   }, lastEnd + 0.35)
 
   transport.start('+0.05')
