@@ -34,3 +34,6 @@ htmlcov/
 *.sf2
 *.sf3
 /tmp/
+
+# Cursor local state
+.cursor/hooks/
