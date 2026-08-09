@@ -17,12 +17,9 @@
 
 ## Known gaps
 
-- 部署可能需前後端雙 service／路由調整（目前只記了一個 service id）
-- CORS 目前只開本機
 - 生成器按鈕尚為 Phase 1 placeholder
 - Soundfont／規則引擎尚未實作
 
 ## Next steps
 
-1. 確認 Zeabur 部署健康（首頁＋`/api` 或 `/health`）
-2. 開始 **Phase 1**（規則引擎＋ MusicXML／MIDI＋ Tone.js soundfont）
+1. 開始 **Phase 1**（規則引擎＋ MusicXML／MIDI＋ Tone.js soundfont）
