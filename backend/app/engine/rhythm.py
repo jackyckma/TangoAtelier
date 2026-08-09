@@ -106,10 +106,10 @@ def left_hand_for_bar(
 
     staccato = articulation.get("staccato_level", "medium")
     pause = articulation.get("pause_frequency", "low")
-    # Deterministic mix — reference tango MIDI LH often ~half block onsets
-    use_block = ((bar_index * 5 + len(voicing_style)) % 10) < int(
-        _block_bias(voicing_style, power=power) * 10
-    )
+    # Deterministic mix — reference tango MIDI LH often ~half+ block onsets
+    bias = _block_bias(voicing_style, power=power)
+    salt = sum(ord(c) for c in voicing_style) + (7 if power else 0)
+    use_block = ((bar_index * 3 + salt) % 100) < int(bias * 100)
 
     notes: list[NoteEvent] = []
     beat = bar_len / max(beats_per_bar, 1)
