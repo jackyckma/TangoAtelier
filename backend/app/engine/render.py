@@ -181,6 +181,17 @@ def _phrase_end_ornament(
     return out
 
 
+def _rh_double_rate(voicing_style: str) -> float:
+    """Style-level chance to reinforce lead with octave / chord tone (not skeleton)."""
+    return {
+        "octave_unison_bass": 0.45,
+        "dense_dramatic": 0.55,
+        "clear_dance_band": 0.28,
+        "singing_legato": 0.22,
+        "bright_staccato": 0.18,
+    }.get(voicing_style, 0.25)
+
+
 def _render_melody(
     rng: random.Random,
     melody: list[dict],
@@ -188,8 +199,10 @@ def _render_melody(
     decoration: float,
     spb: float,
     staccato: str,
+    voicing_style: str = "bright_staccato",
 ) -> list[NoteEvent]:
     notes: list[NoteEvent] = []
+    double_rate = _rh_double_rate(voicing_style)
     for m in melody:
         start = float(m["start_beat"]) * spb
         dur = float(m["duration_beats"]) * spb
@@ -197,6 +210,7 @@ def _render_melody(
         voice = m.get("voice") or "lead"
         drama = m.get("drama") or "normal"
         energy = float(m.get("energy") or 0.5)
+        phrase_end = bool(m.get("phrase_end"))
         # Keep lead cantabile; only chop fill notes when staccato is high
         if voice != "lead" and staccato == "high":
             dur *= 0.65
@@ -219,6 +233,35 @@ def _render_melody(
                 NoteEvent(pitch - 12, start, max(0.05, dur * 0.9), max(50, vel - 25), "piano_rh")
             )
         notes.append(NoteEvent(pitch, start, max(0.05, dur), min(127, vel), "piano_rh"))
+
+        # Style voicing: octave doubles + occasional mid-chord under longer lead notes
+        if voice == "lead" and dur >= spb * 0.35:
+            p_double = double_rate
+            if drama == "climax":
+                p_double = min(1.0, p_double + 0.35)
+            elif phrase_end:
+                p_double = min(1.0, p_double + 0.2)
+            if rng.random() < p_double:
+                below = pitch - 12
+                if below >= 48:
+                    notes.append(
+                        NoteEvent(below, start, max(0.05, dur * 0.92), max(48, vel - 22), "piano_rh")
+                    )
+                # Dense / powerful styles: add a chord tone under the melody tip
+                if voicing_style in ("dense_dramatic", "octave_unison_bass") and (
+                    phrase_end or drama == "climax" or rng.random() < 0.35
+                ):
+                    mid = pitch - rng.choice([3, 4, 5, 7])
+                    if mid >= 55:
+                        notes.append(
+                            NoteEvent(
+                                mid,
+                                start,
+                                max(0.05, dur * 0.7),
+                                max(44, vel - 30),
+                                "piano_rh",
+                            )
+                        )
 
         orn_p = decoration
         if drama == "climax":
@@ -367,10 +410,16 @@ def render_skeleton(
             )
         )
 
+    voicing = str(
+        (profile.get("harmonic_tendencies") or {}).get("voicing_style") or "bright_staccato"
+    )
+
     if enabled.get("piano", True):
         for ch in skeleton["chords"]:
             bar = int(ch["bar"])
             section = str(ch.get("section") or "A")
+            drama_tag = str(ch.get("drama") or "normal")
+            energy = float(ch.get("energy") or 0.5)
             ch_tonic, ch_mode = _chord_tonality(ch, skeleton)
             pitches = chord_pitches(ch_tonic, ch_mode, ch["symbol"])
             bar_start = bar * bar_len
@@ -389,10 +438,10 @@ def render_skeleton(
                 pitches,
                 articulation,
                 beats_per_bar=beats_per_bar,
+                voicing_style=voicing,
+                power=drama_tag in ("climax", "dense") or section in ("B", "A_prime"),
             )
             lh_scale = vols.get("piano_lh", 0.8)
-            drama_tag = str(ch.get("drama") or "normal")
-            energy = float(ch.get("energy") or 0.5)
             if section in ("intro", "bridge"):
                 lh_scale *= 0.85
             elif section in ("A", "A_prime"):
@@ -422,6 +471,7 @@ def render_skeleton(
             decoration=decoration,
             spb=spb,
             staccato=str(articulation.get("staccato_level", "medium")),
+            voicing_style=voicing,
         )
         for n in rh:
             n.velocity = _apply_vel(n.velocity, vols.get("piano_rh", 1.0))

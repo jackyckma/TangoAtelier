@@ -132,22 +132,36 @@ def _plan_section_harmony(
     }
 
 
+# Real tango piano RH often spans ~2–3 octaves; we previously locked ~67–84 (~1 octave).
+MELODY_LO = 55  # G3
+MELODY_HI = 96  # C7
+
+
 def _clamp_melody(p: int) -> int:
-    """Lead register — sits above typical LH/bandoneón pads so it reads as the tune."""
-    while p < 67:
+    """Lead register — wide enough for phrase peaks without leaving the piano tessitura."""
+    while p < MELODY_LO:
         p += 12
-    while p > 84:
+    while p > MELODY_HI:
         p -= 12
     return p
 
 
 def _scale_pool(tonic: int, mode: str) -> list[int]:
     intervals = HARMONIC_MINOR if mode == "minor" else MAJOR_SCALE
-    return [_clamp_melody(tonic + iv + oct * 12) for oct in (0, 1) for iv in intervals]
+    return [
+        _clamp_melody(tonic + iv + oct * 12)
+        for oct in (-1, 0, 1, 2)
+        for iv in intervals
+    ]
 
 
 def _chord_pool(tonic: int, mode: str, symbol: str) -> list[int]:
-    return [_clamp_melody(p + 12) for p in chord_pitches(tonic, mode, symbol)]
+    # Chord tones across the melody register (not a single cramped octave)
+    return [
+        _clamp_melody(p + oct)
+        for p in chord_pitches(tonic, mode, symbol)
+        for oct in (0, 12, 24)
+    ]
 
 
 def _nearest(pool: list[int], target: int) -> int:
@@ -191,6 +205,26 @@ def _step_toward(
     return scored[0]
 
 
+def _phrase_register_bias(
+    rng: random.Random,
+    *,
+    section_name: str,
+    role: Literal["question", "answer"],
+    drama_high: bool,
+    variation: float,
+) -> int:
+    """Skeleton-level register plan: songs move between mid and high phrases."""
+    if drama_high:
+        return 12
+    if section_name in ("B", "A_prime") and role == "question":
+        return 12 if rng.random() < 0.7 else 0
+    if section_name == "A" and role == "question" and rng.random() < 0.25 + variation * 0.2:
+        return 12
+    if role == "answer" and rng.random() < 0.2:
+        return -12
+    return 0
+
+
 def _phrase_contour(
     rng: random.Random,
     *,
@@ -201,26 +235,34 @@ def _phrase_contour(
     symbol: str,
     start_pitch: int | None,
     variation: float,
+    register_bias: int = 0,
 ) -> list[int]:
     """Short motivic contour: mostly steps, chord tones on edges, one directed shape."""
     chord = _chord_pool(tonic, mode, symbol)
     scale = _scale_pool(tonic, mode)
-    start = start_pitch if start_pitch is not None else rng.choice(chord)
-    start = _nearest(chord, start)
+    # Prefer chord tones near the intended register band
+    band_lo = 60 + register_bias
+    band_hi = 79 + register_bias
+    band_chord = [p for p in chord if band_lo <= p <= band_hi] or chord
+    start = start_pitch if start_pitch is not None else rng.choice(band_chord)
+    if register_bias:
+        start = _nearest(band_chord, start + register_bias)
+    else:
+        start = _nearest(band_chord, start)
     # "leap" shapes made phrases sound random — keep directed arches/rises/falls
     shape = rng.choice(["arch", "rise", "fall", "wave"])
 
     if role == "question":
-        end_candidates = chord[1:] or chord
+        end_candidates = band_chord[1:] or band_chord
         end = rng.choice(end_candidates)
         if abs(end - start) < 2:
-            end = _nearest(chord + scale, _clamp_melody(start + rng.choice([2, 3, 4])))
-        peak = _clamp_melody(max(start, end) + rng.choice([2, 3, 4]))
+            end = _nearest(band_chord + scale, _clamp_melody(start + rng.choice([2, 3, 4])))
+        peak = _clamp_melody(max(start, end) + rng.choice([3, 4, 5, 7]))
     else:
-        end = chord[0]
+        end = _nearest(band_chord, chord[0] + (register_bias if register_bias > 0 else 0))
         if variation > 0.55 and rng.random() < 0.35:
-            end = rng.choice(chord)
-        peak = _clamp_melody(min(84, max(start, end) + rng.choice([2, 3])))
+            end = rng.choice(band_chord)
+        peak = _clamp_melody(max(start, end) + rng.choice([2, 3, 5]))
 
     pitches: list[int] = []
     for i in range(n):
@@ -830,10 +872,18 @@ def _melody_for_section(
         role_first: Literal["question", "answer"] = "question" if is_pair else "answer"
         # Contour seed length — emit expands to full per-bar density on the grid
         contour_n = min(4, max(2, local_n // 2))
+        reg_q = _phrase_register_bias(
+            rng,
+            section_name=section_name,
+            role=role_first,
+            drama_high=bar_q in climax or bar_q in dense,
+            variation=var,
+        )
 
         if reuse_theme and cell_i < len(theme_cells):
             base = theme_cells[cell_i]
             shift = theme_shift if section_name == "A_prime" else 0
+            shift += reg_q
             q_pitches = [
                 _nearest(
                     _chord_pool(tonic, mode, symbol_q),
@@ -872,6 +922,7 @@ def _melody_for_section(
                 symbol=symbol_q,
                 start_pitch=last_pitch,
                 variation=var,
+                register_bias=reg_q,
             )
 
         if role_first == "question":
@@ -916,17 +967,26 @@ def _melody_for_section(
                 DENSITY_NOTES_PER_BAR[dance_type]["high"] + (2 if bar_a in climax else 0),
             )
         contour_n = min(4, max(2, local_n // 2))
+        reg_a = _phrase_register_bias(
+            rng,
+            section_name=section_name,
+            role="answer",
+            drama_high=bar_a in climax or bar_a in dense,
+            variation=var,
+        )
 
         symbol_a = chords_for_bars[i]
         if reuse_theme and cell_i < len(theme_cells):
             base = theme_cells[cell_i]
-            shift = theme_shift if section_name == "A_prime" else 0
+            shift = (theme_shift if section_name == "A_prime" else 0) + reg_a
             a_pitches = [
                 _nearest(_chord_pool(tonic, mode, symbol_a), p + shift) for p in base
             ]
             a_pitches = a_pitches[:contour_n]
             while len(a_pitches) < contour_n:
-                a_pitches.append(_chord_pool(tonic, mode, symbol_a)[0])
+                prev = a_pitches[-1]
+                step = [p for p in _scale_pool(tonic, mode) if 0 < abs(p - prev) <= 2]
+                a_pitches.append(rng.choice(step) if step else _clamp_melody(prev - 2))
             cell_i += 1
         else:
             a_start = last_pitch
@@ -941,6 +1001,7 @@ def _melody_for_section(
                 symbol=symbol_a,
                 start_pitch=a_start,
                 variation=var + (0.15 if section_name == "B" else 0),
+                register_bias=reg_a,
             )
         if capture_theme:
             captured.append(list(a_pitches))

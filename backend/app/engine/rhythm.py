@@ -77,6 +77,18 @@ def _marcato_dos_pitches(bar_index: int, bass: int, root: int, third: int, fifth
     return cells[bar_index % len(cells)]
 
 
+def _block_bias(voicing_style: str, *, power: bool = False) -> float:
+    """How often LH stacks pitches on one attack (block) vs arpeggiates (broken)."""
+    base = {
+        "octave_unison_bass": 0.82,
+        "dense_dramatic": 0.75,
+        "clear_dance_band": 0.55,
+        "singing_legato": 0.48,
+        "bright_staccato": 0.40,
+    }.get(voicing_style, 0.5)
+    return min(0.9, base + (0.2 if power else 0.0))
+
+
 def left_hand_for_bar(
     pattern: str,
     bar_index: int,
@@ -86,12 +98,18 @@ def left_hand_for_bar(
     articulation: dict,
     *,
     beats_per_bar: int = 2,
+    voicing_style: str = "bright_staccato",
+    power: bool = False,
 ) -> list[NoteEvent]:
     """Generate LH piano notes for one bar. Patterns intentionally diverge by dance/orquesta."""
     bass, root, third, fifth = _lh_tones(chord_pitches)
 
     staccato = articulation.get("staccato_level", "medium")
     pause = articulation.get("pause_frequency", "low")
+    # Deterministic mix — reference tango MIDI LH often ~half block onsets
+    use_block = ((bar_index * 5 + len(voicing_style)) % 10) < int(
+        _block_bias(voicing_style, power=power) * 10
+    )
 
     notes: list[NoteEvent] = []
     beat = bar_len / max(beats_per_bar, 1)
@@ -110,13 +128,20 @@ def left_hand_for_bar(
             )
         )
 
+    def hit_block(start_off: float, dur: float, pitches: list[int], vel: int) -> None:
+        for i, pitch in enumerate(pitches):
+            hit(start_off, dur, pitch, max(48, vel - i * 6))
+
     if pattern == "milonga_habanera":
         # ♩.♪ ♪ ♪ on the 2/4 grid (no extra off-grid punches)
         d8 = beat * 0.75
         s16 = beat * 0.25
         e8 = beat * 0.5
         weak = (fifth, third, root, fifth + 12)[bar_index % 4]
-        hit(0.0, d8 * 0.85, bass, 92)
+        if use_block:
+            hit_block(0.0, d8 * 0.85, [bass, bass + 12], 92)
+        else:
+            hit(0.0, d8 * 0.85, bass, 92)
         hit(d8, s16 * 0.85, fifth if bar_index % 2 == 0 else third, 78)
         hit(beat, e8 * 0.75, root if bar_index % 3 else bass + 12, 86)
         hit(beat + e8, e8 * 0.7, weak, 80)
@@ -124,8 +149,13 @@ def left_hand_for_bar(
     elif pattern == "milonga_332":
         # Accents on sixteenths 0, 3, 6 — exact 3+3+2 grid
         mid = (fifth, third, root)[bar_index % 3]
-        for off, pitch, vel in ((0, bass, 94), (3, mid, 82), (6, root, 88)):
-            hit(off * s, s * 2.0, pitch, vel)
+        if use_block:
+            hit_block(0.0, s * 2.0, [bass, fifth], 94)
+            hit(3 * s, s * 2.0, mid, 82)
+            hit_block(6 * s, s * 2.0, [root, third], 88)
+        else:
+            for off, pitch, vel in ((0, bass, 94), (3, mid, 82), (6, root, 88)):
+                hit(off * s, s * 2.0, pitch, vel)
 
     elif pattern == "vals_bass_chord":
         # Rotate mid-chord voicings so 1–2–3 isn't identical every bar
@@ -144,59 +174,109 @@ def left_hand_for_bar(
         pitches = _marcato_cuatro_pitches(bar_index, bass, root, third, fifth)
         if beats_per_bar == 3:
             for i in range(3):
-                hit(i * beat, beat * 0.45, pitches[i], vel - i * 4)
+                if use_block and i == 0:
+                    hit_block(i * beat, beat * 0.45, [bass, fifth], vel)
+                else:
+                    hit(i * beat, beat * 0.45, pitches[i], vel - i * 4)
         else:
             # Micro-rhythm: every 4th bar lighten beat 2 (tango air) without losing grid
             skip_idx = 1 if bar_index % 4 == 3 else -1
             for i in range(4):
                 if i == skip_idx:
                     continue
-                hit(i * e, e * 0.55, pitches[i], vel - (4 if i % 2 else 0))
+                # Strong beats: block / octave; weak beats: broken single
+                if use_block and i % 2 == 0:
+                    stack = [bass, fifth] if i == 0 else [root, third, fifth]
+                    hit_block(i * e, e * 0.55, stack, vel)
+                else:
+                    hit(i * e, e * 0.55, pitches[i], vel - (4 if i % 2 else 0))
 
     elif pattern == "marcato_en_dos":
         dur = q * (0.7 if pause != "high" else 0.45)
         p0, p1 = _marcato_dos_pitches(bar_index, bass, root, third, fifth)
-        hit(0.0, dur, p0, 92)
+        if use_block:
+            # Power: octave bass or LH shell on beat 1 (Di Sarli-ish weight)
+            stack = (
+                [p0, p0 + 12]
+                if voicing_style == "octave_unison_bass"
+                else [p0, root, fifth]
+            )
+            hit_block(0.0, dur, stack, 94)
+        else:
+            hit(0.0, dur, p0, 92)
         if pause == "high" and bar_index % 2 == 1:
             hit(q, q * 0.25, p1, 70)
         elif bar_index % 8 == 7:
             # Occasional hole on beat 2 — classic tango silence
             pass
+        elif use_block and bar_index % 2 == 0:
+            second = [p1, third] if p1 != third else [p1, fifth]
+            hit_block(q, dur * 0.85, second, 84)
         else:
             hit(q, dur, p1, 86)
 
     elif pattern == "pesante":
-        hit(0.0, q * 1.05, bass, 98)
-        hit(0.0, q * 1.05, (bass + 12, root, fifth)[bar_index % 3], 90)
+        # Always a weighty block on 1 — this pattern's identity is power
+        hit_block(0.0, q * 1.05, [bass, bass + 12, root], 98)
         if bar_index % 4 != 3:
-            hit(q, q * 0.4, (fifth, third, root)[bar_index % 3], 72)
+            if use_block:
+                hit_block(q, q * 0.4, [fifth, third], 74)
+            else:
+                hit(q, q * 0.4, (fifth, third, root)[bar_index % 3], 72)
 
     elif pattern == "sincopa":
         # Biagi-ish hole: clear 1, silence on &, accent on beat 2 (grid-aligned)
         hit(0.0, e * 0.5, bass, 88)
-        hit(e * 2, e * 0.85, fifth if bar_index % 2 == 0 else root, 100)
-        hit(e * 2, e * 0.85, root if bar_index % 2 == 0 else third, 90)
+        if use_block:
+            hit_block(
+                e * 2,
+                e * 0.85,
+                [fifth, root] if bar_index % 2 == 0 else [root, third],
+                100,
+            )
+        else:
+            hit(e * 2, e * 0.85, fifth if bar_index % 2 == 0 else root, 100)
+            hit(e * 2, e * 0.85, root if bar_index % 2 == 0 else third, 90)
         if bar_index % 2 == 0:
             hit(e * 3, e * 0.45, third, 76)
 
     elif pattern == "yumba":
         # Delayed weight after beat 1, then settle on beat 2 — still on 16th grid
         hit(0.0, s * 1.5, bass, 72)
-        hit(s * 3, s * 3.5, root, 100)
-        hit(s * 3, s * 3.5, fifth if bar_index % 2 == 0 else third, 92)
+        if use_block:
+            hit_block(
+                s * 3,
+                s * 3.5,
+                [root, fifth if bar_index % 2 == 0 else third],
+                100,
+            )
+        else:
+            hit(s * 3, s * 3.5, root, 100)
+            hit(s * 3, s * 3.5, fifth if bar_index % 2 == 0 else third, 92)
         hit(e * 2, e * 0.7, bass if bar_index % 3 else fifth, 84)
 
     elif pattern == "arrastre":
         # Drag into beat 2: light 1, swell into 2
         hit(0.0, e * 0.4, bass, 70)
         hit(e * 1, e * 0.5, (bass, third, fifth)[bar_index % 3], 78)
-        hit(e * 2, e * 0.9, root, 96)
-        hit(e * 2, e * 0.9, fifth if bar_index % 2 == 0 else third, 88)
+        if use_block:
+            hit_block(
+                e * 2,
+                e * 0.9,
+                [root, fifth if bar_index % 2 == 0 else third],
+                96,
+            )
+        else:
+            hit(e * 2, e * 0.9, root, 96)
+            hit(e * 2, e * 0.9, fifth if bar_index % 2 == 0 else third, 88)
 
     elif pattern == "lyrical_phrasing":
         # On-beat sustains; alternate bass/root so lyrical LH still moves
         p0, p1 = (bass, root) if bar_index % 2 == 0 else (bass, fifth)
-        hit(0.0, q * 0.95, p0, 76)
+        if use_block:
+            hit_block(0.0, q * 0.95, [p0, p0 + 12], 76)
+        else:
+            hit(0.0, q * 0.95, p0, 76)
         hit(q, q * 0.9, p1, 72)
 
     else:
@@ -204,6 +284,9 @@ def left_hand_for_bar(
         n_hits = max(beats_per_bar * 2, 4)
         unit = bar_len / n_hits
         for i in range(n_hits):
-            hit(i * unit, unit * 0.55, pitches[i % 4], 90)
+            if use_block and i % 2 == 0:
+                hit_block(i * unit, unit * 0.55, [pitches[i % 4], fifth], 90)
+            else:
+                hit(i * unit, unit * 0.55, pitches[i % 4], 90)
 
     return notes
