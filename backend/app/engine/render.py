@@ -89,10 +89,24 @@ def _rhythm_pair_for_dance(
     return choose_rhythm_pair(profile)
 
 
-def _pattern_for_bar(primary: str, secondary: str | None, bar: int) -> str:
-    """Use secondary as 4-bar colour blocks so the pulse stays readable."""
-    if secondary and (bar % 8) >= 4:
-        return secondary
+def _pattern_for_bar(
+    primary: str,
+    secondary: str | None,
+    bar: int,
+    *,
+    extras: list[str] | None = None,
+) -> str:
+    """Rotate groove colour without abandoning the home pulse.
+
+    Layout in 8-bar windows: home → home → colour → home → home → home → colour2 → home
+    so the ear gets variety but still locks to the primary marcato/habanera feel.
+    """
+    colour = [p for p in ((secondary,) if secondary else ()) + tuple(extras or ()) if p and p != primary]
+    if not colour:
+        return primary
+    slot = bar % 8
+    if slot in (2, 6):
+        return colour[(bar // 8 + (0 if slot == 2 else 1)) % len(colour)]
     return primary
 
 
@@ -303,6 +317,14 @@ def render_skeleton(
     time_signature = tuple(skeleton["time_signature"])
     dance_type = str(skeleton.get("dance_type") or "tango")
     rhythm_primary, rhythm_secondary = _rhythm_pair_for_dance(profile, dance_type, rng)
+    rhythm_extras = [
+        p
+        for p in (profile.get("rhythm_patterns") or [])
+        if p not in (rhythm_primary, rhythm_secondary)
+    ]
+    # Single-pattern styles (e.g. D'Arienzo) still need occasional colour
+    if dance_type == "tango" and not rhythm_secondary and not rhythm_extras and profile.get("id") != "simple":
+        rhythm_extras = ["sincopa"] if rhythm_primary.startswith("marcato") else ["marcato_en_dos"]
     articulation = _articulation_for_dance(profile, dance_type)
     tonic = int(skeleton["tonic"])
     mode = skeleton["mode"]
@@ -353,8 +375,11 @@ def render_skeleton(
             pitches = chord_pitches(ch_tonic, ch_mode, ch["symbol"])
             bar_start = bar * bar_len
             # Intro/bridge/coda: keep groove, but lighter so form edges read clearly
-            pattern = _pattern_for_bar(rhythm_primary, rhythm_secondary, bar)
+            pattern = _pattern_for_bar(
+                rhythm_primary, rhythm_secondary, bar, extras=rhythm_extras
+            )
             if section in ("intro", "bridge"):
+                # Intro: stay on home groove but LH pitch cells still rotate by bar
                 pattern = rhythm_primary
             lh = left_hand_for_bar(
                 pattern,

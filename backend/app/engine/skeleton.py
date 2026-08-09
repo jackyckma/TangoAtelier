@@ -162,10 +162,32 @@ def _step_toward(
     scale: list[int],
     *,
     must_chord: bool,
+    allow_unison: bool = False,
 ) -> int:
-    pool = chord if must_chord else (chord + [p for p in scale if abs(p - prev) <= 4])
-    # Prefer moving toward target pitch contour
-    scored = sorted(pool, key=lambda p: (abs(p - target) * 2 + abs(p - prev), rng.random()))
+    """Prefer scale steps toward the contour target — tango phrases walk more than they jump."""
+    near_scale = [p for p in scale if abs(p - prev) <= 2]
+    near_chord = [p for p in chord if abs(p - prev) <= 4]
+    if must_chord:
+        pool = near_chord or chord
+    else:
+        pool = near_scale or near_chord or (chord + scale)
+    if not allow_unison:
+        moved = [p for p in pool if p != prev]
+        if moved:
+            pool = moved
+    # Soft cap: rarely jump more than a fourth from prev
+    tight = [p for p in pool if abs(p - prev) <= 5]
+    if tight:
+        pool = tight
+    scored = sorted(
+        pool,
+        key=lambda p: (
+            abs(p - target),
+            abs(p - prev),
+            0 if p in chord else 1,
+            rng.random(),
+        ),
+    )
     return scored[0]
 
 
@@ -180,25 +202,25 @@ def _phrase_contour(
     start_pitch: int | None,
     variation: float,
 ) -> list[int]:
-    """Build a short contour that lands on chord tones at start/end; shape varies by RNG."""
+    """Short motivic contour: mostly steps, chord tones on edges, one directed shape."""
     chord = _chord_pool(tonic, mode, symbol)
     scale = _scale_pool(tonic, mode)
     start = start_pitch if start_pitch is not None else rng.choice(chord)
     start = _nearest(chord, start)
-    shape = rng.choice(["arch", "rise", "fall", "leap"] if variation >= 0.5 else ["arch", "rise", "fall"])
+    # "leap" shapes made phrases sound random — keep directed arches/rises/falls
+    shape = rng.choice(["arch", "rise", "fall", "wave"])
 
     if role == "question":
         end_candidates = chord[1:] or chord
         end = rng.choice(end_candidates)
-        if end <= start:
-            end = _clamp_melody(start + rng.choice([2, 3, 4, 5, 7]))
-            end = _nearest(chord + scale, end)
-        peak = _clamp_melody(max(start, end) + rng.choice([2, 3, 4, 5]))
+        if abs(end - start) < 2:
+            end = _nearest(chord + scale, _clamp_melody(start + rng.choice([2, 3, 4])))
+        peak = _clamp_melody(max(start, end) + rng.choice([2, 3, 4]))
     else:
         end = chord[0]
-        if variation > 0.4 and rng.random() < 0.45:
+        if variation > 0.55 and rng.random() < 0.35:
             end = rng.choice(chord)
-        peak = _clamp_melody(start + rng.choice([3, 4, 5])) if start <= end else start
+        peak = _clamp_melody(min(84, max(start, end) + rng.choice([2, 3])))
 
     pitches: list[int] = []
     for i in range(n):
@@ -208,31 +230,44 @@ def _phrase_contour(
         elif shape == "fall":
             hi = max(start, peak)
             target = int(hi + (end - hi) * t)
-        elif shape == "leap":
-            target = end if i == n - 1 else (peak if i == n // 2 else start)
-        else:
-            if role == "question":
-                if t < 0.55:
-                    target = int(start + (peak - start) * (t / 0.55))
-                else:
-                    target = int(peak + (end - peak) * ((t - 0.55) / 0.45))
+        elif shape == "wave":
+            # Up then slight dip — common sung tango gesture without wild leaps
+            mid = _clamp_melody((start + end) // 2 + 2)
+            if t < 0.5:
+                target = int(start + (mid - start) * (t / 0.5))
             else:
-                target = int(start + (end - start) * t)
+                target = int(mid + (end - mid) * ((t - 0.5) / 0.5))
+        else:
+            if t < 0.55:
+                target = int(start + (peak - start) * (t / 0.55))
+            else:
+                target = int(peak + (end - peak) * ((t - 0.55) / 0.45))
 
         must_chord = i == 0 or i == n - 1
         prev = pitches[-1] if pitches else start
         pitches.append(
-            _step_toward(rng, prev, target, chord, scale, must_chord=must_chord)
+            _step_toward(
+                rng,
+                prev,
+                target,
+                chord,
+                scale,
+                must_chord=must_chord,
+                allow_unison=False,
+            )
         )
 
     pitches[0] = _nearest(chord, pitches[0])
-    pitches[-1] = _nearest(chord, pitches[-1] if role == "question" else chord[0])
     if role == "answer":
         pitches[-1] = chord[0] if rng.random() > variation * 0.35 else _nearest(chord, pitches[-1])
-    # Avoid static repeated pitches — force motion when variation isn't tiny
-    if len(set(pitches)) == 1 and variation >= 0.25 and n >= 2:
-        pitches[0] = _clamp_melody(pitches[0] + rng.choice([2, 3, -2]))
-        pitches[0] = _nearest(chord + scale, pitches[0])
+    else:
+        pitches[-1] = _nearest(chord, pitches[-1])
+    # Break static cells
+    for i in range(1, len(pitches)):
+        if pitches[i] == pitches[i - 1]:
+            alt = [p for p in scale if 0 < abs(p - pitches[i - 1]) <= 2]
+            if alt:
+                pitches[i] = rng.choice(alt)
     return pitches
 
 
@@ -392,19 +427,55 @@ def _expand_pitches_to_count(
     mode: str,
     symbol: str,
 ) -> list[int]:
-    """Fill up to `count` pitches with stepwise neighbors so dense bars have real motion."""
+    """Interpolate a short contour onto `count` scale steps (directed, few unisons/leaps)."""
     if count <= 0:
         return []
     chord = _chord_pool(tonic, mode, symbol)
-    scale = _scale_pool(tonic, mode)
-    out = list(pitches[:count])
-    while len(out) < count:
-        prev = out[-1] if out else rng.choice(chord)
-        step = [p for p in scale + chord if 0 < abs(p - prev) <= 3]
-        out.append(rng.choice(step or chord))
-    # Ensure endpoints lean on chord tones
+    scale = sorted(set(_scale_pool(tonic, mode) + chord))
+    if not pitches:
+        pitches = [rng.choice(chord)]
+    # Anchor skeleton pitches across the bar, then walk between them
+    anchors = list(pitches)
+    while len(anchors) < 2:
+        anchors.append(_nearest(chord, anchors[-1] + rng.choice([2, -2, 3])))
+    anchors = anchors[: max(2, min(len(anchors), 4))]
+    anchors[0] = _nearest(chord, anchors[0])
+    anchors[-1] = _nearest(chord, anchors[-1])
+
+    out: list[int] = []
+    for i in range(count):
+        t = i / max(1, count - 1)
+        # Which anchor segment?
+        seg = t * (len(anchors) - 1)
+        a_i = int(seg)
+        a_i = min(a_i, len(anchors) - 2)
+        local_t = seg - a_i
+        target = int(anchors[a_i] + (anchors[a_i + 1] - anchors[a_i]) * local_t)
+        prev = out[-1] if out else anchors[0]
+        # Walk at most a step (or small skip) toward target
+        candidates = [p for p in scale if 0 < abs(p - prev) <= 2]
+        if not candidates:
+            candidates = [p for p in scale if 0 < abs(p - prev) <= 4] or [target]
+        # Prefer continuing in the contour direction
+        direction = 1 if target >= prev else -1
+        directed = [p for p in candidates if (p - prev) * direction >= 0]
+        pool = directed or candidates
+        choice = min(pool, key=lambda p: (abs(p - target), abs(p - prev), rng.random()))
+        # Rare neighbor tone for figuration colour (not a random leap)
+        if i > 0 and i < count - 1 and rng.random() < 0.12:
+            nbr = [p for p in scale if abs(p - choice) == 1]
+            if nbr:
+                choice = rng.choice(nbr)
+        out.append(choice)
+
     out[0] = _nearest(chord, out[0])
     out[-1] = _nearest(chord, out[-1])
+    # Kill remaining unisons by nudging to neighbor scale degree
+    for i in range(1, len(out)):
+        if out[i] == out[i - 1]:
+            nbr = [p for p in scale if 0 < abs(p - out[i - 1]) <= 2]
+            if nbr:
+                out[i] = min(nbr, key=lambda p: abs(p - (out[i + 1] if i + 1 < len(out) else out[i - 1])))
     return out[:count]
 
 
@@ -480,23 +551,25 @@ def _emit_bar_notes(
             note["phrase_end"] = True
         notes.append(note)
 
-        # High density: occasional 32nd neighbor pair (tango piano figuration)
+        # High density: occasional 32nd neighbor (scale step, clamped)
         if (
             voice == "lead"
             and density == "high"
             and not is_last
-            and rng.random() < (0.35 if variation == "high" else 0.2)
+            and gap >= 0.25
+            and rng.random() < (0.28 if variation == "high" else 0.15)
         ):
-            nbr = int(pitch + rng.choice([-1, 1, 2, -2]))
-            notes.append(
-                {
-                    "pitch": nbr,
-                    "start_beat": round(bar * beats_per_bar + start_local + 0.125, 3),
-                    "duration_beats": 0.1,
-                    "phrase_role": role,
-                    "voice": "lead",
-                }
-            )
+            nbr = _clamp_melody(int(pitch + rng.choice([-1, 1, 2, -2])))
+            if nbr != pitch:
+                notes.append(
+                    {
+                        "pitch": nbr,
+                        "start_beat": round(bar * beats_per_bar + start_local + 0.125, 3),
+                        "duration_beats": 0.1,
+                        "phrase_role": role,
+                        "voice": "lead",
+                    }
+                )
 
     notes.sort(key=lambda n: n["start_beat"])
     return notes
@@ -634,7 +707,9 @@ def _annotate_drama(
         if bar in pause and n.get("voice") == "lead":
             continue  # dramatic hole — drop lead note
         if bar in climax:
-            n["pitch"] = min(88, int(n["pitch"]) + 12)
+            # Lift register without stacking everything on the same top pitch
+            p = int(n["pitch"])
+            n["pitch"] = _clamp_melody(p + (12 if p <= 72 else 5))
             n["drama"] = "climax"
             n["duration_beats"] = round(float(n["duration_beats"]) * 1.15, 3)
         elif bar in dense:
@@ -768,7 +843,9 @@ def _melody_for_section(
             ]
             q_pitches = q_pitches[:contour_n]
             while len(q_pitches) < contour_n:
-                q_pitches.append(q_pitches[-1])
+                prev = q_pitches[-1]
+                step = [p for p in _scale_pool(tonic, mode) if 0 < abs(p - prev) <= 2]
+                q_pitches.append(rng.choice(step) if step else _clamp_melody(prev + 2))
             cell_i += 1
         elif (
             question_memory
@@ -782,7 +859,9 @@ def _melody_for_section(
             ]
             q_pitches = q_pitches[:contour_n]
             while len(q_pitches) < contour_n:
-                q_pitches.append(q_pitches[-1])
+                prev = q_pitches[-1]
+                step = [p for p in _scale_pool(tonic, mode) if 0 < abs(p - prev) <= 2]
+                q_pitches.append(rng.choice(step) if step else _clamp_melody(prev + 2))
         else:
             q_pitches = _phrase_contour(
                 rng,
