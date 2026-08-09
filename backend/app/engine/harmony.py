@@ -19,6 +19,20 @@ TONICS = {
     "G": 55,
     "C": 48,
     "F": 53,
+    "Bb": 58,
+    "Eb": 51,
+}
+
+# pitch class → preferred spelling for relatives we generate
+_PC_LETTER = {
+    0: "C",
+    2: "D",
+    3: "Eb",
+    4: "E",
+    5: "F",
+    7: "G",
+    9: "A",
+    10: "Bb",
 }
 
 PROGRESSIONS_MINOR = {
@@ -123,3 +137,26 @@ def pick_key(rng: random.Random, profile: dict) -> tuple[str, str, int]:
     tonic = TONICS[name]
     key_name = f"{name} {'minor' if mode == 'minor' else 'major'}"
     return key_name, mode, tonic
+
+
+def relative_key(key_name: str, mode: str, tonic: int) -> tuple[str, str, int] | None:
+    """Relative major/minor (A minor ↔ C major). Returns None if spelling unsupported."""
+    if mode == "minor":
+        rel_tonic = tonic + 3
+        rel_mode = "major"
+    else:
+        rel_tonic = tonic - 3
+        rel_mode = "minor"
+    letter = _PC_LETTER.get(rel_tonic % 12)
+    if letter is None or letter not in TONICS:
+        return None
+    # Snap to catalog tonic MIDI (same pitch class)
+    catalog = TONICS[letter]
+    while catalog % 12 != rel_tonic % 12:
+        catalog += 1
+    # Prefer nearby octave to original tonic
+    while catalog - tonic > 6:
+        catalog -= 12
+    while tonic - catalog > 6:
+        catalog += 12
+    return f"{letter} {rel_mode}", rel_mode, catalog

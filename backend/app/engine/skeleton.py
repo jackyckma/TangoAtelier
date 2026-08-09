@@ -12,7 +12,13 @@ from app.engine.catalog import (
     PROGRESSIONS_MAJOR,
     PROGRESSIONS_MINOR,
 )
-from app.engine.harmony import HARMONIC_MINOR, MAJOR_SCALE, TONICS, chord_pitches
+from app.engine.harmony import (
+    HARMONIC_MINOR,
+    MAJOR_SCALE,
+    TONICS,
+    chord_pitches,
+    relative_key,
+)
 
 Level = Literal["low", "medium", "high"]
 
@@ -35,6 +41,72 @@ def _pick_progression(rng: random.Random, mode: str, progression_id: str | None)
         return progression_id, list(table[progression_id])
     pid = rng.choice(list(table.keys()))
     return pid, list(table[pid])
+
+
+def _alternate_progression(
+    rng: random.Random,
+    mode: str,
+    current_id: str,
+) -> tuple[str, list[str]]:
+    table = PROGRESSIONS_MINOR if mode == "minor" else PROGRESSIONS_MAJOR
+    choices = [k for k in table if k != current_id]
+    pid = rng.choice(choices or list(table.keys()))
+    return pid, list(table[pid])
+
+
+def _section_should_modulate(section_name: str) -> bool:
+    return section_name in ("B", "A_prime")
+
+
+def _plan_section_harmony(
+    rng: random.Random,
+    *,
+    section_name: str,
+    home_key: str,
+    home_mode: str,
+    home_tonic: int,
+    home_prog_id: str,
+    home_progression: list[str],
+    user_locked_progression: bool,
+) -> dict[str, Any]:
+    """Per-section key + progression. Contrast sections often go to relative maj/min."""
+    key_name, mode, tonic = home_key, home_mode, home_tonic
+    prog_id, progression = home_prog_id, list(home_progression)
+    modulation: str | None = None
+
+    if section_name in ("intro", "coda"):
+        # Stay home; prefer short cadence feel via same progression
+        return {
+            "section": section_name,
+            "key": key_name,
+            "mode": mode,
+            "tonic": tonic,
+            "progression_id": prog_id,
+            "progression": progression,
+            "modulation": None,
+        }
+
+    if _section_should_modulate(section_name):
+        # Relative major/minor is the common Golden Age move
+        rel = relative_key(home_key, home_mode, home_tonic)
+        if rel is not None and rng.random() < 0.9:
+            key_name, mode, tonic = rel
+            modulation = "relative_major" if mode == "major" else "relative_minor"
+            prog_id, progression = _pick_progression(rng, mode, "random")
+        else:
+            # Same key, different progression — still breaks the endless loop
+            prog_id, progression = _alternate_progression(rng, mode, home_prog_id)
+            modulation = "progression_change"
+
+    return {
+        "section": section_name,
+        "key": key_name,
+        "mode": mode,
+        "tonic": tonic,
+        "progression_id": prog_id,
+        "progression": progression,
+        "modulation": modulation,
+    }
 
 
 def _clamp_melody(p: int) -> int:
@@ -396,26 +468,41 @@ def build_skeleton(
     sections = form_def["sections"]
     total_bars = sum(b for _, b in sections)
 
-    prog_id, progression = _pick_progression(rng, mode, progression_id)
+    user_locked_progression = bool(
+        progression_id and progression_id not in (None, "", "random")
+    )
+    home_prog_id, home_progression = _pick_progression(rng, mode, progression_id)
     bars_per_chord = int(dance["bars_per_chord"])
 
     chords: list[dict[str, Any]] = []
     melody: list[dict[str, Any]] = []
     form_labels: list[str] = []
+    harmony_plan: list[dict[str, Any]] = []
     bar = 0
-    prog_i = 0
-    chord_symbols_by_bar: list[str] = []
 
     for section_name, section_bars in sections:
         form_labels.append(section_name)
+        sec = _plan_section_harmony(
+            rng,
+            section_name=section_name,
+            home_key=key_name,
+            home_mode=mode,
+            home_tonic=tonic,
+            home_prog_id=home_prog_id,
+            home_progression=home_progression,
+            user_locked_progression=user_locked_progression,
+        )
+        harmony_plan.append(sec)
+
         section_symbols: list[str] = []
-        for _ in range(section_bars):
-            if bar % bars_per_chord == 0:
-                symbol = progression[prog_i % len(progression)]
+        prog = sec["progression"]
+        prog_i = 0
+        for j in range(section_bars):
+            if j % bars_per_chord == 0:
+                symbol = prog[prog_i % len(prog)]
                 prog_i += 1
             else:
-                symbol = chord_symbols_by_bar[-1] if chord_symbols_by_bar else progression[0]
-            chord_symbols_by_bar.append(symbol)
+                symbol = section_symbols[-1] if section_symbols else prog[0]
             section_symbols.append(symbol)
             chords.append(
                 {
@@ -423,6 +510,10 @@ def build_skeleton(
                     "symbol": symbol,
                     "start_beat": bar * beats_per_bar,
                     "duration_beats": beats_per_bar,
+                    "key": sec["key"],
+                    "mode": sec["mode"],
+                    "tonic": sec["tonic"],
+                    "section": section_name,
                 }
             )
             bar += 1
@@ -439,8 +530,8 @@ def build_skeleton(
                 start_bar=bar - section_bars,
                 bars=section_bars,
                 beats_per_bar=beats_per_bar,
-                tonic=tonic,
-                mode=mode,
+                tonic=int(sec["tonic"]),
+                mode=str(sec["mode"]),
                 chords_for_bars=section_symbols,
                 density=dens,
                 variation=melody_variation,
@@ -461,8 +552,9 @@ def build_skeleton(
         "default_rhythm": dance.get("default_rhythm"),
         "form_id": form_id,
         "form": form_labels,
-        "progression_id": prog_id,
-        "progression": progression,
+        "progression_id": home_prog_id,
+        "progression": home_progression,
+        "harmony_plan": harmony_plan,
         "melody_density": melody_density,
         "melody_variation": melody_variation,
         "bars": total_bars,

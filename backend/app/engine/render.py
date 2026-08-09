@@ -11,7 +11,7 @@ from app.engine.export_formats import (
 )
 from app.engine.catalog import DANCE_TYPES
 from app.engine.harmony import chord_pitches
-from app.engine.rhythm import choose_rhythm_pattern, left_hand_for_bar
+from app.engine.rhythm import choose_rhythm_pair, left_hand_for_bar
 from app.engine.types import ChordEvent, NoteEvent, PieceDraft
 
 SIMPLE_PROFILE = {
@@ -71,18 +71,29 @@ def _bpm(profile: dict, rng: random.Random, skeleton: dict) -> float:
     return float(rng.randint(int(lo), int(hi)))
 
 
-def _rhythm_for_dance(profile: dict, dance_type: str, rng: random.Random) -> str:
-    """Dance type wins for milonga/vals skeletons — orquesta accents layer on top later."""
+def _rhythm_pair_for_dance(
+    profile: dict, dance_type: str, rng: random.Random
+) -> tuple[str, str | None]:
+    """Primary groove + optional secondary colour (not whole-piece replace)."""
     dance = DANCE_TYPES.get(dance_type, DANCE_TYPES["tango"])
     if dance_type == "vals":
-        return "vals_bass_chord"
+        return "vals_bass_chord", None
     if dance_type == "milonga":
-        if profile.get("id") != "simple" and rng.random() < 0.35:
-            return str(dance.get("alt_rhythm") or "milonga_332")
-        return str(dance.get("default_rhythm") or "milonga_habanera")
+        primary = str(dance.get("default_rhythm") or "milonga_habanera")
+        secondary = str(dance.get("alt_rhythm") or "milonga_332")
+        if profile.get("id") == "simple":
+            return primary, None
+        return primary, secondary
     if profile.get("id") == "simple":
-        return str(dance.get("default_rhythm") or "marcato_en_dos")
-    return choose_rhythm_pattern(profile)
+        return str(dance.get("default_rhythm") or "marcato_en_dos"), None
+    return choose_rhythm_pair(profile)
+
+
+def _pattern_for_bar(primary: str, secondary: str | None, bar: int) -> str:
+    """Use secondary as 4-bar colour blocks so the pulse stays readable."""
+    if secondary and (bar % 8) >= 4:
+        return secondary
+    return primary
 
 
 def _articulation_for_dance(profile: dict, dance_type: str) -> dict:
@@ -185,12 +196,14 @@ def _render_melody(
     return notes
 
 
+def _chord_tonality(ch: dict, skeleton: dict) -> tuple[int, str]:
+    return int(ch.get("tonic", skeleton["tonic"])), str(ch.get("mode", skeleton["mode"]))
+
+
 def _bandoneon_pads(
     skeleton: dict,
     *,
     spb: float,
-    tonic: int,
-    mode: str,
     lyrical: bool,
 ) -> list[NoteEvent]:
     """Long mid-register chord holds — harmonic backdrop, not melody doubling."""
@@ -202,16 +215,16 @@ def _bandoneon_pads(
     while i < len(chords):
         ch = chords[i]
         symbol = ch["symbol"]
-        # Hold through consecutive identical symbols (up to 2 bars)
+        tonic, mode = _chord_tonality(ch, skeleton)
         hold_bars = 1
         while (
             i + hold_bars < len(chords)
             and chords[i + hold_bars]["symbol"] == symbol
+            and chords[i + hold_bars].get("key", ch.get("key")) == ch.get("key")
             and hold_bars < 2
         ):
             hold_bars += 1
         pitches = chord_pitches(tonic, mode, symbol, octave_shift=0)
-        # Mid register: around C3–A4; take root + 3rd (and 5th if lyrical)
         mid = [p + 12 for p in pitches[: (3 if lyrical else 2)]]
         start = int(ch["bar"]) * bar_len
         dur = hold_bars * bar_len * (0.95 if lyrical else 0.88)
@@ -227,8 +240,6 @@ def _strings_pads(
     skeleton: dict,
     *,
     spb: float,
-    tonic: int,
-    mode: str,
     dramatic: bool,
 ) -> list[NoteEvent]:
     notes: list[NoteEvent] = []
@@ -238,10 +249,10 @@ def _strings_pads(
         bar = int(ch["bar"])
         if not dramatic and bar % 2 == 1:
             continue
+        tonic, mode = _chord_tonality(ch, skeleton)
         pitches = chord_pitches(tonic, mode, ch["symbol"], octave_shift=1)
         start = bar * bar_len
         dur = bar_len * (1.85 if dramatic and bar % 4 == 0 else 1.6)
-        # Higher soft pad; avoid doubling melody register aggressively
         for p in pitches[:2]:
             notes.append(NoteEvent(p + 12, start, dur, 42 if not dramatic else 52, "strings"))
     return notes
@@ -266,7 +277,7 @@ def render_skeleton(
     bar_len = beats_per_bar * spb
     time_signature = tuple(skeleton["time_signature"])
     dance_type = str(skeleton.get("dance_type") or "tango")
-    rhythm = _rhythm_for_dance(profile, dance_type, rng)
+    rhythm_primary, rhythm_secondary = _rhythm_pair_for_dance(profile, dance_type, rng)
     articulation = _articulation_for_dance(profile, dance_type)
     tonic = int(skeleton["tonic"])
     mode = skeleton["mode"]
@@ -312,10 +323,12 @@ def render_skeleton(
     if enabled.get("piano", True):
         for ch in skeleton["chords"]:
             bar = int(ch["bar"])
-            pitches = chord_pitches(tonic, mode, ch["symbol"])
+            ch_tonic, ch_mode = _chord_tonality(ch, skeleton)
+            pitches = chord_pitches(ch_tonic, ch_mode, ch["symbol"])
             bar_start = bar * bar_len
+            pattern = _pattern_for_bar(rhythm_primary, rhythm_secondary, bar)
             lh = left_hand_for_bar(
-                rhythm,
+                pattern,
                 bar,
                 bar_start,
                 bar_len,
@@ -345,8 +358,6 @@ def render_skeleton(
         bn = _bandoneon_pads(
             skeleton,
             spb=spb,
-            tonic=tonic,
-            mode=mode,
             lyrical=profile.get("personality_type") == "lyrical",
         )
         for n in bn:
@@ -357,8 +368,6 @@ def render_skeleton(
         st = _strings_pads(
             skeleton,
             spb=spb,
-            tonic=tonic,
-            mode=mode,
             dramatic=profile.get("personality_type") == "dramatic",
         )
         for n in st:
@@ -366,6 +375,9 @@ def render_skeleton(
             notes.append(n)
 
     notes.sort(key=lambda n: (n.start, n.track, n.pitch))
+    rhythm_label = rhythm_primary
+    if rhythm_secondary:
+        rhythm_label = f"{rhythm_primary}+{rhythm_secondary}"
     draft = PieceDraft(
         orchestra_id=profile["id"],
         seed=seed,
@@ -373,7 +385,7 @@ def render_skeleton(
         key_name=skeleton["key"],
         mode=mode,
         time_signature=time_signature,  # type: ignore[arg-type]
-        rhythm_pattern=rhythm,
+        rhythm_pattern=rhythm_label,
         form=list(skeleton.get("form") or []),
         notes=notes,
         chords=chord_events,
@@ -406,9 +418,13 @@ def render_skeleton(
                 "symbol": c.symbol,
                 "start": round(c.start, 4),
                 "duration": round(c.duration, 4),
+                "key": skeleton["chords"][i].get("key"),
+                "mode": skeleton["chords"][i].get("mode"),
+                "section": skeleton["chords"][i].get("section"),
             }
-            for c in draft.chords
+            for i, c in enumerate(draft.chords)
         ],
+        "harmony_plan": skeleton.get("harmony_plan"),
         "notes": notes_payload(draft.notes),
     }
     if include_midi:

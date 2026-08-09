@@ -79,7 +79,23 @@ export type GeneratedPiece = {
   instruments?: RenderInstruments
   bars: number
   duration_seconds: number
-  chords: { bar: number; symbol: string; start: number; duration: number }[]
+  chords: {
+    bar: number
+    symbol: string
+    start: number
+    duration: number
+    key?: string
+    mode?: string
+    section?: string
+  }[]
+  harmony_plan?: {
+    section: string
+    key: string
+    mode: string
+    progression_id: string
+    progression: string[]
+    modulation?: string | null
+  }[]
   notes: NoteEvent[]
   midi_base64?: string
 }
@@ -97,6 +113,14 @@ export type Skeleton = {
   form: string[]
   progression_id: string
   progression: string[]
+  harmony_plan?: {
+    section: string
+    key: string
+    mode: string
+    progression_id: string
+    progression: string[]
+    modulation?: string | null
+  }[]
   melody_density: MelodyLevel
   melody_variation: MelodyLevel
   bars: number
@@ -105,6 +129,9 @@ export type Skeleton = {
     symbol: string
     start_beat: number
     duration_beats: number
+    key?: string
+    mode?: string
+    section?: string
   }[]
   melody: {
     pitch: number

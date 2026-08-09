@@ -78,6 +78,8 @@ KEYS = [
     "F major",
     "G major",
     "D major",
+    "Bb major",
+    "Eb major",
 ]
 
 KEYS_MAJOR = [k for k in KEYS if k.endswith("major")]

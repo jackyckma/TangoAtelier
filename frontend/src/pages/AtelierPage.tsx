@@ -311,7 +311,13 @@ export function AtelierPage() {
                 </div>
                 <div>
                   <dt>{t('atelier.progression')}</dt>
-                  <dd className="mono">{skeleton.progression.join(' → ')}</dd>
+                  <dd className="mono">
+                    {skeleton.progression.join(' → ')}
+                    <span className="params-lead">
+                      {' '}
+                      ({t('atelier.homeKey')}: {skeleton.key})
+                    </span>
+                  </dd>
                 </div>
                 <div>
                   <dt>{t('atelier.form')}</dt>
