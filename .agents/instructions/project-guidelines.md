@@ -27,7 +27,7 @@ Customize this file for **this repository**. Shared methodologies live in `.agen
 | Playback sound | Tone.js + 高品質 soundfont（鋼琴優先，例如 Salamander 類開源 SF）— 不用預設方波／廉價合成器當主力 |
 | Package managers | Frontend: `pnpm`；Backend: `uv` 或 `pip` + `requirements.txt`／`pyproject.toml` |
 | Test runners | Frontend: Vitest；Backend: pytest |
-| Deploy | **Zeabur GitHub integration**（push `main` → auto deploy）。**不要**為本專案維護 Docker Compose／自架 Docker 流程——Zeabur 端由 founder 設定。 |
+| Deploy | **Zeabur GitHub integration**（push `main` → auto deploy）。單一 service：repo root `Dockerfile` 建 frontend+API（FastAPI 兼送 SPA）。**不要**維護本機 Docker Compose。 |
 
 ## Git branching
 
@@ -44,10 +44,11 @@ Workflow: branch from `main` → PR → `main`. Early scaffolding may land direc
 |------|-------|
 | Platform | Zeabur（GitHub-linked） |
 | GitHub | `jackyckma/TangoAtelier` |
-| Zeabur project ID | *pending — founder will provide after linking GitHub* |
-| Service IDs | *pending* |
-| Public URL | *pending* |
+| Zeabur project ID | `6a78ae73e4a69d66638d7bd2` |
+| Service ID | `service-6a78b36fe4a69d66638d7d59` |
+| Public URL | https://tangoatelier.zeabur.app |
 | Deploy branch | `main` |
+| Save / Share | Phase 5（不提前做最小版） |
 
 Load Zeabur agent skills when doing deploy/log/env operations. Ask for IDs — do not guess.
 

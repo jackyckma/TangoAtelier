@@ -18,9 +18,11 @@ purpose: Which verification levels and tasks work in local Cursor vs Cloud Agent
 
 ## Staging / production URL
 
-- **URL:** *pending — founder 接 Zeabur 後填入*
+- **URL:** https://tangoatelier.zeabur.app
+- **Zeabur project ID:** `6a78ae73e4a69d66638d7bd2`
+- **Service ID:** `service-6a78b36fe4a69d66638d7d59`
 - **Deploy branch:** `main`
-- **Smoke command:** *pending*（例如 `curl -sf "$URL/api/health"`）
+- **Smoke command:** `curl -sf https://tangoatelier.zeabur.app/health`（後端路由就緒後；前端則開首頁）
 
 ## Verification commands
 

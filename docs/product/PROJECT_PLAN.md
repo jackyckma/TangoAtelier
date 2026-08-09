@@ -20,7 +20,7 @@
 | Phase 0 樂團 | D'Arienzo、Troilo、Di Sarli、Pugliese、Canaro、Biagi |
 | 英文文案 | AI 起草，之後人工校 |
 | 視覺 | 簡約 + 淡 Latin／artistic，不 fancy |
-| Save／Share | 正式排入路線圖（見 Phase 5） |
+| Save／Share | **Phase 5**（已確認：不提前做最小版） |
 
 ---
 
