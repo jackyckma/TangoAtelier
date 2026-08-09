@@ -6,15 +6,25 @@
 
 ## Status
 
-Scaffolding 完成。多階段計劃見 [`docs/product/PROJECT_PLAN.md`](docs/product/PROJECT_PLAN.md)。
+**Phase 0 in progress：** 前後端骨架與 6 個樂團 Style Profile 已可本機跑。多階段計劃見 [`docs/product/PROJECT_PLAN.md`](docs/product/PROJECT_PLAN.md)。
 
-## Stack (planned)
+## Local development
 
-| Layer | Choice |
-|-------|--------|
-| Frontend | React (Vite) + TypeScript + Tone.js |
-| Backend | FastAPI + music21 |
-| Deploy | GitHub `main` → Zeabur |
+```bash
+# API
+cd backend && python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+PYTHONPATH=. uvicorn app.main:app --reload --port 8000
+
+# Web (another terminal)
+cd frontend && pnpm install && pnpm dev
+```
+
+Open http://localhost:5173 — Vite proxies `/api` to the FastAPI server.
+
+## Deploy
+
+Push to `main` → Zeabur GitHub integration（由 founder 設定兩個 service：frontend / backend）。接好後把 Zeabur project ID 與公開 URL 填入 `.agents/instructions/project-guidelines.md` 與 `docs/AGENT_ENV.md`。
 
 ## Docs
 

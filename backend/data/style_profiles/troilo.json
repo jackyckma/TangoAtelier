@@ -1,0 +1,38 @@
+{
+  "id": "troilo",
+  "name": { "zh": "Troilo", "en": "Aníbal Troilo" },
+  "personality_type": "lyrical",
+  "personality_emoji": "🎻",
+  "era": { "start": 1937, "end": 1955 },
+  "bio": {
+    "zh": "Troilo（暱稱 Pichuco）是探戈史上最受愛戴的人物之一：班多鈕琴大師，也極擅長挑選歌手與詞人。年輕的 Piazzolla 曾在他樂團裡吹班多鈕琴並幫忙編曲。",
+    "en": "Troilo (nicknamed Pichuco) is among the most beloved figures in tango: a bandoneón master and a gifted curator of singers and poets. A young Piazzolla played bandoneón in his orchestra and contributed arrangements."
+  },
+  "sound_description": {
+    "zh": "節奏還在，但像被棉布包起來——不刺、不趕。旋律線更有呼吸感，和聲比節奏系更有色彩。D'Arienzo 說「走」，Troilo 說「聽我講故事」。",
+    "en": "The beat remains, but wrapped in cotton—never harsh or rushed. Melodic lines breathe; harmony is more colourful than the hard-rhythmic orquestas. Where D'Arienzo says 'move', Troilo says 'listen to a story'."
+  },
+  "tempo_bpm_range": [60, 66],
+  "rhythm_patterns": ["marcato_en_dos", "lyrical_phrasing"],
+  "harmonic_tendencies": {
+    "primary_mode": "harmonic_minor",
+    "typical_progressions": ["i-iv-V7b9-i", "descending_fifths", "secondary_dominants"],
+    "borrowed_chords_frequency": "medium",
+    "dissonance_level": "medium",
+    "voicing_style": "singing_legato"
+  },
+  "articulation": {
+    "staccato_level": "low",
+    "rubato_level": "high",
+    "dynamic_contrast": "medium",
+    "pause_frequency": "medium"
+  },
+  "instrumentation_defaults": ["bandoneon", "piano", "strings"],
+  "reference_songs": [
+    { "title": "Toda Mi Vida", "type": "tango" },
+    { "title": "Malena", "type": "tango" },
+    { "title": "Sur", "type": "tango" },
+    { "title": "Quejas de Bandoneón", "type": "tango" },
+    { "title": "Milonguero Triste", "type": "tango" }
+  ]
+}

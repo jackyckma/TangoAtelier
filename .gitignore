@@ -37,3 +37,10 @@ htmlcov/
 
 # Cursor local state
 .cursor/hooks/
+
+# Python
+backend/.venv/
+*.pyc
+
+frontend/dist/
+frontend/node_modules/

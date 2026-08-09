@@ -1,28 +1,26 @@
 #!/usr/bin/env bash
 # Minimal L0+L1 verification for AI agents (especially Cloud Agents).
-# Customize VERIFY_L0 and VERIFY_L1 for your project.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-VERIFY_L0="${VERIFY_L0:-}"   # e.g. npm run lint && npm run typecheck
-VERIFY_L1="${VERIFY_L1:-}"   # e.g. npm test
-
 echo "==> agent-verify (project: $ROOT)"
 
-if [[ -n "$VERIFY_L0" ]]; then
-  echo "==> L0: $VERIFY_L0"
-  eval "$VERIFY_L0"
-else
-  echo "WARN: VERIFY_L0 not set — add commands to scripts/agent-verify.sh or env"
-fi
+echo "==> L0: frontend typecheck"
+(
+  cd frontend
+  pnpm exec tsc -b --pretty false
+)
 
-if [[ -n "$VERIFY_L1" ]]; then
-  echo "==> L1: $VERIFY_L1"
-  eval "$VERIFY_L1"
+if [[ -x "$ROOT/backend/.venv/bin/python" ]]; then
+  echo "==> L1: backend style profile load"
+  (
+    cd backend
+    .venv/bin/python -c 'from app.data_loader import list_orchestras; assert len(list_orchestras()) == 6'
+  )
 else
-  echo "WARN: VERIFY_L1 not set — skipping unit tests"
+  echo "WARN: backend/.venv missing — skip L1 (create venv + pip install -r backend/requirements.txt)"
 fi
 
 echo "==> agent-verify OK"

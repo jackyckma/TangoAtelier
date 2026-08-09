@@ -1,7 +1,7 @@
 # TangoAtelier — Multi-Phase Project Plan
 
 **Last updated:** 2026-08-09  
-**Status:** Scaffolding complete; Phase 0 not started  
+**Status:** Phase 0 skeleton implemented locally; awaiting Zeabur link + full browser acceptance  
 **Canonical product spec:** [tango-learning-webapp-project-doc.md](./tango-learning-webapp-project-doc.md)
 
 本計劃把 product doc 的 Phase 規劃對齊目前決策（Zeabur、MusicXML 主產物、音色、save／share），並補充「規則引擎如何避免太悶」的設計方針。
@@ -94,12 +94,13 @@ music21 Score（記憶體內的「樂譜物件」）
 
 **目標：** 網站能瀏覽樂團，資料從 API 來；尚無生成。
 
-- [ ] Monorepo：`frontend/`、`backend/`（Zeabur 用兩個 service；本機用各自 dev server）
-- [ ] 6 個 Style Profile JSON（雙語）：D'Arienzo、Troilo、Di Sarli、Pugliese、Canaro、Biagi
-- [ ] FastAPI：`GET /health`、`GET /api/orchestras`、`GET /api/orchestras/{id}`
-- [ ] React：首頁、樂團列表（樂團／性格雙路徑）、樂團詳情；i18n 中英切換
-- [ ] 簡約 Latin／artistic 基礎視覺（CSS variables、字體）
-- [ ] 根 README、`.env.example`、基礎 verify 指令
+- [x] Monorepo：`frontend/`、`backend/`（Zeabur 用兩個 service；本機用各自 dev server）
+- [x] 6 個 Style Profile JSON（雙語）：D'Arienzo、Troilo、Di Sarli、Pugliese、Canaro、Biagi
+- [x] FastAPI：`GET /health`、`GET /api/orchestras`、`GET /api/orchestras/{id}`
+- [x] React：首頁、樂團列表（樂團／性格雙路徑）、樂團詳情；i18n 中英切換
+- [x] 簡約 Latin／artistic 基礎視覺（CSS variables、字體）
+- [x] 根 README、`.env.example`、基礎 verify 指令
+- [ ] 瀏覽器驗收＋Zeabur 兩個 service 接上 `main`
 
 **驗收：** 瀏覽器看列表 → 點進樂團看雙語故事；語言可切；資料來自後端。
 

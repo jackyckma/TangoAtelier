@@ -1,0 +1,39 @@
+{
+  "id": "d_arienzo",
+  "name": { "zh": "D'Arienzo", "en": "Juan D'Arienzo" },
+  "personality_type": "rhythmic",
+  "personality_emoji": "🥁",
+  "era": { "start": 1935, "end": 1955 },
+  "bio": {
+    "zh": "D'Arienzo 是探戈史上最兩極化的人物之一：學院派曾嫌他太簡單、太「吵」，但舞者永遠愛他，因為他把探戈從變慢、變高雅的趨勢拉回舞池。1935 年找來鋼琴手 Rodolfo Biagi 之後，節奏感幾乎「逼」著你動起來，引爆黃金時代第二波。",
+    "en": "D'Arienzo polarised critics and dancers: academics found him too loud and simple, but dancers loved him for pulling tango back onto the floor. After pianist Rodolfo Biagi joined in 1935, the beat almost forced people to move—and helped ignite the Golden Age's second wave."
+  },
+  "sound_description": {
+    "zh": "像進行曲的軍鼓——每一拍都被清楚「點」出來，速度偏快，左手像心跳監視器。和聲偏好簡單直接（大量 I–IV–V），目標是讓你「動」而不是「聽」。",
+    "en": "Like a marching snare: every beat is clearly marked, tempo tends to be brisk, left hand like a metronome. Harmony stays diatonic and direct (lots of I–IV–V)—built to make you move, not to impress theorists."
+  },
+  "tempo_bpm_range": [66, 72],
+  "rhythm_patterns": ["marcato_en_cuatro"],
+  "harmonic_tendencies": {
+    "primary_mode": "major_or_harmonic_minor",
+    "typical_progressions": ["I-IV-V-I", "descending_fifths"],
+    "borrowed_chords_frequency": "low",
+    "dissonance_level": "low",
+    "voicing_style": "bright_staccato"
+  },
+  "articulation": {
+    "staccato_level": "high",
+    "rubato_level": "low",
+    "dynamic_contrast": "medium",
+    "pause_frequency": "low"
+  },
+  "instrumentation_defaults": ["piano", "bandoneon", "strings"],
+  "reference_songs": [
+    { "title": "La Cumparsita", "type": "tango" },
+    { "title": "El Choclo", "type": "tango" },
+    { "title": "Don Juan", "type": "tango" },
+    { "title": "Nueve de Julio", "type": "tango" },
+    { "title": "La Puñalada", "type": "milonga" },
+    { "title": "Amor y Celos", "type": "vals" }
+  ]
+}

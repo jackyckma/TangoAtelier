@@ -1,0 +1,38 @@
+{
+  "id": "pugliese",
+  "name": { "zh": "Pugliese", "en": "Osvaldo Pugliese" },
+  "personality_type": "dramatic",
+  "personality_emoji": "🌊",
+  "era": { "start": 1943, "end": 1960 },
+  "bio": {
+    "zh": "Pugliese 是舞會曲庫裡情緒張力最濃的樂團之一，常安排在夜晚較晚時段。招牌「Yumba」節奏：低音穩定踩拍，和弦部故意錯開往後拖，兩層節奏疊出沉重呼吸感。",
+    "en": "Pugliese is among the most intense orquestas in the milonga repertoire, often saved for later in the night. His trademark 'Yumba' stacks a steady bass pulse against delayed chordal accents—two layers that feel like heavy breathing."
+  },
+  "sound_description": {
+    "zh": "Síncopa＋Arrastre（Yumba）、動態忽大忽小、和聲更大膽，偶有不協和堆疊。安靜幾乎消失，然後突然爆發。",
+    "en": "Síncopa and arrastre (Yumba), extreme dynamics, bolder harmony with occasional dissonant stacks. Near-silence, then sudden eruption."
+  },
+  "tempo_bpm_range": [56, 64],
+  "rhythm_patterns": ["yumba", "sincopa", "arrastre"],
+  "harmonic_tendencies": {
+    "primary_mode": "harmonic_minor",
+    "typical_progressions": ["i-iv-V7b9-i", "tritone_substitution_flavour", "borrowed_chords"],
+    "borrowed_chords_frequency": "high",
+    "dissonance_level": "high",
+    "voicing_style": "dense_dramatic"
+  },
+  "articulation": {
+    "staccato_level": "medium",
+    "rubato_level": "high",
+    "dynamic_contrast": "very_high",
+    "pause_frequency": "high"
+  },
+  "instrumentation_defaults": ["piano", "bandoneon", "strings"],
+  "reference_songs": [
+    { "title": "La Yumba", "type": "tango" },
+    { "title": "Gallo Ciego", "type": "tango" },
+    { "title": "Recuerdo", "type": "tango" },
+    { "title": "Negracha", "type": "tango" },
+    { "title": "La Beba", "type": "tango" }
+  ]
+}

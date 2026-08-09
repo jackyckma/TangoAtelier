@@ -4,22 +4,25 @@
 
 ## Summary
 
-**TangoAtelier** 是雙語探戈音樂教學站。目前已完成 ai-dev-methodologies scaffolding、產品／研究文件整理、以及多階段 `PROJECT_PLAN`。應用程式程式碼（frontend／backend）尚未開始；等 `main` 上 GitHub 後由 founder 接 Zeabur。
+**TangoAtelier** Phase 0 骨架已落地：FastAPI 提供 6 個樂團 Style Profile；React 前端有首頁、樂團列表（樂團／性格雙路徑）、詳情頁與中英切換。音樂生成尚未開始。`main` 已推上 GitHub，等 Zeabur integration。
 
 ## What works
 
-- Methodology bundle 已 bootstrap（見 `.agents/METHODOLOGY.lock`）
-- 產品規格、研究資料、多階段計劃已就位於 `docs/`
-- 關鍵決策已記錄：規則引擎、MusicXML 主產物、Zeabur、無專案內 Docker Compose
+- Methodology scaffolding + project plan
+- `GET /health`, `GET /api/orchestras`, `GET /api/orchestras/{id}`
+- 6 profiles：D'Arienzo、Biagi、Troilo、Di Sarli、Canaro、Pugliese（雙語）
+- Frontend browse + i18n（資料來自 API）
+- `pnpm` build 通過
 
 ## Known gaps
 
-- 尚無 `frontend/` / `backend/` 程式碼
-- Zeabur project ID／公開 URL 未提供
-- `scripts/agent-verify.sh` 的 L0／L1 指令待 Phase 0 補上
+- Zeabur project ID／公開 URL 未提供；CORS 目前只開本機
+- 生成器按鈕尚為 Phase 1 placeholder
+- Soundfont／規則引擎尚未實作
+- Save／Share 未做
 
 ## Next steps
 
-1. Push `main` 至 `jackyckma/TangoAtelier`（若本 session 尚未完成）
-2. Founder：接 Zeabur GitHub integration，提供 project ID／URL
-3. 開始 **Phase 0**：monorepo 骨架 + 6 樂團 Style Profile + 瀏覽頁
+1. Founder：接 Zeabur，提供 project ID／URL
+2. 完成本地 Phase 0 驗收（瀏覽＋語言切換）後進 **Phase 1**
+3. （可選）確認是否要在 Phase 1 後插入「最小 Save」
