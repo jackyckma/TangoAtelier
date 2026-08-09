@@ -16,6 +16,7 @@ export function ChordProgressionView({ piece, activeBar }: Props) {
     const out: {
       startBar: number
       key?: string
+      section?: string
       symbols: { bar: number; symbol: string; key?: string }[]
     }[] = []
     for (let i = 0; i < chords.length; i += GROUP) {
@@ -23,6 +24,7 @@ export function ChordProgressionView({ piece, activeBar }: Props) {
       out.push({
         startBar: slice[0]?.bar ?? i,
         key: slice[0]?.key,
+        section: slice[0]?.section,
         symbols: slice.map((c) => ({
           bar: c.bar,
           symbol: c.symbol,
@@ -45,22 +47,38 @@ export function ChordProgressionView({ piece, activeBar }: Props) {
 
       {piece.harmony_plan && piece.harmony_plan.length > 0 && (
         <ul className="harmony-plan">
-          {piece.harmony_plan.map((h) => (
-            <li key={`${h.section}-${h.key}-${h.progression_id}`}>
-              <span className="harmony-section">{h.section}</span>
-              <span className="mono">
-                {h.key}
-                {h.modulation
-                  ? ` · ${t(`atelier.modulation.${h.modulation}`, {
-                      defaultValue: h.modulation,
-                    })}`
-                  : ''}
-              </span>
-              <span className="mono harmony-prog">
-                {h.progression.join(' → ')}
-              </span>
-            </li>
-          ))}
+          {piece.harmony_plan.map((h) => {
+            const template = h.progression_template
+            const showTemplate =
+              Array.isArray(template) &&
+              template.length > 0 &&
+              template.join('>') !== h.progression.join('>')
+            return (
+              <li key={`${h.section}-${h.bar_from}-${h.key}`}>
+                <span className="harmony-section">{h.section}</span>
+                <span className="mono">
+                  {h.bar_from != null && h.bar_to != null
+                    ? t('atelier.barsRange', { from: h.bar_from, to: h.bar_to })
+                    : ''}
+                  {h.key ? ` · ${h.key}` : ''}
+                  {h.modulation
+                    ? ` · ${t(`atelier.modulation.${h.modulation}`, {
+                        defaultValue: h.modulation,
+                      })}`
+                    : ''}
+                </span>
+                <span className="mono harmony-prog">
+                  {t('atelier.chordsUsed')}: {h.progression.join(' → ')}
+                </span>
+                {showTemplate && (
+                  <span className="mono harmony-template">
+                    {t('atelier.progressionTemplate')}:{' '}
+                    {template!.join(' → ')}
+                  </span>
+                )}
+              </li>
+            )
+          })}
         </ul>
       )}
 
@@ -73,6 +91,7 @@ export function ChordProgressionView({ piece, activeBar }: Props) {
             }
           >
             <div className="chord-group-label">
+              {g.section ? `${g.section} · ` : ''}
               {t('atelier.barsRange', {
                 from: g.startBar + 1,
                 to: g.startBar + g.symbols.length,

@@ -103,7 +103,9 @@ const resources = {
         decoration: '句尾裝飾機率',
         chordProgression: '和弦進行（播放同步）',
         chordProgressionLead:
-          '每列 4 小節；曲式段落可換進行或轉到關係大小調。播放時會標示目前小節。',
+          '上方係各段「實際用到」嘅和弦（連小節範圍）；下方格仔逐小節對照。若段落短過成條進行，只會用到模板前段。',
+        chordsUsed: '實際和弦',
+        progressionTemplate: '進行模板（未必全部用完）',
         barsRange: '第 {{from}}–{{to}} 小節',
         barN: '{{n}}',
         modulation: {
@@ -263,7 +265,9 @@ const resources = {
         decoration: 'Cadence ornament chance',
         chordProgression: 'Chord progression (playback sync)',
         chordProgressionLead:
-          'Four bars per row. Form sections may change progression or move to the relative major/minor. Current bar highlights while playing.',
+          'Above: chords actually used in each section (with bar ranges). Below: bar-by-bar grid. Short sections only use the start of a longer progression template.',
+        chordsUsed: 'Chords used',
+        progressionTemplate: 'Progression template (may not all be used)',
         barsRange: 'Bars {{from}}–{{to}}',
         barN: '{{n}}',
         modulation: {

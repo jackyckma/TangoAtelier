@@ -93,8 +93,13 @@ export type GeneratedPiece = {
     key: string
     mode: string
     progression_id: string
+    /** Chords actually used in this section (matches the bar grid). */
     progression: string[]
+    /** Full palette assigned to the section; may be longer than what fits. */
+    progression_template?: string[]
     modulation?: string | null
+    bar_from?: number
+    bar_to?: number
   }[]
   notes: NoteEvent[]
   midi_base64?: string
@@ -119,7 +124,10 @@ export type Skeleton = {
     mode: string
     progression_id: string
     progression: string[]
+    progression_template?: string[]
     modulation?: string | null
+    bar_from?: number
+    bar_to?: number
   }[]
   melody_density: MelodyLevel
   melody_variation: MelodyLevel

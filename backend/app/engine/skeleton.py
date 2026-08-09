@@ -75,7 +75,7 @@ def _plan_section_harmony(
     modulation: str | None = None
 
     if section_name == "bridge":
-        # Dominant pivot into the next section
+        # Dominant pivot — short cycle; rendered 1 bar/chord so it actually audibly moves
         if home_mode == "minor":
             progression = ["V7", "V7", "i", "V7"]
             prog_id = "bridge_dominant_minor"
@@ -90,6 +90,7 @@ def _plan_section_harmony(
             "progression_id": prog_id,
             "progression": progression,
             "modulation": "bridge_dominant",
+            "bars_per_chord": 1,
         }
 
     if section_name in ("intro", "coda"):
@@ -733,9 +734,11 @@ def build_skeleton(
 
         section_symbols: list[str] = []
         prog = sec["progression"]
+        sec_bpc = int(sec.get("bars_per_chord") or bars_per_chord)
         prog_i = 0
+        section_start_bar = bar
         for j in range(section_bars):
-            if j % bars_per_chord == 0:
+            if j % sec_bpc == 0:
                 symbol = prog[prog_i % len(prog)]
                 prog_i += 1
             else:
@@ -755,6 +758,16 @@ def build_skeleton(
             )
             bar += 1
 
+        # What the listener actually hears (collapse held repeats) — not the unused template tail
+        realized: list[str] = []
+        for sym in section_symbols:
+            if not realized or realized[-1] != sym:
+                realized.append(sym)
+        sec["bar_from"] = section_start_bar + 1  # 1-based for UI
+        sec["bar_to"] = bar
+        sec["progression_template"] = list(prog)
+        sec["progression"] = realized
+
         dens: Level = melody_density
         if section_name == "B" and melody_density == "high":
             dens = "medium"
@@ -762,7 +775,7 @@ def build_skeleton(
         melody.extend(
             _melody_for_section(
                 rng,
-                start_bar=bar - section_bars,
+                start_bar=section_start_bar,
                 bars=section_bars,
                 beats_per_bar=beats_per_bar,
                 tonic=int(sec["tonic"]),
