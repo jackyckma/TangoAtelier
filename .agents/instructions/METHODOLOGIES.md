@@ -1,0 +1,136 @@
+# AI Development Methodologies — Master Index
+
+> **For AI agents:** This is the entry point for methodology selection. Read this file first, then load only the instruction files relevant to the current project and task.
+>
+> **Canonical repo:** [jackyckma/ai-dev-methodologies](https://github.com/jackyckma/ai-dev-methodologies)
+
+This bundle is **independent of OrbitaDev** and any autonomous PM/orchestrator. OrbitaDev-managed projects may consume this repo separately; their hosted PM adds its own rules on top.
+
+---
+
+## How to adopt
+
+```bash
+git clone https://github.com/jackyckma/ai-dev-methodologies.git /tmp/ai-dev-methodologies
+/tmp/ai-dev-methodologies/scripts/bootstrap-project.sh /path/to/your-project
+```
+
+Then customize `.agents/instructions/project-guidelines.md`.
+
+---
+
+## Methodology catalog
+
+### Tier A — Core (every AI-assisted project)
+
+| # | Methodology | File |
+|---|-------------|------|
+| A1 | Shared agent instructions (thin entry points) | Bootstrap templates |
+| A2 | Karpathy coding discipline | [karpathy-guidelines.md](instructions/karpathy-guidelines.md) |
+| A3 | Project-specific guidelines | [project-guidelines.template.md](templates/project-guidelines.template.md) |
+| A4 | Live documentation | [templates/docs/](templates/docs/) |
+| A5 | Session handoff | [session-handoff.md](instructions/session-handoff.md) |
+| A6 | Decision authority | [decision-authority.md](instructions/decision-authority.md) |
+| A7 | Framework adoption and manual updates | [framework-adoption.md](instructions/framework-adoption.md) |
+| A8 | Judgment rubrics (done / stuck / escalate / ask) | [judgment-rubrics.md](instructions/judgment-rubrics.md) |
+| A9 | Framework evolution (maintainer process) | [framework-evolution.md](instructions/framework-evolution.md) |
+
+### Tier B — Planning & coordination (multi-module projects)
+
+| # | Methodology | File |
+|---|-------------|------|
+| B1 | Lane-based development | [lane-based-development.md](instructions/lane-based-development.md) |
+| B2 | Issue quality (AC + allowed paths) | [issue-quality.md](instructions/issue-quality.md) |
+| B3 | API-first / thin UI | Lane doc §3 layer order |
+| B4 | Autonomous work loop (batch execution, stop conditions) | [autonomous-loop.md](instructions/autonomous-loop.md) |
+| B5 | Cursor Automations Autopilot (Maker/Checker, optional) | [cursor-autopilot.md](instructions/cursor-autopilot.md) · [templates/docs/autopilot/](templates/docs/autopilot/) |
+| B6 | Portfolio hub reporting (six-section contract, repo + runtime edges, optional) | [portfolio-hub-reporting.md](instructions/portfolio-hub-reporting.md) · [report.schema.json](templates/docs/autopilot/report.schema.json) |
+
+### Tier C — Agent tooling & verification
+
+| # | Methodology | File |
+|---|-------------|------|
+| C1 | Agent tooling guardrails (MCP-first) | [agent-tooling-guardrails.md](instructions/agent-tooling-guardrails.md) |
+| C2 | Local vs Cloud compatibility | [local-vs-cloud-agents.md](compatibility/local-vs-cloud-agents.md) |
+| C3 | Verification ladder (L0–L5) | Same |
+| C4 | Complexity review (optional skill) | [templates/.agents/skills/complexity-review/](templates/.agents/skills/complexity-review/) |
+| C5 | Deferred shortcuts ledger (optional skill) | [templates/.agents/skills/deferred-shortcuts/](templates/.agents/skills/deferred-shortcuts/) |
+| C6 | Model orchestration (dispatch, escalation, verify-not-self) | [model-orchestration.md](instructions/model-orchestration.md) |
+
+### Tier D — Optional founder defaults
+
+| # | Default stack | File |
+|---|---------------|------|
+| D1 | Zeabur deploy | [defaults/zeabur.md](defaults/zeabur.md) |
+| D2 | Cloudflare DNS/email | [defaults/cloudflare.md](defaults/cloudflare.md) |
+| D3 | AI providers (Minimax default) | [defaults/ai-providers.md](defaults/ai-providers.md) |
+
+### Tier E — Agent-native practices (optional, per-project adoption)
+
+| # | Practice | File |
+|---|----------|------|
+| E1–E4 | Structured state file, AI-first formats, machine-verifiable docs, fixture-first | [agent-native-practices.md](instructions/agent-native-practices.md) |
+
+A Tier E practice is active **only** if listed in the project's `project-guidelines.md` § Adopted optional practices. The same gate applies to **B5** and **B6**.
+
+---
+
+## Agent reading order (session start)
+
+### Any project
+
+1. `docs/README.md`
+2. `docs/CURRENT_STATUS.md`
+3. `docs/SESSION_HANDOFF.md` (if resuming)
+4. `.agents/instructions/karpathy-guidelines.md`
+5. `.agents/instructions/judgment-rubrics.md`
+6. `.agents/instructions/agent-tooling-guardrails.md`
+7. `.agents/instructions/project-guidelines.md`
+8. `docs/AGENT_ENV.md` (if present — especially when using Cloud Agents)
+
+### Lane-based project (add)
+
+9. `docs/traceability-index.md`
+10. `docs/product-architecture.md`
+11. Target lane `INTERFACE.md` + lane `SKILL.md`
+
+---
+
+## Adoption matrix
+
+| Project profile | Adopt |
+|-----------------|-------|
+| Solo script / tiny app | A1–A3, A5, A8, C1 |
+| Small product (1 agent) | A + B2 + C + D (optional) |
+| Multi-module product | A + B1 + B2 + C + live docs |
+| Local + Cloud Agents | A + C2 + `agent-verify.sh` + Zeabur staging (D1) |
+| Multi-tool parallel agents | A + B + C + consider Tier E (E1 state file) |
+| Project in a reporting portfolio | Add B6 (requires `orbita_hub: true` opt-in) |
+
+---
+
+## Files in this repo
+
+| Path | Role |
+|------|------|
+| `instructions/` | Canonical methodology text |
+| `defaults/` | Optional Zeabur / Cloudflare / AI provider defaults |
+| `compatibility/` | Local Cursor vs Cloud Agent workflow |
+| `templates/` | Copied into target projects by bootstrap |
+| `scripts/` | Bootstrap and cloud env setup |
+| `VERSION` | Current bundle semver |
+| `CHANGELOG.md` | Release notes for manual project sync |
+| `CHANGELOG-GUIDE.md` | Maintainer release checklist and entry template |
+| `docs/fable5-audit/` | 2026-07-10 framework diagnosis and letter to future maintenance sessions |
+
+---
+
+## Version
+
+| Field | Value |
+|-------|-------|
+| Bundle version | 1.5.0 |
+| Created | 2026-06-15 |
+| Source | Practices from OrbitaDev + Powerhouse, generalized |
+
+See [CHANGELOG.md](CHANGELOG.md). Bootstrapped projects pin version in `.agents/METHODOLOGY.lock`; update process in [framework-adoption.md](instructions/framework-adoption.md).

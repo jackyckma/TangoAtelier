@@ -1,0 +1,36 @@
+# Dependencies / build
+node_modules/
+dist/
+build/
+.vite/
+*.egg-info/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.pyc
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Logs / coverage
+*.log
+coverage/
+htmlcov/
+.coverage
+
+# Music caches (generated locally)
+*.sf2
+*.sf3
+/tmp/

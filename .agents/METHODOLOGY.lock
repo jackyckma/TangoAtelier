@@ -1,0 +1,12 @@
+# Methodology bundle pin — update only after a manual sync (see framework-adoption.md).
+
+source: https://github.com/jackyckma/ai-dev-methodologies
+version: "1.6.0"
+source_commit: aaa5724
+synced_at: 2026-08-09
+synced_by: bootstrap
+customized_files:
+  - .agents/instructions/project-guidelines.md
+  - docs/AGENT_ENV.md
+  - scripts/agent-verify.sh
+notes: Initial bootstrap for TangoAtelier. project-guidelines / live docs customized; Autopilot scaffolds present but not adopted.

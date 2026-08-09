@@ -1,0 +1,29 @@
+---
+description: Shared agent instructions — coding discipline, judgment rubrics, docs process, handoff
+alwaysApply: true
+---
+
+# Shared agent instructions
+
+Do **not** duplicate full policy here. Before non-trivial work, read:
+
+1. `.agents/instructions/karpathy-guidelines.md` — coding discipline
+2. `.agents/instructions/judgment-rubrics.md` — done / stuck / escalate / ask
+3. `.agents/instructions/project-guidelines.md` — stack, git, deploy, language
+4. `.agents/instructions/agent-tooling-guardrails.md` — MCP-first browser; no silent E2E deps
+
+Then consult **`.agents/README.md`** — it maps every other instruction file
+to its trigger (decisions, handoff, model dispatch, loops, issues,
+methodology sync).
+
+When **resuming**, read `docs/SESSION_HANDOFF.md` first.
+
+The three entry points (`AGENTS.md`, `CLAUDE.md`, this file) must name the
+**same** core list; if you change one, change all three.
+
+## Quick rules
+
+- Communication language, stack, and deploy specifics are defined in `.agents/instructions/project-guidelines.md` — read it, don't assume.
+- Read `docs/CURRENT_STATUS.md` and roadmap docs before large changes.
+- Do not add Playwright or similar to `package.json` without explicit user approval.
+- For Zeabur ops: load Zeabur skills when configured in project-guidelines.
