@@ -21,3 +21,27 @@ export type OrchestraDetail = OrchestraCard & {
   rhythm_patterns: string[]
   reference_songs: { title: string; type: string }[]
 }
+
+export type NoteEvent = {
+  pitch: number
+  start: number
+  duration: number
+  velocity: number
+  track: string
+}
+
+export type GeneratedPiece = {
+  orchestra_id: string
+  seed: number
+  bpm: number
+  key: string
+  mode: string
+  time_signature: [number, number]
+  rhythm_pattern: string
+  form: string[]
+  bars: number
+  duration_seconds: number
+  chords: { bar: number; symbol: string; start: number; duration: number }[]
+  notes: NoteEvent[]
+  midi_base64?: string
+}

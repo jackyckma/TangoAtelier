@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout'
+import { GeneratorPage } from './pages/GeneratorPage'
 import { HomePage } from './pages/HomePage'
 import { OrchestraDetailPage } from './pages/OrchestraDetailPage'
 import { OrchestrasPage } from './pages/OrchestrasPage'
@@ -12,6 +13,7 @@ export default function App() {
           <Route index element={<HomePage />} />
           <Route path="orchestras" element={<OrchestrasPage />} />
           <Route path="orchestras/:id" element={<OrchestraDetailPage />} />
+          <Route path="generate/:id" element={<GeneratorPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

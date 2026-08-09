@@ -83,9 +83,9 @@ export function OrchestraDetailPage() {
       </ul>
 
       <p style={{ marginTop: '2rem' }}>
-        <button type="button" className="btn" disabled title="Phase 1">
-          {t('detail.generateSoon')}
-        </button>
+        <Link className="btn" to={`/generate/${data.id}`}>
+          {t('detail.generate')}
+        </Link>
       </p>
     </div>
   )

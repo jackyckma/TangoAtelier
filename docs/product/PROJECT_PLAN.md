@@ -1,7 +1,7 @@
 # TangoAtelier — Multi-Phase Project Plan
 
 **Last updated:** 2026-08-09  
-**Status:** Phase 0 skeleton implemented locally; awaiting Zeabur link + full browser acceptance  
+**Status:** Phase 1 implemented — rule engine + generator UI + Salamander piano playback  
 **Canonical product spec:** [tango-learning-webapp-project-doc.md](./tango-learning-webapp-project-doc.md)
 
 本計劃把 product doc 的 Phase 規劃對齊目前決策（Zeabur、MusicXML 主產物、音色、save／share），並補充「規則引擎如何避免太悶」的設計方針。
@@ -110,11 +110,11 @@ music21 Score（記憶體內的「樂譜物件」）
 
 **目標：** 選樂團 → 生成 → 聽到有風格差異的鋼琴段。
 
-- [ ] 規則引擎 v1：和聲進行 + Marcato／Síncopa 等核心節奏；intro–A–A'–coda（約 1–2 分鐘）
-- [ ] music21 Score → MusicXML + `.mid` + note-event JSON
-- [ ] `POST /api/generate`（參數：orchestra_id、可選 seed）
-- [ ] 前端 Tone.js + **高品質鋼琴 soundfont**
-- [ ] 生成器頁雛形：選樂團 → 生成 → 播放／暫停；可下載 `.mid`／MusicXML
+- [x] 規則引擎 v1：和聲進行 + Marcato／Síncopa 等核心節奏；intro–A–A'–coda（約 1–2 分鐘）
+- [x] music21 Score → MusicXML + `.mid` + note-event JSON
+- [x] `POST /api/generate`（參數：orchestra_id、可選 seed）
+- [x] 前端 Tone.js + **高品質鋼琴 soundfont**（Salamander）
+- [x] 生成器頁雛形：選樂團 → 生成 → 播放／暫停；可下載 `.mid`／MusicXML
 
 **驗收：** D'Arienzo vs Di Sarli 節奏聽感明顯不同；音色不是廉價預設合成器。
 

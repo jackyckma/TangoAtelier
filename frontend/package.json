@@ -15,7 +15,8 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-i18next": "^17.0.11",
-    "react-router-dom": "^7.18.2"
+    "react-router-dom": "^7.18.2",
+    "tone": "^15.1.22"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
@@ -26,10 +27,5 @@
     "sass": "^1.102.0",
     "typescript": "~6.0.2",
     "vite": "^8.2.0"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@parcel/watcher"
-    ]
   }
 }

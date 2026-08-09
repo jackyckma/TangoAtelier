@@ -399,6 +399,84 @@ main {
   padding: 2rem 0;
 }
 
+.status-error {
+  color: var(--carmine-deep);
+}
+
+.btn-secondary {
+  background: var(--bg-deep);
+  color: var(--paper);
+}
+
+.btn-secondary:hover {
+  background: #2a322e;
+}
+
+.btn-ghost-ink {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.btn-ghost-ink:hover {
+  border-color: var(--carmine);
+  color: var(--carmine-deep);
+  background: rgba(143, 30, 44, 0.04);
+  transform: none;
+}
+
+.generator-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1.5rem 0 1rem;
+}
+
+.generator-meta {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.generator-meta dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 1rem 1.5rem;
+  margin: 0 0 1.5rem;
+}
+
+.generator-meta dt {
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--olive);
+  margin-bottom: 0.25rem;
+}
+
+.generator-meta dd {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+}
+
+.generator-meta .meta-note {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  margin-top: 0.25rem;
+}
+
+.generator-downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+a.btn {
+  text-decoration: none;
+}
+
 @keyframes rise {
   from {
     opacity: 0;

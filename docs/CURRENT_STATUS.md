@@ -4,22 +4,23 @@
 
 ## Summary
 
-**TangoAtelier** Phase 0 骨架已落地。Zeabur 已接：project `6a78ae73e4a69d66638d7bd2`，service `service-6a78b36fe4a69d66638d7d59`，URL https://tangoatelier.zeabur.app。Save／Share 確認跟 Phase 5。下一步：**Phase 1** 規則引擎＋音色。
+**TangoAtelier** Phase 1 已落地：規則引擎可依 Style Profile 生成原創鋼琴段落（note events + MIDI + MusicXML），前端生成器以 Tone.js Salamander 鋼琴播放。線上：https://tangoatelier.zeabur.app
 
 ## What works
 
-- Methodology scaffolding + project plan
-- `GET /health`, `GET /api/orchestras`, `GET /api/orchestras/{id}`
-- 6 profiles：D'Arienzo、Biagi、Troilo、Di Sarli、Canaro、Pugliese（雙語）
-- Frontend browse + i18n（資料來自 API）
-- `pnpm` build 通過
-- Zeabur IDs／公開 URL 已記錄
+- Phase 0 樂團瀏覽＋i18n＋Zeabur 單一 Docker service
+- `POST /api/generate`、MIDI／MusicXML 下載
+- `/generate/:id` 生成器：生成／播放／停止／下載
+- D'Arienzo（marcato_en_cuatro）vs Di Sarli（pesante）等節奏型態已分流
 
 ## Known gaps
 
-- 生成器按鈕尚為 Phase 1 placeholder
-- Soundfont／規則引擎尚未實作
+- Hint 視覺化尚未做（Phase 4）
+- 曲式／長度／編制選項尚未做（Phase 2–3）
+- Save／Share 在 Phase 5
+- 旋律仍為骨架級，藝術完整度有限（符合教學優先）
 
 ## Next steps
 
-1. 開始 **Phase 1**（規則引擎＋ MusicXML／MIDI＋ Tone.js soundfont）
+1. Deploy 後聽感驗收（尤其 D'Arienzo vs Di Sarli）
+2. Phase 2 或依優先度調整
