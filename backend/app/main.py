@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import base64
 import os
 from pathlib import Path
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,7 +12,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.data_loader import list_orchestras, load_orchestra
-from app.engine import generate_piece
+from app.engine import SIMPLE_PROFILE, build_skeleton, generate_piece, render_skeleton
+from app.engine.catalog import atelier_options
 
 STATIC_DIR = Path(os.getenv("STATIC_DIR", "")).expanduser()
 
@@ -23,7 +26,7 @@ def _cors_origins() -> list[str]:
     return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
 
-app = FastAPI(title="TangoAtelier API", version="0.2.0")
+app = FastAPI(title="TangoAtelier API", version="0.3.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -36,6 +39,21 @@ app.add_middleware(
 
 class GenerateRequest(BaseModel):
     orchestra_id: str
+    seed: int | None = Field(default=None, ge=1, le=2_147_483_647)
+    dance_type: Literal["tango", "milonga", "vals"] = "tango"
+
+
+class SkeletonRequest(BaseModel):
+    dance_type: Literal["tango", "milonga", "vals"] = "tango"
+    key: str | None = None
+    progression_id: str | None = "random"
+    form_id: str | None = "intro_aa_coda"
+    seed: int | None = Field(default=None, ge=1, le=2_147_483_647)
+
+
+class RenderRequest(BaseModel):
+    skeleton: dict[str, Any]
+    orchestra_id: str = "simple"
     seed: int | None = Field(default=None, ge=1, le=2_147_483_647)
 
 
@@ -57,6 +75,59 @@ def get_orchestra(orchestra_id: str) -> dict:
         raise HTTPException(status_code=404, detail="Orchestra not found") from exc
 
 
+@app.get("/api/atelier/options")
+def get_atelier_options() -> dict:
+    opts = atelier_options()
+    # Attach real orchestras as render styles
+    opts["render_styles"] = [{"id": "simple", "personality_type": "neutral"}] + [
+        {
+            "id": o["id"],
+            "personality_type": o["personality_type"],
+            "personality_emoji": o["personality_emoji"],
+            "name": o["name"],
+        }
+        for o in list_orchestras()
+    ]
+    return opts
+
+
+@app.post("/api/skeleton")
+def post_skeleton(body: SkeletonRequest) -> dict:
+    try:
+        return build_skeleton(
+            dance_type=body.dance_type,
+            key=body.key,
+            progression_id=body.progression_id,
+            form_id=body.form_id,
+            seed=body.seed,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Skeleton failed: {exc}") from exc
+
+
+@app.post("/api/render")
+def post_render(body: RenderRequest) -> dict:
+    if body.orchestra_id == "simple":
+        profile = SIMPLE_PROFILE
+    else:
+        try:
+            profile = load_orchestra(body.orchestra_id)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="Orchestra not found") from exc
+    try:
+        return render_skeleton(
+            body.skeleton,
+            profile,
+            seed=body.seed,
+            include_midi=True,
+            include_musicxml=False,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Render failed: {exc}") from exc
+
+
 @app.post("/api/generate")
 def post_generate(body: GenerateRequest) -> dict:
     try:
@@ -65,9 +136,13 @@ def post_generate(body: GenerateRequest) -> dict:
         raise HTTPException(status_code=404, detail="Orchestra not found") from exc
     try:
         return generate_piece(
-            profile, seed=body.seed, include_midi=True, include_musicxml=False
+            profile,
+            seed=body.seed,
+            include_midi=True,
+            include_musicxml=False,
+            dance_type=body.dance_type,
         )
-    except Exception as exc:  # noqa: BLE001 — surface as 500 with message
+    except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Generation failed: {exc}") from exc
 
 
@@ -77,8 +152,6 @@ def download_midi(orchestra_id: str, seed: int | None = None) -> Response:
         profile = load_orchestra(orchestra_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Orchestra not found") from exc
-    import base64
-
     piece = generate_piece(profile, seed=seed, include_midi=True, include_musicxml=False)
     data = base64.b64decode(piece["midi_base64"])
     filename = f"tangoatelier-{orchestra_id}-{piece['seed']}.mid"

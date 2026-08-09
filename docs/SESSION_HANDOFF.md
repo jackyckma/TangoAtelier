@@ -4,20 +4,19 @@
 
 ## Resume here
 
-Phase 1 已 push／部署中。驗收：開 https://tangoatelier.zeabur.app → 樂團詳情 → 生成 → 播放（首次需載入 Salamander samples）。下一 Phase 依計劃為 Phase 2（完整曲式）或 Phase 4（Hint）——與 founder 確認優先序。
+Atelier 雙層流程已落地。驗收：https://tangoatelier.zeabur.app/atelier → 生成骨架 → 最簡版播放 → 切換 D'Arienzo／Di Sarli 對照。
 
 ## Context
 
-- Zeabur：project `6a78ae73e4a69d66638d7bd2` / service `6a78b36fe4a69d66638d7d59`
-- 引擎：`backend/app/engine/`（rhythm / harmony / melody / generator）
-- 播放：`frontend/src/audio/pianoPlayer.ts`（Tone.Sampler + Salamander CDN）
-- Save／Share：Phase 5
+- Skeleton：`backend/app/engine/skeleton.py` + `catalog.py`
+- Render：`backend/app/engine/render.py`（`simple` + Style Profile）
+- UI：`frontend/src/pages/AtelierPage.tsx`
+- 舊 `/generate/:id` → `/atelier?style=`
 
 ## Verify
 
 ```bash
-./scripts/agent-verify.sh
-curl -sf -X POST https://tangoatelier.zeabur.app/api/generate \
+curl -sf -X POST https://tangoatelier.zeabur.app/api/skeleton \
   -H 'content-type: application/json' \
-  -d '{"orchestra_id":"d_arienzo","seed":1}' | head -c 200
+  -d '{"dance_type":"tango","key":"A minor","progression_id":"i-iv-V7-i","form_id":"aaba","seed":1}' | head -c 300
 ```
