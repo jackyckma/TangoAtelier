@@ -644,6 +644,33 @@ a.btn {
   color: var(--paper);
 }
 
+.instrument-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.1rem;
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.instrument-toggles-label {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.instrument-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.instrument-toggle input {
+  accent-color: var(--carmine);
+}
+
 .skeleton-summary {
   margin-top: 1.25rem;
   padding-top: 1rem;

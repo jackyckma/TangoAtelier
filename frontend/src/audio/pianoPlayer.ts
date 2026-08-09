@@ -5,10 +5,12 @@ import type { NoteEvent } from '../types'
 const SALAMANDER_BASE = 'https://tonejs.github.io/audio/salamander/'
 
 let sampler: Tone.Sampler | null = null
-let loadPromise: Promise<Tone.Sampler> | null = null
+let bandoneon: Tone.Synth | null = null
+let strings: Tone.PolySynth | null = null
+let loadPromise: Promise<void> | null = null
 
-async function getSampler(): Promise<Tone.Sampler> {
-  if (sampler && sampler.loaded) return sampler
+async function ensureInstruments(): Promise<void> {
+  if (sampler?.loaded && bandoneon && strings) return
   if (!loadPromise) {
     loadPromise = (async () => {
       const s = new Tone.Sampler({
@@ -47,17 +49,32 @@ async function getSampler(): Promise<Tone.Sampler> {
         release: 1.2,
         baseUrl: SALAMANDER_BASE,
       }).toDestination()
+
+      // Interim stand-ins until real bandoneón / string samples
+      const bn = new Tone.Synth({
+        oscillator: { type: 'sawtooth' },
+        envelope: { attack: 0.04, decay: 0.2, sustain: 0.55, release: 0.35 },
+      }).toDestination()
+      bn.volume.value = -8
+
+      const st = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'triangle' },
+        envelope: { attack: 0.25, decay: 0.4, sustain: 0.7, release: 1.2 },
+      }).toDestination()
+      st.volume.value = -14
+
       await Tone.loaded()
       sampler = s
-      return s
+      bandoneon = bn
+      strings = st
     })()
   }
-  return loadPromise
+  await loadPromise
 }
 
 export async function ensureAudioReady() {
   await Tone.start()
-  await getSampler()
+  await ensureInstruments()
 }
 
 export function stopPlayback() {
@@ -65,22 +82,43 @@ export function stopPlayback() {
   transport.stop()
   transport.cancel(0)
   sampler?.releaseAll()
+  bandoneon?.triggerRelease()
+  strings?.releaseAll()
+}
+
+function trigger(
+  track: string,
+  midiNote: string,
+  dur: number,
+  time: number,
+  vel: number,
+) {
+  if (track === 'bandoneon' && bandoneon) {
+    bandoneon.triggerAttackRelease(midiNote, dur, time, vel * 0.7)
+    return
+  }
+  if (track === 'strings' && strings) {
+    strings.triggerAttackRelease(midiNote, dur, time, vel * 0.45)
+    return
+  }
+  // piano_lh / piano_rh / fallback
+  sampler?.triggerAttackRelease(midiNote, dur, time, vel)
 }
 
 export async function playNotes(notes: NoteEvent[], onEnded?: () => void) {
   await ensureAudioReady()
   stopPlayback()
-  const s = await getSampler()
   const transport = Tone.getTransport()
 
   let lastEnd = 0
   for (const n of notes) {
     const dur = Math.max(0.05, n.duration)
     lastEnd = Math.max(lastEnd, n.start + n.duration)
-    const vel = Math.min(1, Math.max(0.15, n.velocity / 127))
+    const vel = Math.min(1, Math.max(0.12, n.velocity / 127))
     const midiNote = Tone.Frequency(n.pitch, 'midi').toNote()
+    const track = n.track || 'piano_rh'
     transport.schedule((t) => {
-      s.triggerAttackRelease(midiNote, dur, t, vel)
+      trigger(track, midiNote, dur, t, vel)
     }, n.start)
   }
 

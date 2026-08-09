@@ -43,18 +43,30 @@ class GenerateRequest(BaseModel):
     dance_type: Literal["tango", "milonga", "vals"] = "tango"
 
 
+MelodyLevel = Literal["low", "medium", "high"]
+
+
 class SkeletonRequest(BaseModel):
     dance_type: Literal["tango", "milonga", "vals"] = "tango"
     key: str | None = None
     progression_id: str | None = "random"
     form_id: str | None = "intro_aa_coda"
+    melody_density: MelodyLevel = "medium"
+    melody_variation: MelodyLevel = "medium"
     seed: int | None = Field(default=None, ge=1, le=2_147_483_647)
+
+
+class RenderInstruments(BaseModel):
+    piano: bool | None = None
+    bandoneon: bool | None = None
+    strings: bool | None = None
 
 
 class RenderRequest(BaseModel):
     skeleton: dict[str, Any]
     orchestra_id: str = "simple"
     seed: int | None = Field(default=None, ge=1, le=2_147_483_647)
+    instruments: RenderInstruments | None = None
 
 
 @app.get("/health")
@@ -99,6 +111,8 @@ def post_skeleton(body: SkeletonRequest) -> dict:
             key=body.key,
             progression_id=body.progression_id,
             form_id=body.form_id,
+            melody_density=body.melody_density,
+            melody_variation=body.melody_variation,
             seed=body.seed,
         )
     except ValueError as exc:
@@ -117,10 +131,18 @@ def post_render(body: RenderRequest) -> dict:
         except FileNotFoundError as exc:
             raise HTTPException(status_code=404, detail="Orchestra not found") from exc
     try:
+        inst = None
+        if body.instruments is not None:
+            inst = {
+                k: v
+                for k, v in body.instruments.model_dump().items()
+                if v is not None
+            }
         return render_skeleton(
             body.skeleton,
             profile,
             seed=body.seed,
+            instruments=inst or None,
             include_midi=True,
             include_musicxml=False,
         )

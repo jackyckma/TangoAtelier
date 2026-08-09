@@ -12,8 +12,18 @@ import type {
   AtelierOptions,
   DanceType,
   GeneratedPiece,
+  MelodyLevel,
+  RenderInstruments,
   Skeleton,
 } from '../types'
+
+const LEVELS: MelodyLevel[] = ['low', 'medium', 'high']
+
+const DEFAULT_INSTRUMENTS: RenderInstruments = {
+  piano: true,
+  bandoneon: false,
+  strings: false,
+}
 
 export function AtelierPage() {
   const { t } = useTranslation()
@@ -26,9 +36,14 @@ export function AtelierPage() {
   const [key, setKey] = useState('random')
   const [progressionId, setProgressionId] = useState('random')
   const [formId, setFormId] = useState('intro_aa_coda')
+  const [melodyDensity, setMelodyDensity] = useState<MelodyLevel>('medium')
+  const [melodyVariation, setMelodyVariation] = useState<MelodyLevel>('medium')
   const [skeleton, setSkeleton] = useState<Skeleton | null>(null)
   const [styleId, setStyleId] = useState(preferredStyle)
   const [piece, setPiece] = useState<GeneratedPiece | null>(null)
+  const [instruments, setInstruments] =
+    useState<RenderInstruments>(DEFAULT_INSTRUMENTS)
+  const [instrumentsTouched, setInstrumentsTouched] = useState(false)
   const [busy, setBusy] = useState(false)
   const [playing, setPlaying] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -46,7 +61,6 @@ export function AtelierPage() {
 
   const progressionChoices = useMemo(() => {
     if (!options) return []
-    // Show both; backend picks table by mode after key chosen
     const ids = new Set([
       ...options.progressions.minor.map((p) => p.id),
       ...options.progressions.major.map((p) => p.id),
@@ -54,24 +68,37 @@ export function AtelierPage() {
     return ['random', ...ids]
   }, [options])
 
+  const syncInstruments = (rendered: GeneratedPiece) => {
+    if (rendered.instruments) {
+      setInstruments({
+        piano: rendered.instruments.piano ?? true,
+        bandoneon: rendered.instruments.bandoneon ?? false,
+        strings: rendered.instruments.strings ?? false,
+      })
+    }
+  }
+
   const onBuildSkeleton = async () => {
     setBusy(true)
     setError(null)
     stopPlayback()
     setPlaying(false)
     setPiece(null)
+    setInstrumentsTouched(false)
     try {
       const sk = await createSkeleton({
         dance_type: danceType,
         key: key === 'random' ? 'random' : key,
         progression_id: progressionId,
         form_id: formId,
+        melody_density: melodyDensity,
+        melody_variation: melodyVariation,
       })
       setSkeleton(sk)
-      // auto simple preview
       const simple = await renderSkeleton(sk, 'simple')
       setPiece(simple)
       setStyleId('simple')
+      syncInstruments(simple)
     } catch {
       setError(t('atelier.skeletonError'))
     } finally {
@@ -87,7 +114,35 @@ export function AtelierPage() {
     setPlaying(false)
     setStyleId(id)
     try {
-      const rendered = await renderSkeleton(skeleton, id)
+      const rendered = await renderSkeleton(skeleton, id, {
+        instruments: instrumentsTouched ? instruments : undefined,
+      })
+      setPiece(rendered)
+      if (!instrumentsTouched) syncInstruments(rendered)
+    } catch {
+      setError(t('atelier.renderError'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onToggleInstrument = async (keyName: keyof RenderInstruments) => {
+    if (!skeleton || !piece) return
+    const next = {
+      ...instruments,
+      [keyName]: !instruments[keyName],
+    }
+    // Keep piano as the floor for learning; still allow toggle if user insists
+    setInstruments(next)
+    setInstrumentsTouched(true)
+    setBusy(true)
+    setError(null)
+    stopPlayback()
+    setPlaying(false)
+    try {
+      const rendered = await renderSkeleton(skeleton, styleId, {
+        instruments: next,
+      })
       setPiece(rendered)
     } catch {
       setError(t('atelier.renderError'))
@@ -119,6 +174,8 @@ export function AtelierPage() {
     if (s?.name) return text(s.name)
     return id
   }
+
+  const levelLabel = (level: MelodyLevel) => t(`atelier.levels.${level}`)
 
   return (
     <div className="page atelier-page">
@@ -183,6 +240,36 @@ export function AtelierPage() {
                 <option value="random">{t('atelier.random')}</option>
               </select>
             </label>
+
+            <label>
+              <span>{t('atelier.melodyDensity')}</span>
+              <select
+                value={melodyDensity}
+                onChange={(e) => setMelodyDensity(e.target.value as MelodyLevel)}
+              >
+                {LEVELS.map((lv) => (
+                  <option key={lv} value={lv}>
+                    {levelLabel(lv)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span>{t('atelier.melodyVariation')}</span>
+              <select
+                value={melodyVariation}
+                onChange={(e) =>
+                  setMelodyVariation(e.target.value as MelodyLevel)
+                }
+              >
+                {LEVELS.map((lv) => (
+                  <option key={lv} value={lv}>
+                    {levelLabel(lv)}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
           <div className="generator-actions">
@@ -216,6 +303,14 @@ export function AtelierPage() {
                   <dt>{t('atelier.bars')}</dt>
                   <dd>{skeleton.bars}</dd>
                 </div>
+                <div>
+                  <dt>{t('atelier.melodyDensity')}</dt>
+                  <dd>{levelLabel(skeleton.melody_density)}</dd>
+                </div>
+                <div>
+                  <dt>{t('atelier.melodyVariation')}</dt>
+                  <dd>{levelLabel(skeleton.melody_variation)}</dd>
+                </div>
               </dl>
             </div>
           )}
@@ -243,11 +338,36 @@ export function AtelierPage() {
                     disabled={busy}
                     onClick={() => void onRenderStyle(s.id)}
                   >
-                    {s.id !== 'simple' && 'personality_emoji' in s && s.personality_emoji
+                    {s.id !== 'simple' &&
+                    'personality_emoji' in s &&
+                    s.personality_emoji
                       ? `${s.personality_emoji} `
                       : ''}
                     {styleLabel(s.id)}
                   </button>
+                ))}
+              </div>
+
+              <div className="instrument-toggles">
+                <span className="instrument-toggles-label">
+                  {t('atelier.instruments')}
+                </span>
+                {(
+                  [
+                    ['piano', t('params.instruments.piano')],
+                    ['bandoneon', t('params.instruments.bandoneon')],
+                    ['strings', t('params.instruments.strings')],
+                  ] as const
+                ).map(([id, label]) => (
+                  <label key={id} className="instrument-toggle">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(instruments[id])}
+                      disabled={busy || (id === 'piano' && styleId === 'simple')}
+                      onChange={() => void onToggleInstrument(id)}
+                    />
+                    {label}
+                  </label>
                 ))}
               </div>
 
@@ -262,7 +382,11 @@ export function AtelierPage() {
                   </button>
                 )}
                 {playing && (
-                  <button type="button" className="btn btn-secondary" onClick={onStop}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={onStop}
+                  >
                     {t('generator.stop')}
                   </button>
                 )}
@@ -277,6 +401,14 @@ export function AtelierPage() {
                   <div>
                     <dt>{t('generator.meta.rhythm')}</dt>
                     <dd>{piece.rhythm_pattern}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('atelier.decoration')}</dt>
+                    <dd>
+                      {piece.decoration != null
+                        ? `${Math.round(piece.decoration * 100)}%`
+                        : '—'}
+                    </dd>
                   </div>
                   <div>
                     <dt>{t('generator.meta.bpm')}</dt>
@@ -298,6 +430,7 @@ export function AtelierPage() {
 
       {error && <p className="status status-error">{error}</p>}
 
+      <p className="atelier-footnote prose">{t('atelier.disclaimer')}</p>
       <p className="atelier-footnote">
         <Link to="/orchestras">{t('atelier.browseOrchestras')}</Link>
       </p>

@@ -8,6 +8,13 @@ from music21 import key, meter, note, stream, tempo
 
 from app.engine.types import NoteEvent, PieceDraft
 
+_PART_NAMES = {
+    "piano_lh": "Piano LH",
+    "piano_rh": "Piano RH",
+    "bandoneon": "Bandoneón",
+    "strings": "Strings",
+}
+
 
 def draft_to_score(draft: PieceDraft) -> stream.Score:
     score = stream.Score()
@@ -19,27 +26,27 @@ def draft_to_score(draft: PieceDraft) -> stream.Score:
     mode = key_parts[1] if len(key_parts) > 1 else "minor"
     score.insert(0, key.Key(tonic_name, mode))
 
-    part_lh = stream.Part(id="piano_lh")
-    part_rh = stream.Part(id="piano_rh")
-    part_lh.partName = "Piano LH"
-    part_rh.partName = "Piano RH"
+    parts: dict[str, stream.Part] = {}
+    for track_id, name in _PART_NAMES.items():
+        p = stream.Part(id=track_id)
+        p.partName = name
+        parts[track_id] = p
 
-    # music21 uses quarterLength; convert seconds → QL via bpm
-    # 1 quarter = 60/bpm seconds → ql = seconds * bpm / 60
     def to_ql(seconds: float) -> float:
         return max(0.05, seconds * draft.bpm / 60.0)
 
-    # Group notes by approximate offset
     for n in draft.notes:
         m21 = note.Note(n.pitch)
         m21.volume.velocity = n.velocity
         offset = to_ql(n.start)
         m21.quarterLength = to_ql(n.duration)
-        target = part_lh if n.track == "piano_lh" else part_rh
+        target = parts.get(n.track) or parts["piano_rh"]
         target.insert(offset, m21)
 
-    score.insert(0, part_rh)
-    score.insert(0, part_lh)
+    # Insert parts that have content (RH before LH for piano-score reading habit)
+    for track_id in ("piano_rh", "piano_lh", "bandoneon", "strings"):
+        if len(parts[track_id].notes) > 0:
+            score.insert(0, parts[track_id])
     return score
 
 

@@ -38,6 +38,8 @@ Customize this file for **this repository**. Shared methodologies live in `.agen
 
 Workflow: branch from `main` → PR → `main`. Early scaffolding may land directly on `main` when founder asks for initial push.
 
+**Founder standing instruction (2026-08):** After finishing a coherent change set on this project, **commit and push to `main` without waiting to ask**—unless the change is risky/destructive, touches secrets, or the founder said to hold.
+
 ## Deploy
 
 | Item | Value |

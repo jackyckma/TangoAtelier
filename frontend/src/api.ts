@@ -3,6 +3,7 @@ import type {
   GeneratedPiece,
   OrchestraCard,
   OrchestraDetail,
+  RenderInstruments,
   Skeleton,
   SkeletonRequest,
 } from './types'
@@ -44,11 +45,16 @@ export function createSkeleton(body: SkeletonRequest) {
   return postJson<Skeleton>('/api/skeleton', body)
 }
 
-export function renderSkeleton(skeleton: Skeleton, orchestraId: string, seed?: number) {
+export function renderSkeleton(
+  skeleton: Skeleton,
+  orchestraId: string,
+  opts?: { seed?: number; instruments?: RenderInstruments },
+) {
   return postJson<GeneratedPiece>('/api/render', {
     skeleton,
     orchestra_id: orchestraId,
-    seed,
+    seed: opts?.seed,
+    instruments: opts?.instruments,
   })
 }
 

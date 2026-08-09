@@ -52,6 +52,14 @@ export type NoteEvent = {
   track: string
 }
 
+export type MelodyLevel = 'low' | 'medium' | 'high'
+
+export type RenderInstruments = {
+  piano?: boolean
+  bandoneon?: boolean
+  strings?: boolean
+}
+
 export type GeneratedPiece = {
   orchestra_id: string
   skeleton_seed?: number
@@ -64,6 +72,11 @@ export type GeneratedPiece = {
   rhythm_pattern: string
   form: string[]
   progression_id?: string
+  melody_density?: MelodyLevel
+  melody_variation?: MelodyLevel
+  decoration?: number
+  volumes?: Record<string, number>
+  instruments?: RenderInstruments
   bars: number
   duration_seconds: number
   chords: { bar: number; symbol: string; start: number; duration: number }[]
@@ -84,6 +97,8 @@ export type Skeleton = {
   form: string[]
   progression_id: string
   progression: string[]
+  melody_density: MelodyLevel
+  melody_variation: MelodyLevel
   bars: number
   chords: {
     bar: number
@@ -99,6 +114,8 @@ export type SkeletonRequest = {
   key?: string | null
   progression_id?: string | null
   form_id?: string | null
+  melody_density?: MelodyLevel
+  melody_variation?: MelodyLevel
   seed?: number
 }
 
