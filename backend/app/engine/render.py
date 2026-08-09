@@ -181,24 +181,41 @@ def _render_melody(
         dur = float(m["duration_beats"]) * spb
         pitch = int(m["pitch"])
         voice = m.get("voice") or "lead"
+        drama = m.get("drama") or "normal"
+        energy = float(m.get("energy") or 0.5)
         # Keep lead cantabile; only chop fill notes when staccato is high
         if voice != "lead" and staccato == "high":
             dur *= 0.65
         elif staccato == "low" or voice == "lead":
             dur *= 1.08 if voice == "lead" else 1.0
+        if drama == "dense":
+            dur *= 0.75
         if voice == "lead":
             vel = 96 if staccato != "low" else 88
         elif voice == "fill":
             vel = 64
         else:
             vel = 78
-        notes.append(NoteEvent(pitch, start, max(0.05, dur), vel, "piano_rh"))
+        # Energy arc → velocity (climax punches harder)
+        vel = int(vel * (0.75 + 0.45 * energy))
+        if drama == "climax":
+            vel = min(127, vel + 12)
+            # Octave reinforcement for a short dramatic peak
+            notes.append(
+                NoteEvent(pitch - 12, start, max(0.05, dur * 0.9), max(50, vel - 25), "piano_rh")
+            )
+        notes.append(NoteEvent(pitch, start, max(0.05, dur), min(127, vel), "piano_rh"))
 
+        orn_p = decoration
+        if drama == "climax":
+            orn_p = min(1.0, decoration + 0.35)
+        elif drama == "dense":
+            orn_p *= 0.4
         if (
             voice == "lead"
             and m.get("phrase_end")
             and m.get("phrase_role") in ("answer", "cadence")
-            and rng.random() < decoration
+            and rng.random() < orn_p
         ):
             notes.extend(_phrase_end_ornament(rng, pitch, start, dur, spb, vel))
     return notes
@@ -349,15 +366,27 @@ def render_skeleton(
                 beats_per_bar=beats_per_bar,
             )
             lh_scale = vols.get("piano_lh", 0.8)
+            drama_tag = str(ch.get("drama") or "normal")
+            energy = float(ch.get("energy") or 0.5)
             if section in ("intro", "bridge"):
                 lh_scale *= 0.85
             elif section in ("A", "A_prime"):
                 lh_scale *= 0.82  # make room for the theme
+            if drama_tag == "pause":
+                # Tango hole: keep a single bass hit or full silence
+                lh = lh[:1] if lh and rng.random() < 0.55 else []
+                lh_scale *= 0.55
+            elif drama_tag == "climax":
+                lh_scale *= 1.15
+            elif drama_tag == "dense":
+                lh_scale *= 1.05
+            else:
+                lh_scale *= 0.85 + 0.3 * energy
             for n in lh:
                 # Drop some weak-beat LH under lead so melody isn't carpeted
                 if section in ("A", "A_prime", "B") and beats_per_bar == 2:
                     rel = (n.start - bar_start) / max(bar_len, 1e-6)
-                    if 0.4 < rel < 0.6 and n.velocity < 90:
+                    if 0.4 < rel < 0.6 and n.velocity < 90 and drama_tag != "climax":
                         continue
                 n.velocity = _apply_vel(n.velocity, lh_scale)
                 notes.append(n)
@@ -452,6 +481,7 @@ def render_skeleton(
             for i, c in enumerate(draft.chords)
         ],
         "harmony_plan": skeleton.get("harmony_plan"),
+        "drama": skeleton.get("drama"),
         "notes": notes_payload(draft.notes),
     }
     if include_midi:

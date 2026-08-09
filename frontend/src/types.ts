@@ -131,6 +131,11 @@ export type Skeleton = {
   }[]
   melody_density: MelodyLevel
   melody_variation: MelodyLevel
+  drama?: {
+    climax_bars: number[]
+    pause_bars: number[]
+    dense_bars: number[]
+  }
   bars: number
   chords: {
     bar: number

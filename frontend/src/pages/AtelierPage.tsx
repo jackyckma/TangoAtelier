@@ -38,7 +38,7 @@ export function AtelierPage() {
   const [progressionId, setProgressionId] = useState('random')
   const [formId, setFormId] = useState('intro_aa_coda')
   const [melodyDensity, setMelodyDensity] = useState<MelodyLevel>('medium')
-  const [melodyVariation, setMelodyVariation] = useState<MelodyLevel>('medium')
+  const [melodyVariation, setMelodyVariation] = useState<MelodyLevel>('high')
   const [skeleton, setSkeleton] = useState<Skeleton | null>(null)
   const [styleId, setStyleId] = useState(preferredStyle)
   const [piece, setPiece] = useState<GeneratedPiece | null>(null)
@@ -335,6 +335,22 @@ export function AtelierPage() {
                   <dt>{t('atelier.melodyVariation')}</dt>
                   <dd>{levelLabel(skeleton.melody_variation)}</dd>
                 </div>
+                <div>
+                  <dt>{t('atelier.seed')}</dt>
+                  <dd className="mono">{skeleton.seed}</dd>
+                </div>
+                {skeleton.drama && (
+                  <div>
+                    <dt>{t('atelier.drama')}</dt>
+                    <dd className="mono">
+                      {t('atelier.dramaSummary', {
+                        climax: skeleton.drama.climax_bars.join(', ') || '—',
+                        pause: skeleton.drama.pause_bars.join(', ') || '—',
+                        dense: skeleton.drama.dense_bars.join(', ') || '—',
+                      })}
+                    </dd>
+                  </div>
+                )}
               </dl>
             </div>
           )}
