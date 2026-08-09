@@ -22,8 +22,14 @@ from app.engine.harmony import (
 
 Level = Literal["low", "medium", "high"]
 
-# Notes per half-phrase (1 bar of a 2-bar Q or A cell)
-DENSITY_NOTES = {"low": 2, "medium": 3, "high": 5}
+# Target lead attacks per bar (informed by real tango MIDI textures:
+# accompaniment is often 8th/16th-dense; piano RH mixes cantabile with 16ths).
+# Previously we hard-capped tango lead at 2 notes/bar — density controls did nothing.
+DENSITY_NOTES_PER_BAR = {
+    "tango": {"low": 3, "medium": 6, "high": 10},
+    "milonga": {"low": 4, "medium": 7, "high": 12},
+    "vals": {"low": 3, "medium": 5, "high": 8},
+}
 # Stronger spread so medium/high actually change contours & reuse behaviour
 VARIATION_STRENGTH = {"low": 0.25, "medium": 0.55, "high": 0.85}
 
@@ -322,6 +328,86 @@ def _tag_voice(notes: list[dict[str, Any]], voice: str) -> list[dict[str, Any]]:
     return notes
 
 
+def _sixteenth_slots(beats_per_bar: int) -> list[float]:
+    """Beat offsets on a 16th-note grid inside one bar."""
+    step = 0.25  # one sixteenth in quarter-note beats
+    n = int(round(beats_per_bar / step))
+    return [round(i * step, 3) for i in range(n)]
+
+
+def _pick_grid_placements(
+    rng: random.Random,
+    *,
+    beats_per_bar: int,
+    count: int,
+    density: Level,
+    dance_type: str,
+) -> list[float]:
+    """Prefer strong beats, then &s, then 16ths — denser levels unlock finer slots."""
+    slots = _sixteenth_slots(beats_per_bar)
+    if count <= 0:
+        return []
+    # Priority tiers (indices into 16th grid)
+    strong = [i for i, s in enumerate(slots) if abs(s - round(s)) < 1e-9]  # on-beat
+    eighths = [i for i, s in enumerate(slots) if abs((s * 2) - round(s * 2)) < 1e-9 and i not in strong]
+    sixteenths = [i for i in range(len(slots)) if i not in strong and i not in eighths]
+
+    ordered: list[int] = []
+    if density == "low":
+        pool = strong + eighths[: max(1, len(eighths) // 2)]
+    elif density == "medium":
+        pool = strong + eighths + sixteenths[::2]
+    else:
+        pool = strong + eighths + sixteenths
+
+    # Always include beat 1
+    if 0 in pool and 0 not in ordered:
+        ordered.append(0)
+    rng.shuffle(pool)
+    for i in pool:
+        if i not in ordered:
+            ordered.append(i)
+        if len(ordered) >= count:
+            break
+    # If still short, take remaining grid in order
+    for i in range(len(slots)):
+        if len(ordered) >= count:
+            break
+        if i not in ordered:
+            ordered.append(i)
+    placements = sorted(slots[i] for i in ordered[:count])
+
+    # Milonga: bias toward habanera / 3+3+2 accents when sparse enough to matter
+    if dance_type == "milonga" and density != "high" and count <= 4:
+        accent = [0.0, 0.75, 1.0, 1.5][:count]
+        return [min(a, beats_per_bar - 0.05) for a in accent]
+    return placements
+
+
+def _expand_pitches_to_count(
+    rng: random.Random,
+    pitches: list[int],
+    count: int,
+    tonic: int,
+    mode: str,
+    symbol: str,
+) -> list[int]:
+    """Fill up to `count` pitches with stepwise neighbors so dense bars have real motion."""
+    if count <= 0:
+        return []
+    chord = _chord_pool(tonic, mode, symbol)
+    scale = _scale_pool(tonic, mode)
+    out = list(pitches[:count])
+    while len(out) < count:
+        prev = out[-1] if out else rng.choice(chord)
+        step = [p for p in scale + chord if 0 < abs(p - prev) <= 3]
+        out.append(rng.choice(step or chord))
+    # Ensure endpoints lean on chord tones
+    out[0] = _nearest(chord, out[0])
+    out[-1] = _nearest(chord, out[-1])
+    return out[:count]
+
+
 def _emit_bar_notes(
     rng: random.Random,
     *,
@@ -334,123 +420,85 @@ def _emit_bar_notes(
     role: str,
     dance_type: str,
     voice: str = "lead",
+    tonic: int | None = None,
+    mode: str | None = None,
+    symbol: str | None = None,
 ) -> list[dict[str, Any]]:
-    n = len(pitches)
-    if n == 0:
+    """Place lead notes on an 8th/16th grid. Density controls attacks-per-bar."""
+    if not pitches:
         return []
-    active = n
-    if density != "high" and phrase_end:
-        active = max(1, n - 1)
+
+    target = DENSITY_NOTES_PER_BAR.get(dance_type, DENSITY_NOTES_PER_BAR["tango"])[density]
+    # Slight role shaping without undoing density (old code capped tango at 2/bar)
     if density == "low" and role == "answer":
-        active = max(1, min(active, 2))
-    # Lead tunes: fewer, longer notes so the ear can latch onto a melody
-    if voice == "lead" and dance_type == "tango" and density != "high":
-        active = min(active, 2 if role == "question" else 2)
+        target = max(2, target - 1)
+    if phrase_end and density == "high":
+        target = min(target + 1, beats_per_bar * 4)  # allow a little turn into the cadence
 
+    if tonic is not None and mode is not None and symbol is not None:
+        pitches = _expand_pitches_to_count(rng, pitches, target, tonic, mode, symbol)
+    else:
+        while len(pitches) < target:
+            pitches.append(pitches[-1])
+        pitches = pitches[:target]
+
+    placements = _pick_grid_placements(
+        rng,
+        beats_per_bar=beats_per_bar,
+        count=len(pitches),
+        density=density,
+        dance_type=dance_type,
+    )
     notes: list[dict[str, Any]] = []
+    for j, pitch in enumerate(pitches):
+        start_local = placements[j] if j < len(placements) else 0.0
+        is_last = j == len(pitches) - 1
+        next_start = (
+            placements[j + 1]
+            if j + 1 < len(placements)
+            else beats_per_bar
+        )
+        gap = max(0.05, next_start - start_local)
+        # Dense levels: short articulations; low: more sustained
+        if density == "high":
+            dur = min(gap, 0.28 if not is_last else max(0.35, gap * 0.9))
+        elif density == "medium":
+            dur = min(gap * 0.95, gap if is_last else 0.45)
+        else:
+            dur = min(beats_per_bar - start_local, max(gap * 0.9, 0.5))
+        if is_last and phrase_end and density != "high":
+            dur = max(dur, min(beats_per_bar - start_local, 0.75))
 
-    if dance_type == "milonga":
-        slots_habanera = [0.0, 0.75, 1.0, 1.5]
-        slots_332 = [0.0, 0.75, 1.5]
-        slots = slots_332 if variation == "high" else slots_habanera
-        picks = slots[:active]
-        while len(picks) < active:
-            picks.append(min(beats_per_bar - 0.25, picks[-1] + 0.5))
-        for j, pitch in enumerate(pitches[:active]):
-            start_local = picks[j]
-            is_last = j == active - 1
-            next_boundary = picks[j + 1] if j + 1 < len(picks) else beats_per_bar
-            dur = min(0.55 if not is_last else 0.75, next_boundary - start_local)
-            if is_last and phrase_end:
-                dur = min(1.0, beats_per_bar - start_local)
-            note: dict[str, Any] = {
-                "pitch": int(pitch),
-                "start_beat": round(bar * beats_per_bar + start_local, 3),
-                "duration_beats": round(max(0.2, dur), 3),
-                "phrase_role": role,
-                "voice": voice,
-            }
-            if is_last and phrase_end:
-                note["phrase_end"] = True
-            notes.append(note)
-        return notes
-
-    if dance_type == "vals":
-        active = min(active, 3 if density == "high" else 2 if density == "medium" else 1)
-        placements = [0.0]
-        if active >= 2:
-            placements.append(1.0 if rng.random() < 0.55 else 2.0)
-        if active >= 3:
-            placements.append(2.0 if 1.0 in placements else 1.0)
-        placements = sorted(placements[:active])
-        for j, pitch in enumerate(pitches[:active]):
-            start_local = placements[j]
-            is_last = j == active - 1
-            end = placements[j + 1] if j + 1 < len(placements) else beats_per_bar
-            dur = (end - start_local) * (1.05 if is_last else 0.95)
-            if start_local == 0.0:
-                dur = max(dur, 1.2)
-            dur = min(dur, beats_per_bar - start_local)
-            note = {
-                "pitch": int(pitch),
-                "start_beat": round(bar * beats_per_bar + start_local, 3),
-                "duration_beats": round(max(0.4, dur), 3),
-                "phrase_role": role,
-                "voice": voice,
-            }
-            if is_last and phrase_end:
-                note["phrase_end"] = True
-            notes.append(note)
-        return notes
-
-    # tango lead: longer cantabile values on fewer attacks
-    if voice == "lead":
-        active = min(active, 2)
-        placements = [0.0] if active == 1 else [0.0, 1.0]
-        if variation == "high" and active == 2 and rng.random() < 0.35:
-            placements = [0.0, 1.25]
-        for j, pitch in enumerate(pitches[:active]):
-            start_local = placements[j]
-            is_last = j == active - 1
-            end = placements[j + 1] if j + 1 < len(placements) else beats_per_bar
-            dur = (end - start_local) * (1.15 if is_last else 0.95)
-            if is_last and phrase_end:
-                dur = max(dur, beats_per_bar - start_local - 0.05)
-            dur = min(dur, beats_per_bar - start_local)
-            note = {
-                "pitch": int(pitch),
-                "start_beat": round(bar * beats_per_bar + start_local, 3),
-                "duration_beats": round(max(0.5, dur), 3),
-                "phrase_role": role,
-                "voice": voice,
-            }
-            if is_last and phrase_end:
-                note["phrase_end"] = True
-            notes.append(note)
-        return notes
-
-    step = beats_per_bar / max(active, 1)
-    cursor = 0.0
-    for j, pitch in enumerate(pitches[:active]):
-        offset = 0.0
-        if variation == "high" and j > 0 and j % 2 == 1:
-            offset = min(step * 0.12, beats_per_bar - cursor - 0.1)
-        is_last = j == active - 1
-        dur = step * (1.25 if is_last and phrase_end else 0.9)
-        dur = min(dur, beats_per_bar - cursor - offset)
-        if dur <= 0.05:
-            break
-        note = {
+        note: dict[str, Any] = {
             "pitch": int(pitch),
-            "start_beat": round(bar * beats_per_bar + cursor + offset, 3),
-            "duration_beats": round(dur, 3),
+            "start_beat": round(bar * beats_per_bar + start_local, 3),
+            "duration_beats": round(max(0.08, dur), 3),
             "phrase_role": role,
             "voice": voice,
         }
         if is_last and phrase_end:
             note["phrase_end"] = True
         notes.append(note)
-        cursor += step
+
+        # High density: occasional 32nd neighbor pair (tango piano figuration)
+        if (
+            voice == "lead"
+            and density == "high"
+            and not is_last
+            and rng.random() < (0.35 if variation == "high" else 0.2)
+        ):
+            nbr = int(pitch + rng.choice([-1, 1, 2, -2]))
+            notes.append(
+                {
+                    "pitch": nbr,
+                    "start_beat": round(bar * beats_per_bar + start_local + 0.125, 3),
+                    "duration_beats": 0.1,
+                    "phrase_role": role,
+                    "voice": "lead",
+                }
+            )
+
+    notes.sort(key=lambda n: n["start_beat"])
     return notes
 
 
@@ -550,6 +598,9 @@ def _coda_melody(
                     role="answer" if j == tag_bars - 1 else "question",
                     dance_type=dance_type,
                     voice="lead",
+                    tonic=tonic,
+                    mode=mode,
+                    symbol=symbol,
                 )
             )
     # Final cadence note on tonic
@@ -660,17 +711,12 @@ def _melody_for_section(
             n["_bpb"] = beats_per_bar
         return _annotate_drama(notes, drama)
 
-    notes_per_half = DENSITY_NOTES[density]
-    if dance_type == "milonga" and density != "high":
-        notes_per_half = min(4, notes_per_half + 1)
-    if dance_type == "vals":
-        notes_per_half = {"low": 1, "medium": 2, "high": 3}[density]
-    if dance_type == "tango":
-        notes_per_half = {"low": 2, "medium": 2, "high": 3}[density]
-    # Variation: sometimes widen the lead cell
+    notes_per_bar = DENSITY_NOTES_PER_BAR.get(dance_type, DENSITY_NOTES_PER_BAR["tango"])[
+        density
+    ]
     var = VARIATION_STRENGTH[variation]
-    if var >= 0.5 and rng.random() < var * 0.5:
-        notes_per_half = min(5, notes_per_half + 1)
+    if var >= 0.5 and rng.random() < var * 0.4:
+        notes_per_bar = min(beats_per_bar * 4, notes_per_bar + 2)
 
     notes: list[dict[str, Any]] = []
     last_pitch: int | None = None
@@ -696,14 +742,19 @@ def _melody_for_section(
             continue
 
         local_density: Level = density
-        local_n = notes_per_half
+        local_n = notes_per_bar
         if bar_q in dense or bar_q in climax:
             local_density = "high"
-            local_n = min(5, notes_per_half + (2 if bar_q in climax else 1))
+            local_n = min(
+                beats_per_bar * 4,
+                DENSITY_NOTES_PER_BAR[dance_type]["high"] + (2 if bar_q in climax else 0),
+            )
 
         symbol_q = chords_for_bars[i]
         is_pair = i + 1 < bars and (start_bar + i + 1) not in pause
         role_first: Literal["question", "answer"] = "question" if is_pair else "answer"
+        # Contour seed length — emit expands to full per-bar density on the grid
+        contour_n = min(4, max(2, local_n // 2))
 
         if reuse_theme and cell_i < len(theme_cells):
             base = theme_cells[cell_i]
@@ -715,8 +766,8 @@ def _melody_for_section(
                 )
                 for p in base
             ]
-            q_pitches = q_pitches[:local_n]
-            while len(q_pitches) < local_n:
+            q_pitches = q_pitches[:contour_n]
+            while len(q_pitches) < contour_n:
                 q_pitches.append(q_pitches[-1])
             cell_i += 1
         elif (
@@ -729,13 +780,13 @@ def _melody_for_section(
                 _nearest(_chord_pool(tonic, mode, symbol_q), p + rng.choice([0, 0, 2, -2, 4]))
                 for p in question_memory
             ]
-            q_pitches = q_pitches[:local_n]
-            while len(q_pitches) < local_n:
+            q_pitches = q_pitches[:contour_n]
+            while len(q_pitches) < contour_n:
                 q_pitches.append(q_pitches[-1])
         else:
             q_pitches = _phrase_contour(
                 rng,
-                n=local_n,
+                n=contour_n,
                 role=role_first,
                 tonic=tonic,
                 mode=mode,
@@ -760,6 +811,9 @@ def _melody_for_section(
             role=role_first,
             dance_type=dance_type,
             voice="lead",
+            tonic=tonic,
+            mode=mode,
+            symbol=symbol_q,
         )
         for n in emitted:
             n["_bpb"] = beats_per_bar
@@ -776,9 +830,13 @@ def _melody_for_section(
             continue
 
         local_density = "high" if bar_a in dense or bar_a in climax else density
-        local_n = notes_per_half
+        local_n = notes_per_bar
         if bar_a in dense or bar_a in climax:
-            local_n = min(5, notes_per_half + (2 if bar_a in climax else 1))
+            local_n = min(
+                beats_per_bar * 4,
+                DENSITY_NOTES_PER_BAR[dance_type]["high"] + (2 if bar_a in climax else 0),
+            )
+        contour_n = min(4, max(2, local_n // 2))
 
         symbol_a = chords_for_bars[i]
         if reuse_theme and cell_i < len(theme_cells):
@@ -787,8 +845,8 @@ def _melody_for_section(
             a_pitches = [
                 _nearest(_chord_pool(tonic, mode, symbol_a), p + shift) for p in base
             ]
-            a_pitches = a_pitches[:local_n]
-            while len(a_pitches) < local_n:
+            a_pitches = a_pitches[:contour_n]
+            while len(a_pitches) < contour_n:
                 a_pitches.append(_chord_pool(tonic, mode, symbol_a)[0])
             cell_i += 1
         else:
@@ -797,7 +855,7 @@ def _melody_for_section(
                 a_start = list(reversed(question_memory))[0]
             a_pitches = _phrase_contour(
                 rng,
-                n=local_n,
+                n=contour_n,
                 role="answer",
                 tonic=tonic,
                 mode=mode,
@@ -819,6 +877,9 @@ def _melody_for_section(
             role="answer",
             dance_type=dance_type,
             voice="lead",
+            tonic=tonic,
+            mode=mode,
+            symbol=symbol_a,
         )
         for n in emitted:
             n["_bpb"] = beats_per_bar
@@ -845,7 +906,7 @@ def build_skeleton(
     seed = int(seed if seed is not None else random.randint(1, 2_147_483_647))
     rng = random.Random(seed)
 
-    if melody_density not in DENSITY_NOTES:
+    if melody_density not in ("low", "medium", "high"):
         raise ValueError("melody_density must be low|medium|high")
     if melody_variation not in VARIATION_STRENGTH:
         raise ValueError("melody_variation must be low|medium|high")
