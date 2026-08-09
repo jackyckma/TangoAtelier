@@ -42,18 +42,44 @@ DANCE_TYPES = {
 }
 
 # Form templates: list of (section_name, bars)
+# Real tangos usually announce groove (intro), state a theme (A),
+# pivot (bridge), contrast or return (B / A'), and cadence (coda).
 FORMS = {
     "intro_aa_coda": {
         "id": "intro_aa_coda",
-        "sections": [("intro", 4), ("A", 16), ("A_prime", 16), ("coda", 4)],
+        "sections": [
+            ("intro", 4),
+            ("A", 12),
+            ("bridge", 4),
+            ("A_prime", 12),
+            ("coda", 4),
+        ],
     },
     "aaba": {
         "id": "aaba",
-        "sections": [("A", 8), ("A", 8), ("B", 8), ("A", 8)],
+        "sections": [
+            ("intro", 4),
+            ("A", 8),
+            ("A", 8),
+            ("bridge", 2),
+            ("B", 8),
+            ("bridge", 2),
+            ("A", 8),
+            ("coda", 4),
+        ],
     },
     "abab": {
         "id": "abab",
-        "sections": [("A", 8), ("B", 8), ("A", 8), ("B", 8)],
+        "sections": [
+            ("intro", 4),
+            ("A", 8),
+            ("bridge", 2),
+            ("B", 8),
+            ("bridge", 2),
+            ("A", 8),
+            ("B", 8),
+            ("coda", 4),
+        ],
     },
 }
 

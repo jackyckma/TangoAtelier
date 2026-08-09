@@ -28,27 +28,27 @@ SIMPLE_PROFILE = {
     "instrumentation_defaults": ["piano"],
 }
 
-# Relative mix — decoration is "chance of a phrase-end ornament", not per-note density
+# Melody-forward mixes: RH must read as the song; LH/backdrop support it.
 PERSONALITY_MIX = {
     "neutral": {
         "decoration": 0.15,
-        "volumes": {"piano_lh": 0.75, "piano_rh": 0.9, "bandoneon": 0.0, "strings": 0.0},
+        "volumes": {"piano_lh": 0.62, "piano_rh": 1.0, "bandoneon": 0.0, "strings": 0.0},
     },
     "rhythmic": {
         "decoration": 0.35,
-        "volumes": {"piano_lh": 1.0, "piano_rh": 0.78, "bandoneon": 0.5, "strings": 0.25},
+        "volumes": {"piano_lh": 0.78, "piano_rh": 1.0, "bandoneon": 0.4, "strings": 0.2},
     },
     "lyrical": {
         "decoration": 0.55,
-        "volumes": {"piano_lh": 0.55, "piano_rh": 0.85, "bandoneon": 0.85, "strings": 0.65},
+        "volumes": {"piano_lh": 0.48, "piano_rh": 1.0, "bandoneon": 0.55, "strings": 0.45},
     },
     "smooth_powerful": {
         "decoration": 0.3,
-        "volumes": {"piano_lh": 0.95, "piano_rh": 0.7, "bandoneon": 0.55, "strings": 0.7},
+        "volumes": {"piano_lh": 0.7, "piano_rh": 0.98, "bandoneon": 0.4, "strings": 0.5},
     },
     "dramatic": {
         "decoration": 0.65,
-        "volumes": {"piano_lh": 0.9, "piano_rh": 0.85, "bandoneon": 0.7, "strings": 0.8},
+        "volumes": {"piano_lh": 0.72, "piano_rh": 1.0, "bandoneon": 0.5, "strings": 0.55},
     },
 }
 
@@ -180,19 +180,27 @@ def _render_melody(
         start = float(m["start_beat"]) * spb
         dur = float(m["duration_beats"]) * spb
         pitch = int(m["pitch"])
-        if staccato == "high":
+        voice = m.get("voice") or "lead"
+        # Keep lead cantabile; only chop fill notes when staccato is high
+        if voice != "lead" and staccato == "high":
             dur *= 0.65
-        elif staccato == "low":
-            dur *= 1.05
-        vel = 82 if staccato != "low" else 74
+        elif staccato == "low" or voice == "lead":
+            dur *= 1.08 if voice == "lead" else 1.0
+        if voice == "lead":
+            vel = 96 if staccato != "low" else 88
+        elif voice == "fill":
+            vel = 64
+        else:
+            vel = 78
         notes.append(NoteEvent(pitch, start, max(0.05, dur), vel, "piano_rh"))
 
-        # Ornaments ONLY at marked phrase endings (answers), never per-note spray
-        if m.get("phrase_end") and m.get("phrase_role") == "answer":
-            if rng.random() < decoration:
-                notes.extend(
-                    _phrase_end_ornament(rng, pitch, start, dur, spb, vel)
-                )
+        if (
+            voice == "lead"
+            and m.get("phrase_end")
+            and m.get("phrase_role") in ("answer", "cadence")
+            and rng.random() < decoration
+        ):
+            notes.extend(_phrase_end_ornament(rng, pitch, start, dur, spb, vel))
     return notes
 
 
@@ -323,10 +331,14 @@ def render_skeleton(
     if enabled.get("piano", True):
         for ch in skeleton["chords"]:
             bar = int(ch["bar"])
+            section = str(ch.get("section") or "A")
             ch_tonic, ch_mode = _chord_tonality(ch, skeleton)
             pitches = chord_pitches(ch_tonic, ch_mode, ch["symbol"])
             bar_start = bar * bar_len
+            # Intro/bridge/coda: keep groove, but lighter so form edges read clearly
             pattern = _pattern_for_bar(rhythm_primary, rhythm_secondary, bar)
+            if section in ("intro", "bridge"):
+                pattern = rhythm_primary
             lh = left_hand_for_bar(
                 pattern,
                 bar,
@@ -336,8 +348,18 @@ def render_skeleton(
                 articulation,
                 beats_per_bar=beats_per_bar,
             )
+            lh_scale = vols.get("piano_lh", 0.8)
+            if section in ("intro", "bridge"):
+                lh_scale *= 0.85
+            elif section in ("A", "A_prime"):
+                lh_scale *= 0.82  # make room for the theme
             for n in lh:
-                n.velocity = _apply_vel(n.velocity, vols.get("piano_lh", 0.8))
+                # Drop some weak-beat LH under lead so melody isn't carpeted
+                if section in ("A", "A_prime", "B") and beats_per_bar == 2:
+                    rel = (n.start - bar_start) / max(bar_len, 1e-6)
+                    if 0.4 < rel < 0.6 and n.velocity < 90:
+                        continue
+                n.velocity = _apply_vel(n.velocity, lh_scale)
                 notes.append(n)
 
         rh = _render_melody(
@@ -348,10 +370,7 @@ def render_skeleton(
             staccato=str(articulation.get("staccato_level", "medium")),
         )
         for n in rh:
-            if profile.get("id") == "simple":
-                n.velocity = _apply_vel(74, vols.get("piano_rh", 0.9))
-            else:
-                n.velocity = _apply_vel(n.velocity, vols.get("piano_rh", 0.85))
+            n.velocity = _apply_vel(n.velocity, vols.get("piano_rh", 1.0))
             notes.append(n)
 
     if enabled.get("bandoneon"):
@@ -361,7 +380,15 @@ def render_skeleton(
             lyrical=profile.get("personality_type") == "lyrical",
         )
         for n in bn:
-            n.velocity = _apply_vel(n.velocity, vols.get("bandoneon", 0.7))
+            # Mute pads during intro — leave air for the theme entrance
+            bar_idx = int(n.start / max(bar_len, 1e-6))
+            sec = "A"
+            if bar_idx < len(skeleton["chords"]):
+                sec = str(skeleton["chords"][bar_idx].get("section") or "A")
+            if sec == "intro":
+                continue
+            scale = vols.get("bandoneon", 0.7) * (0.65 if sec in ("A", "A_prime") else 1.0)
+            n.velocity = _apply_vel(n.velocity, scale)
             notes.append(n)
 
     if enabled.get("strings"):

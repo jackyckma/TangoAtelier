@@ -74,8 +74,25 @@ def _plan_section_harmony(
     prog_id, progression = home_prog_id, list(home_progression)
     modulation: str | None = None
 
+    if section_name == "bridge":
+        # Dominant pivot into the next section
+        if home_mode == "minor":
+            progression = ["V7", "V7", "i", "V7"]
+            prog_id = "bridge_dominant_minor"
+        else:
+            progression = ["V7", "V7", "I", "V7"]
+            prog_id = "bridge_dominant_major"
+        return {
+            "section": section_name,
+            "key": key_name,
+            "mode": mode,
+            "tonic": tonic,
+            "progression_id": prog_id,
+            "progression": progression,
+            "modulation": "bridge_dominant",
+        }
+
     if section_name in ("intro", "coda"):
-        # Stay home; prefer short cadence feel via same progression
         return {
             "section": section_name,
             "key": key_name,
@@ -87,14 +104,12 @@ def _plan_section_harmony(
         }
 
     if _section_should_modulate(section_name):
-        # Relative major/minor is the common Golden Age move
         rel = relative_key(home_key, home_mode, home_tonic)
         if rel is not None and rng.random() < 0.9:
             key_name, mode, tonic = rel
             modulation = "relative_major" if mode == "major" else "relative_minor"
             prog_id, progression = _pick_progression(rng, mode, "random")
         else:
-            # Same key, different progression — still breaks the endless loop
             prog_id, progression = _alternate_progression(rng, mode, home_prog_id)
             modulation = "progression_change"
 
@@ -110,9 +125,10 @@ def _plan_section_harmony(
 
 
 def _clamp_melody(p: int) -> int:
-    while p < 62:
+    """Lead register — sits above typical LH/bandoneón pads so it reads as the tune."""
+    while p < 67:
         p += 12
-    while p > 81:
+    while p > 84:
         p -= 12
     return p
 
@@ -204,6 +220,12 @@ def _phrase_contour(
     return pitches
 
 
+def _tag_voice(notes: list[dict[str, Any]], voice: str) -> list[dict[str, Any]]:
+    for n in notes:
+        n["voice"] = voice
+    return notes
+
+
 def _emit_bar_notes(
     rng: random.Random,
     *,
@@ -215,6 +237,7 @@ def _emit_bar_notes(
     phrase_end: bool,
     role: str,
     dance_type: str,
+    voice: str = "lead",
 ) -> list[dict[str, Any]]:
     n = len(pitches)
     if n == 0:
@@ -224,11 +247,13 @@ def _emit_bar_notes(
         active = max(1, n - 1)
     if density == "low" and role == "answer":
         active = max(1, min(active, 2))
+    # Lead tunes: fewer, longer notes so the ear can latch onto a melody
+    if voice == "lead" and dance_type == "tango" and density != "high":
+        active = min(active, 2 if role == "question" else 2)
 
     notes: list[dict[str, Any]] = []
 
     if dance_type == "milonga":
-        # Snap melody toward habanera / 3+3+2 slots inside the bar
         slots_habanera = [0.0, 0.75, 1.0, 1.5]
         slots_332 = [0.0, 0.75, 1.5]
         slots = slots_332 if variation == "high" else slots_habanera
@@ -247,6 +272,7 @@ def _emit_bar_notes(
                 "start_beat": round(bar * beats_per_bar + start_local, 3),
                 "duration_beats": round(max(0.2, dur), 3),
                 "phrase_role": role,
+                "voice": voice,
             }
             if is_last and phrase_end:
                 note["phrase_end"] = True
@@ -254,10 +280,7 @@ def _emit_bar_notes(
         return notes
 
     if dance_type == "vals":
-        # Land on beat 1; fill 2–3 with lighter motion; longer legato values
-        # Prefer 1–3 notes/bar so the waltz pulse stays clear
         active = min(active, 3 if density == "high" else 2 if density == "medium" else 1)
-        # Placement: always beat 0, then beat 1 or 2
         placements = [0.0]
         if active >= 2:
             placements.append(1.0 if rng.random() < 0.55 else 2.0)
@@ -267,24 +290,49 @@ def _emit_bar_notes(
         for j, pitch in enumerate(pitches[:active]):
             start_local = placements[j]
             is_last = j == active - 1
-            # Sustain toward next beat / bar end (flowing, not choppy)
             end = placements[j + 1] if j + 1 < len(placements) else beats_per_bar
             dur = (end - start_local) * (1.05 if is_last else 0.95)
             if start_local == 0.0:
-                dur = max(dur, 1.2)  # weight the downbeat
+                dur = max(dur, 1.2)
             dur = min(dur, beats_per_bar - start_local)
             note = {
                 "pitch": int(pitch),
                 "start_beat": round(bar * beats_per_bar + start_local, 3),
                 "duration_beats": round(max(0.4, dur), 3),
                 "phrase_role": role,
+                "voice": voice,
             }
             if is_last and phrase_end:
                 note["phrase_end"] = True
             notes.append(note)
         return notes
 
-    # tango (default): even-ish placement with optional light syncopation
+    # tango lead: longer cantabile values on fewer attacks
+    if voice == "lead":
+        active = min(active, 2)
+        placements = [0.0] if active == 1 else [0.0, 1.0]
+        if variation == "high" and active == 2 and rng.random() < 0.35:
+            placements = [0.0, 1.25]
+        for j, pitch in enumerate(pitches[:active]):
+            start_local = placements[j]
+            is_last = j == active - 1
+            end = placements[j + 1] if j + 1 < len(placements) else beats_per_bar
+            dur = (end - start_local) * (1.15 if is_last else 0.95)
+            if is_last and phrase_end:
+                dur = max(dur, beats_per_bar - start_local - 0.05)
+            dur = min(dur, beats_per_bar - start_local)
+            note = {
+                "pitch": int(pitch),
+                "start_beat": round(bar * beats_per_bar + start_local, 3),
+                "duration_beats": round(max(0.5, dur), 3),
+                "phrase_role": role,
+                "voice": voice,
+            }
+            if is_last and phrase_end:
+                note["phrase_end"] = True
+            notes.append(note)
+        return notes
+
     step = beats_per_bar / max(active, 1)
     cursor = 0.0
     for j, pitch in enumerate(pitches[:active]):
@@ -301,11 +349,126 @@ def _emit_bar_notes(
             "start_beat": round(bar * beats_per_bar + cursor + offset, 3),
             "duration_beats": round(dur, 3),
             "phrase_role": role,
+            "voice": voice,
         }
         if is_last and phrase_end:
             note["phrase_end"] = True
         notes.append(note)
         cursor += step
+    return notes
+
+
+def _intro_melody(
+    rng: random.Random,
+    *,
+    start_bar: int,
+    bars: int,
+    beats_per_bar: int,
+    tonic: int,
+    mode: str,
+    chords_for_bars: list[str],
+    dance_type: str,
+) -> list[dict[str, Any]]:
+    """Groove only + tiny pickup — theme has not entered yet."""
+    notes: list[dict[str, Any]] = []
+    # Last 1–2 bars: short anacrusis into the theme
+    for j in range(max(0, bars - 2), bars):
+        symbol = chords_for_bars[j]
+        chord = _chord_pool(tonic, mode, symbol)
+        pitch = rng.choice(chord[1:] or chord)
+        start_local = beats_per_bar * 0.5 if dance_type != "vals" else 2.0
+        notes.append(
+            {
+                "pitch": int(pitch),
+                "start_beat": round((start_bar + j) * beats_per_bar + start_local, 3),
+                "duration_beats": round(beats_per_bar - start_local, 3),
+                "phrase_role": "pickup",
+                "voice": "fill",
+            }
+        )
+    return notes
+
+
+def _bridge_melody(
+    rng: random.Random,
+    *,
+    start_bar: int,
+    bars: int,
+    beats_per_bar: int,
+    tonic: int,
+    mode: str,
+    chords_for_bars: list[str],
+) -> list[dict[str, Any]]:
+    """Sparse rising line / silence — clears space before next theme entry."""
+    notes: list[dict[str, Any]] = []
+    for j in range(bars):
+        if j % 2 == 1 and bars > 2:
+            continue  # leave air
+        symbol = chords_for_bars[j]
+        chord = _chord_pool(tonic, mode, symbol)
+        pitch = _clamp_melody(chord[-1] + (2 if j == bars - 1 else 0))
+        notes.append(
+            {
+                "pitch": int(pitch),
+                "start_beat": round((start_bar + j) * beats_per_bar, 3),
+                "duration_beats": round(beats_per_bar * 0.9, 3),
+                "phrase_role": "bridge",
+                "voice": "fill",
+                "phrase_end": j == bars - 1,
+            }
+        )
+    return notes
+
+
+def _coda_melody(
+    rng: random.Random,
+    *,
+    start_bar: int,
+    bars: int,
+    beats_per_bar: int,
+    tonic: int,
+    mode: str,
+    chords_for_bars: list[str],
+    theme_cells: list[list[int]] | None,
+    dance_type: str,
+) -> list[dict[str, Any]]:
+    """Theme tag (if we have one) then a long tonic cadence."""
+    notes: list[dict[str, Any]] = []
+    tag_bars = min(2, bars - 1) if bars > 1 else 0
+    if theme_cells and tag_bars:
+        for j in range(tag_bars):
+            cell = theme_cells[j % len(theme_cells)]
+            symbol = chords_for_bars[j]
+            pitches = [
+                _nearest(_chord_pool(tonic, mode, symbol), p) for p in cell[:2]
+            ]
+            notes.extend(
+                _emit_bar_notes(
+                    rng,
+                    bar=start_bar + j,
+                    beats_per_bar=beats_per_bar,
+                    pitches=pitches,
+                    density="low",
+                    variation="low",
+                    phrase_end=j == tag_bars - 1,
+                    role="answer" if j == tag_bars - 1 else "question",
+                    dance_type=dance_type,
+                    voice="lead",
+                )
+            )
+    # Final cadence note on tonic
+    last = bars - 1
+    tonic_pitch = _clamp_melody(_chord_pool(tonic, mode, chords_for_bars[last])[0])
+    notes.append(
+        {
+            "pitch": int(tonic_pitch),
+            "start_beat": round((start_bar + last) * beats_per_bar, 3),
+            "duration_beats": round(beats_per_bar * 1.5, 3),
+            "phrase_role": "cadence",
+            "voice": "lead",
+            "phrase_end": True,
+        }
+    )
     return notes
 
 
@@ -322,30 +485,84 @@ def _melody_for_section(
     variation: Level,
     section_name: str,
     dance_type: str = "tango",
+    theme_state: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
+    theme_state = theme_state if theme_state is not None else {}
+
+    if section_name == "intro":
+        return _intro_melody(
+            rng,
+            start_bar=start_bar,
+            bars=bars,
+            beats_per_bar=beats_per_bar,
+            tonic=tonic,
+            mode=mode,
+            chords_for_bars=chords_for_bars,
+            dance_type=dance_type,
+        )
+    if section_name == "bridge":
+        return _bridge_melody(
+            rng,
+            start_bar=start_bar,
+            bars=bars,
+            beats_per_bar=beats_per_bar,
+            tonic=tonic,
+            mode=mode,
+            chords_for_bars=chords_for_bars,
+        )
+    if section_name == "coda":
+        return _coda_melody(
+            rng,
+            start_bar=start_bar,
+            bars=bars,
+            beats_per_bar=beats_per_bar,
+            tonic=tonic,
+            mode=mode,
+            chords_for_bars=chords_for_bars,
+            theme_cells=theme_state.get("cells"),
+            dance_type=dance_type,
+        )
+
+    # Lead sections: A / A' / B — prefer a reusable theme on A / A'
     notes_per_half = DENSITY_NOTES[density]
     if dance_type == "milonga" and density != "high":
-        notes_per_half = min(4, notes_per_half + 1)  # a bit busier / playful
+        notes_per_half = min(4, notes_per_half + 1)
     if dance_type == "vals":
         notes_per_half = {"low": 1, "medium": 2, "high": 3}[density]
+    if dance_type == "tango":
+        notes_per_half = {"low": 2, "medium": 2, "high": 3}[density]
 
     var = VARIATION_STRENGTH[variation]
     notes: list[dict[str, Any]] = []
     last_pitch: int | None = None
     question_memory: list[int] | None = None
+    capture_theme = section_name == "A" and not theme_state.get("cells")
+    reuse_theme = section_name in ("A", "A_prime") and bool(theme_state.get("cells"))
+    theme_cells: list[list[int]] = list(theme_state.get("cells") or [])
+    captured: list[list[int]] = []
 
-    # Process in 2-bar Q/A cells; leftover single bar treated as answer fragment
     i = 0
+    cell_i = 0
     while i < bars:
         bar_q = start_bar + i
         symbol_q = chords_for_bars[i]
         is_pair = i + 1 < bars
         role_first: Literal["question", "answer"] = "question" if is_pair else "answer"
 
-        if (
+        if reuse_theme and cell_i < len(theme_cells):
+            base = theme_cells[cell_i]
+            q_pitches = [
+                _nearest(_chord_pool(tonic, mode, symbol_q), p + rng.choice([0, 0, 2, -1]))
+                for p in base
+            ]
+            q_pitches = q_pitches[:notes_per_half]
+            while len(q_pitches) < notes_per_half:
+                q_pitches.append(q_pitches[-1])
+            cell_i += 1
+        elif (
             question_memory
             and role_first == "question"
-            and section_name in ("A_prime", "A")
+            and section_name in ("A_prime", "A", "B")
             and rng.random() > var
         ):
             q_pitches = [
@@ -369,8 +586,9 @@ def _melody_for_section(
 
         if role_first == "question":
             question_memory = list(q_pitches)
+        if capture_theme:
+            captured.append(list(q_pitches))
 
-        phrase_end_q = not is_pair
         notes.extend(
             _emit_bar_notes(
                 rng,
@@ -379,9 +597,10 @@ def _melody_for_section(
                 pitches=q_pitches,
                 density=density,
                 variation=variation,
-                phrase_end=phrase_end_q,
+                phrase_end=not is_pair,
                 role=role_first,
                 dance_type=dance_type,
+                voice="lead",
             )
         )
         last_pitch = q_pitches[-1]
@@ -392,20 +611,32 @@ def _melody_for_section(
 
         bar_a = start_bar + i
         symbol_a = chords_for_bars[i]
-        a_start = last_pitch
-        if var > 0.3 and question_memory:
-            mirrored = list(reversed(question_memory))
-            a_start = mirrored[0]
-        a_pitches = _phrase_contour(
-            rng,
-            n=notes_per_half,
-            role="answer",
-            tonic=tonic,
-            mode=mode,
-            symbol=symbol_a,
-            start_pitch=a_start,
-            variation=var + (0.1 if section_name == "B" else 0),
-        )
+        if reuse_theme and cell_i < len(theme_cells):
+            base = theme_cells[cell_i]
+            a_pitches = [
+                _nearest(_chord_pool(tonic, mode, symbol_a), p) for p in base
+            ]
+            a_pitches = a_pitches[:notes_per_half]
+            while len(a_pitches) < notes_per_half:
+                a_pitches.append(_chord_pool(tonic, mode, symbol_a)[0])
+            cell_i += 1
+        else:
+            a_start = last_pitch
+            if var > 0.3 and question_memory:
+                a_start = list(reversed(question_memory))[0]
+            a_pitches = _phrase_contour(
+                rng,
+                n=notes_per_half,
+                role="answer",
+                tonic=tonic,
+                mode=mode,
+                symbol=symbol_a,
+                start_pitch=a_start,
+                variation=var + (0.1 if section_name == "B" else 0),
+            )
+        if capture_theme:
+            captured.append(list(a_pitches))
+
         notes.extend(
             _emit_bar_notes(
                 rng,
@@ -417,10 +648,15 @@ def _melody_for_section(
                 phrase_end=True,
                 role="answer",
                 dance_type=dance_type,
+                voice="lead",
             )
         )
         last_pitch = a_pitches[-1]
         i += 1
+
+    if capture_theme and captured:
+        # Keep first 4 cells (≈ 8 bars of Q/A) as the memorable head motif
+        theme_state["cells"] = captured[:4]
 
     return notes
 
@@ -478,6 +714,7 @@ def build_skeleton(
     melody: list[dict[str, Any]] = []
     form_labels: list[str] = []
     harmony_plan: list[dict[str, Any]] = []
+    theme_state: dict[str, Any] = {}
     bar = 0
 
     for section_name, section_bars in sections:
@@ -519,10 +756,8 @@ def build_skeleton(
             bar += 1
 
         dens: Level = melody_density
-        if section_name in ("intro", "coda") and melody_density == "high":
+        if section_name == "B" and melody_density == "high":
             dens = "medium"
-        elif section_name in ("intro", "coda") and melody_density == "medium":
-            dens = "low"
 
         melody.extend(
             _melody_for_section(
@@ -537,6 +772,7 @@ def build_skeleton(
                 variation=melody_variation,
                 section_name=section_name,
                 dance_type=dance_type,
+                theme_state=theme_state,
             )
         )
 

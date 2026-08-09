@@ -110,6 +110,7 @@ const resources = {
           relative_major: '轉關係大調',
           relative_minor: '轉關係小調',
           progression_change: '換進行（同調）',
+          bridge_dominant: '過場（屬和弦）',
         },
         random: '隨機',
         build: '生成骨架＋最簡版',
@@ -135,9 +136,9 @@ const resources = {
           vals: 'Vals（3/4 圓舞曲）',
         },
         forms: {
-          intro_aa_coda: 'Intro–A–A\'–Coda',
-          aaba: 'A–A–B–A',
-          abab: 'A–B–A–B',
+          intro_aa_coda: 'Intro–A–Bridge–A\'–Coda',
+          aaba: 'Intro–A–A–Bridge–B–A–Coda',
+          abab: 'Intro–A–Bridge–B–A–B–Coda',
         },
       },
       generator: {
@@ -269,6 +270,7 @@ const resources = {
           relative_major: 'to relative major',
           relative_minor: 'to relative minor',
           progression_change: 'new progression (same key)',
+          bridge_dominant: 'bridge (dominant)',
         },
         random: 'Random',
         build: 'Build skeleton + simple preview',
@@ -294,9 +296,9 @@ const resources = {
           vals: 'Vals (3/4 waltz)',
         },
         forms: {
-          intro_aa_coda: 'Intro–A–A\'–Coda',
-          aaba: 'A–A–B–A',
-          abab: 'A–B–A–B',
+          intro_aa_coda: 'Intro–A–Bridge–A\'–Coda',
+          aaba: 'Intro–A–A–Bridge–B–A–Coda',
+          abab: 'Intro–A–Bridge–B–A–B–Coda',
         },
       },
       generator: {
