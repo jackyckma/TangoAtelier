@@ -4,23 +4,23 @@
 
 ## Summary
 
-**TangoAtelier** Phase 1 已落地：規則引擎可依 Style Profile 生成原創鋼琴段落（note events + MIDI + MusicXML），前端生成器以 Tone.js Salamander 鋼琴播放。線上：https://tangoatelier.zeabur.app
+**TangoAtelier** Phase 1 + UX：生成／播放嵌在樂團詳情頁（可對照介紹）；呈現每團 Style Profile 預設參數＋本次生成實際值。線上：https://tangoatelier.zeabur.app
 
 ## What works
 
-- Phase 0 樂團瀏覽＋i18n＋Zeabur 單一 Docker service
-- `POST /api/generate`、MIDI／MusicXML 下載
-- `/generate/:id` 生成器：生成／播放／停止／下載
-- D'Arienzo（marcato_en_cuatro）vs Di Sarli（pesante）等節奏型態已分流
+- 樂團詳情頁：bio／聲音描述＋右側（桌面 sticky）生成器
+- 風格參數面板（節奏、速度、articulation、和聲傾向等）
+- `POST /api/generate`、MIDI／MusicXML、Salamander 播放
+- `/generate/:id` 會 redirect 到詳情 `#listen`
 
 ## Known gaps
 
-- Hint 視覺化尚未做（Phase 4）
-- 曲式／長度／編制選項尚未做（Phase 2–3）
-- Save／Share 在 Phase 5
-- 旋律仍為骨架級，藝術完整度有限（符合教學優先）
+- 參數暫為說明用，尚未做成可調滑桿
+- 聽感差異仍偏鋼琴單聲部；編制／音色待 Phase 3
+- 更深的「樂團特徵」可用日後 data analysis 校正權重（非阻塞）
+- Hint／Save／Share 仍在後續 Phase
 
 ## Next steps
 
-1. Deploy 後聽感驗收（尤其 D'Arienzo vs Di Sarli）
-2. Phase 2 或依優先度調整
+1. 依 feedback 決定參數要不要變滑桿、以及編制音色優先度
+2. Phase 2／3／4 排序

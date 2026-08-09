@@ -1,9 +1,13 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { Layout } from './components/Layout'
-import { GeneratorPage } from './pages/GeneratorPage'
 import { HomePage } from './pages/HomePage'
 import { OrchestraDetailPage } from './pages/OrchestraDetailPage'
 import { OrchestrasPage } from './pages/OrchestrasPage'
+
+function GenerateRedirect() {
+  const { id = '' } = useParams()
+  return <Navigate to={`/orchestras/${id}#listen`} replace />
+}
 
 export default function App() {
   return (
@@ -13,7 +17,7 @@ export default function App() {
           <Route index element={<HomePage />} />
           <Route path="orchestras" element={<OrchestrasPage />} />
           <Route path="orchestras/:id" element={<OrchestraDetailPage />} />
-          <Route path="generate/:id" element={<GeneratorPage />} />
+          <Route path="generate/:id" element={<GenerateRedirect />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

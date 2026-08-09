@@ -477,6 +477,106 @@ a.btn {
   text-decoration: none;
 }
 
+.detail-layout {
+  display: grid;
+  gap: 1.75rem;
+}
+
+.detail-span {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 960px) {
+  .detail-layout {
+    grid-template-columns: minmax(0, 1.15fr) minmax(18rem, 0.85fr);
+    align-items: start;
+    gap: 2rem 3rem;
+  }
+
+  .detail-aside {
+    position: sticky;
+    top: calc(var(--nav-h) + 1rem);
+    grid-row: 2 / 3;
+    grid-column: 2;
+  }
+
+  .detail-main {
+    grid-column: 1;
+    grid-row: 2;
+  }
+}
+
+.detail-aside .inline-generator {
+  padding: 1.25rem 1.35rem 1.5rem;
+  border: 1px solid var(--line);
+  background: rgba(242, 244, 241, 0.72);
+}
+
+.params-lead {
+  margin: 0 0 1.25rem;
+  font-size: 0.95rem;
+}
+
+.params-subtitle {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  margin: 0 0 0.85rem;
+  color: var(--olive);
+}
+
+.params-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+  gap: 1rem 1.25rem;
+  margin: 0 0 1.5rem;
+}
+
+.params-grid dt {
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--olive);
+  margin-bottom: 0.3rem;
+}
+
+.params-grid dd {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+
+.params-grid .mono {
+  font-family: ui-monospace, 'IBM Plex Mono', monospace;
+  font-size: 0.88rem;
+}
+
+.level-bar {
+  display: inline-flex;
+  gap: 3px;
+  vertical-align: middle;
+  margin-right: 0.45rem;
+}
+
+.level-bar span {
+  width: 0.45rem;
+  height: 0.85rem;
+  background: rgba(23, 28, 26, 0.12);
+}
+
+.level-bar span.on {
+  background: var(--carmine);
+}
+
+.level-label {
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.style-params {
+  margin: 2rem 0 2.5rem;
+  padding-top: 0.5rem;
+}
+
 @keyframes rise {
   from {
     opacity: 0;
