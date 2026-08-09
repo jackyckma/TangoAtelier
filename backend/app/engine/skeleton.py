@@ -7,6 +7,8 @@ from app.engine.catalog import (
     DANCE_TYPES,
     FORMS,
     KEYS,
+    KEYS_MAJOR,
+    KEYS_MINOR,
     PROGRESSIONS_MAJOR,
     PROGRESSIONS_MINOR,
 )
@@ -131,6 +133,7 @@ def _phrase_contour(
 
 
 def _emit_bar_notes(
+    rng: random.Random,
     *,
     bar: int,
     beats_per_bar: int,
@@ -139,31 +142,89 @@ def _emit_bar_notes(
     variation: Level,
     phrase_end: bool,
     role: str,
+    dance_type: str,
 ) -> list[dict[str, Any]]:
     n = len(pitches)
     if n == 0:
         return []
-    # Leave air at phrase ends (especially answers)
     active = n
     if density != "high" and phrase_end:
         active = max(1, n - 1)
     if density == "low" and role == "answer":
         active = max(1, min(active, 2))
 
-    step = beats_per_bar / max(active, 1)
     notes: list[dict[str, Any]] = []
+
+    if dance_type == "milonga":
+        # Snap melody toward habanera / 3+3+2 slots inside the bar
+        slots_habanera = [0.0, 0.75, 1.0, 1.5]
+        slots_332 = [0.0, 0.75, 1.5]
+        slots = slots_332 if variation == "high" else slots_habanera
+        picks = slots[:active]
+        while len(picks) < active:
+            picks.append(min(beats_per_bar - 0.25, picks[-1] + 0.5))
+        for j, pitch in enumerate(pitches[:active]):
+            start_local = picks[j]
+            is_last = j == active - 1
+            next_boundary = picks[j + 1] if j + 1 < len(picks) else beats_per_bar
+            dur = min(0.55 if not is_last else 0.75, next_boundary - start_local)
+            if is_last and phrase_end:
+                dur = min(1.0, beats_per_bar - start_local)
+            note: dict[str, Any] = {
+                "pitch": int(pitch),
+                "start_beat": round(bar * beats_per_bar + start_local, 3),
+                "duration_beats": round(max(0.2, dur), 3),
+                "phrase_role": role,
+            }
+            if is_last and phrase_end:
+                note["phrase_end"] = True
+            notes.append(note)
+        return notes
+
+    if dance_type == "vals":
+        # Land on beat 1; fill 2–3 with lighter motion; longer legato values
+        # Prefer 1–3 notes/bar so the waltz pulse stays clear
+        active = min(active, 3 if density == "high" else 2 if density == "medium" else 1)
+        # Placement: always beat 0, then beat 1 or 2
+        placements = [0.0]
+        if active >= 2:
+            placements.append(1.0 if rng.random() < 0.55 else 2.0)
+        if active >= 3:
+            placements.append(2.0 if 1.0 in placements else 1.0)
+        placements = sorted(placements[:active])
+        for j, pitch in enumerate(pitches[:active]):
+            start_local = placements[j]
+            is_last = j == active - 1
+            # Sustain toward next beat / bar end (flowing, not choppy)
+            end = placements[j + 1] if j + 1 < len(placements) else beats_per_bar
+            dur = (end - start_local) * (1.05 if is_last else 0.95)
+            if start_local == 0.0:
+                dur = max(dur, 1.2)  # weight the downbeat
+            dur = min(dur, beats_per_bar - start_local)
+            note = {
+                "pitch": int(pitch),
+                "start_beat": round(bar * beats_per_bar + start_local, 3),
+                "duration_beats": round(max(0.4, dur), 3),
+                "phrase_role": role,
+            }
+            if is_last and phrase_end:
+                note["phrase_end"] = True
+            notes.append(note)
+        return notes
+
+    # tango (default): even-ish placement with optional light syncopation
+    step = beats_per_bar / max(active, 1)
     cursor = 0.0
     for j, pitch in enumerate(pitches[:active]):
         offset = 0.0
         if variation == "high" and j > 0 and j % 2 == 1:
             offset = min(step * 0.12, beats_per_bar - cursor - 0.1)
-        # Longer values on cadence landing
         is_last = j == active - 1
         dur = step * (1.25 if is_last and phrase_end else 0.9)
         dur = min(dur, beats_per_bar - cursor - offset)
         if dur <= 0.05:
             break
-        note: dict[str, Any] = {
+        note = {
             "pitch": int(pitch),
             "start_beat": round(bar * beats_per_bar + cursor + offset, 3),
             "duration_beats": round(dur, 3),
@@ -188,8 +249,14 @@ def _melody_for_section(
     density: Level,
     variation: Level,
     section_name: str,
+    dance_type: str = "tango",
 ) -> list[dict[str, Any]]:
     notes_per_half = DENSITY_NOTES[density]
+    if dance_type == "milonga" and density != "high":
+        notes_per_half = min(4, notes_per_half + 1)  # a bit busier / playful
+    if dance_type == "vals":
+        notes_per_half = {"low": 1, "medium": 2, "high": 3}[density]
+
     var = VARIATION_STRENGTH[variation]
     notes: list[dict[str, Any]] = []
     last_pitch: int | None = None
@@ -203,7 +270,6 @@ def _melody_for_section(
         is_pair = i + 1 < bars
         role_first: Literal["question", "answer"] = "question" if is_pair else "answer"
 
-        # Reuse / sequence prior question under variation
         if (
             question_memory
             and role_first == "question"
@@ -235,6 +301,7 @@ def _melody_for_section(
         phrase_end_q = not is_pair
         notes.extend(
             _emit_bar_notes(
+                rng,
                 bar=bar_q,
                 beats_per_bar=beats_per_bar,
                 pitches=q_pitches,
@@ -242,6 +309,7 @@ def _melody_for_section(
                 variation=variation,
                 phrase_end=phrase_end_q,
                 role=role_first,
+                dance_type=dance_type,
             )
         )
         last_pitch = q_pitches[-1]
@@ -252,10 +320,8 @@ def _melody_for_section(
 
         bar_a = start_bar + i
         symbol_a = chords_for_bars[i]
-        # Answer starts near question end, resolves into current harmony
         a_start = last_pitch
         if var > 0.3 and question_memory:
-            # Sequence answer from inverted/falling transform of question
             mirrored = list(reversed(question_memory))
             a_start = mirrored[0]
         a_pitches = _phrase_contour(
@@ -270,6 +336,7 @@ def _melody_for_section(
         )
         notes.extend(
             _emit_bar_notes(
+                rng,
                 bar=bar_a,
                 beats_per_bar=beats_per_bar,
                 pitches=a_pitches,
@@ -277,6 +344,7 @@ def _melody_for_section(
                 variation=variation,
                 phrase_end=True,
                 role="answer",
+                dance_type=dance_type,
             )
         )
         last_pitch = a_pitches[-1]
@@ -309,7 +377,14 @@ def build_skeleton(
     beats_per_bar = dance["time_signature"][0]
 
     if key in (None, "", "random"):
-        key_name, mode, tonic = _parse_key(rng.choice(KEYS))
+        bias = dance.get("key_bias", "minor")
+        if bias == "major":
+            pool = KEYS_MAJOR * 3 + KEYS_MINOR  # prefer major for milonga/vals
+        elif bias == "minor":
+            pool = KEYS_MINOR * 3 + KEYS_MAJOR
+        else:
+            pool = KEYS
+        key_name, mode, tonic = _parse_key(rng.choice(pool))
     else:
         key_name, mode, tonic = _parse_key(key)
 
@@ -370,6 +445,7 @@ def build_skeleton(
                 density=dens,
                 variation=melody_variation,
                 section_name=section_name,
+                dance_type=dance_type,
             )
         )
 
@@ -382,6 +458,7 @@ def build_skeleton(
         "time_signature": list(dance["time_signature"]),
         "beats_per_bar": beats_per_bar,
         "default_bpm": dance["default_bpm"],
+        "default_rhythm": dance.get("default_rhythm"),
         "form_id": form_id,
         "form": form_labels,
         "progression_id": prog_id,

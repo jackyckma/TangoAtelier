@@ -124,8 +124,8 @@ const resources = {
         },
         dances: {
           tango: 'Tango',
-          milonga: 'Milonga',
-          vals: 'Vals（華爾滋）',
+          milonga: 'Milonga（哈巴涅拉／3+3+2）',
+          vals: 'Vals（3/4 圓舞曲）',
         },
         forms: {
           intro_aa_coda: 'Intro–A–A\'–Coda',
@@ -277,8 +277,8 @@ const resources = {
         },
         dances: {
           tango: 'Tango',
-          milonga: 'Milonga',
-          vals: 'Vals',
+          milonga: 'Milonga (habanera / 3+3+2)',
+          vals: 'Vals (3/4 waltz)',
         },
         forms: {
           intro_aa_coda: 'Intro–A–A\'–Coda',

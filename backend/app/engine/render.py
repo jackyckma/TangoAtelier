@@ -9,6 +9,7 @@ from app.engine.export_formats import (
     score_to_midi_base64,
     score_to_musicxml,
 )
+from app.engine.catalog import DANCE_TYPES
 from app.engine.harmony import chord_pitches
 from app.engine.rhythm import choose_rhythm_pattern, left_hand_for_bar
 from app.engine.types import ChordEvent, NoteEvent, PieceDraft
@@ -57,31 +58,46 @@ def _level_to_01(level: str) -> float:
 
 
 def _bpm(profile: dict, rng: random.Random, skeleton: dict) -> float:
+    dance_type = skeleton.get("dance_type") or "tango"
+    base = float(skeleton.get("default_bpm", DANCE_TYPES.get(dance_type, {}).get("default_bpm", 64)))
+    # Dance tempo is authoritative for milonga/vals — orquesta ranges are tango-centric
+    if dance_type == "milonga":
+        return round(base * rng.uniform(0.96, 1.08), 1)
+    if dance_type == "vals":
+        return round(base * rng.uniform(0.95, 1.06), 1)
     if profile.get("id") == "simple":
-        return float(skeleton.get("default_bpm", 64))
+        return base
     lo, hi = profile.get("tempo_bpm_range", [60, 66])
-    base = float(skeleton.get("default_bpm", 64))
-    style = float(rng.randint(int(lo), int(hi)))
-    if skeleton.get("dance_type") == "milonga":
-        return max(style, base * 0.9)
-    if skeleton.get("dance_type") == "vals":
-        return (style + base) / 2
-    return style
+    return float(rng.randint(int(lo), int(hi)))
 
 
-def _rhythm_for_dance(profile: dict, dance_type: str) -> str:
+def _rhythm_for_dance(profile: dict, dance_type: str, rng: random.Random) -> str:
+    """Dance type wins for milonga/vals skeletons — orquesta accents layer on top later."""
+    dance = DANCE_TYPES.get(dance_type, DANCE_TYPES["tango"])
+    if dance_type == "vals":
+        return "vals_bass_chord"
+    if dance_type == "milonga":
+        if profile.get("id") != "simple" and rng.random() < 0.35:
+            return str(dance.get("alt_rhythm") or "milonga_332")
+        return str(dance.get("default_rhythm") or "milonga_habanera")
     if profile.get("id") == "simple":
-        if dance_type == "vals":
-            return "lyrical_phrasing"
-        if dance_type == "milonga":
-            return "milonga_habanera"
-        return "marcato_en_dos"
-    pattern = choose_rhythm_pattern(profile)
-    if dance_type == "vals" and pattern.startswith("marcato_en_cuatro"):
-        return "lyrical_phrasing"
-    if dance_type == "milonga" and pattern in ("pesante", "yumba"):
-        return "milonga_habanera"
-    return pattern
+        return str(dance.get("default_rhythm") or "marcato_en_dos")
+    return choose_rhythm_pattern(profile)
+
+
+def _articulation_for_dance(profile: dict, dance_type: str) -> dict:
+    base = dict(profile.get("articulation", SIMPLE_PROFILE["articulation"]))
+    if dance_type == "milonga":
+        # Punchier, less rubato — earthy drive
+        base["staccato_level"] = "high" if base.get("staccato_level") != "low" else "medium"
+        base["rubato_level"] = "low"
+        base["pause_frequency"] = "low"
+    elif dance_type == "vals":
+        # Flowing — soft 2–3, little chop
+        base["staccato_level"] = "low"
+        base["rubato_level"] = "medium" if profile.get("id") != "simple" else "low"
+        base["pause_frequency"] = "low"
+    return base
 
 
 def _seconds_per_beat(bpm: float) -> float:
@@ -249,8 +265,9 @@ def render_skeleton(
     beats_per_bar = int(skeleton["beats_per_bar"])
     bar_len = beats_per_bar * spb
     time_signature = tuple(skeleton["time_signature"])
-    rhythm = _rhythm_for_dance(profile, skeleton["dance_type"])
-    articulation = profile.get("articulation", SIMPLE_PROFILE["articulation"])
+    dance_type = str(skeleton.get("dance_type") or "tango")
+    rhythm = _rhythm_for_dance(profile, dance_type, rng)
+    articulation = _articulation_for_dance(profile, dance_type)
     tonic = int(skeleton["tonic"])
     mode = skeleton["mode"]
     mix = _mix_for(profile)
@@ -263,6 +280,10 @@ def render_skeleton(
     )
     if profile.get("id") == "simple":
         decoration = 0.12
+    if dance_type == "milonga":
+        decoration *= 0.55  # milonga: fewer cadential frills
+    elif dance_type == "vals":
+        decoration = min(0.85, decoration * 1.1)  # gentle phrase-end turns ok
 
     enabled = _default_instruments(profile)
     if instruments:
@@ -294,7 +315,13 @@ def render_skeleton(
             pitches = chord_pitches(tonic, mode, ch["symbol"])
             bar_start = bar * bar_len
             lh = left_hand_for_bar(
-                rhythm, bar, bar_start, bar_len, pitches, articulation
+                rhythm,
+                bar,
+                bar_start,
+                bar_len,
+                pitches,
+                articulation,
+                beats_per_bar=beats_per_bar,
             )
             for n in lh:
                 n.velocity = _apply_vel(n.velocity, vols.get("piano_lh", 0.8))
@@ -361,7 +388,7 @@ def render_skeleton(
         "bpm": draft.bpm,
         "key": draft.key_name,
         "mode": draft.mode,
-        "dance_type": skeleton.get("dance_type"),
+        "dance_type": dance_type,
         "time_signature": list(draft.time_signature),
         "rhythm_pattern": draft.rhythm_pattern,
         "form": draft.form,
