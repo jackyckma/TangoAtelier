@@ -1,26 +1,19 @@
 # Session handoff
 
 **Last updated:** 2026-08-10  
-**Branch:** `main` @ `2eaddb2`（E1 phrase cadences）
+**Branch:** `main`（E2 待 push 後填 hash）
 
 ## Resume here
 
-1. **聽感驗收 E1**：工房固定 seed → 聽樂句是否有 V→i 收束；同 skeleton 換風格 chord 主幹仍一致  
-2. 下一實作：**E2 — A′／再現闡述變形表**（見 `PROJECT_PLAN.md` §3b）
+1. **聽感驗收 E2**：工房選含 `A_prime` 的 form（如 `intro_aa_coda`）→ A 段 vs A′：LH 更動、裝飾／力度更滿  
+2. 下一實作：**E3 — 張力曲線跨層修正**
 
 ## Context
 
-- E1：`_apply_phrase_cadences` in `backend/app/engine/skeleton.py`；`V7b9` pitches in `harmony.py`  
-- Chord 欄位：`cadence`；`harmony_plan[].phrases`  
-- 研究：`docs/research/Tango_music_synthesis.md`
+- E2 skeleton：`_roll_a_prime_elaboration`；chord／`harmony_plan[].elaboration`  
+- E2 render／rhythm：`lh_upgrade`、`_render_melody` ornament／dynamics boost  
+- E1：`_apply_phrase_cadences`
 
 ## Top priority next
 
-人耳驗收 E1 → 通過後開 **E2**
-
-## How to verify
-
-```bash
-bash scripts/agent-verify.sh
-# Atelier: same seed, listen for phrase cadences; D'Arienzo vs Di Sarli share skeleton chords
-```
+人耳驗收 E2 → **E3**

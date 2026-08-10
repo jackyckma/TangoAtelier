@@ -100,14 +100,23 @@ def left_hand_for_bar(
     beats_per_bar: int = 2,
     voicing_style: str = "bright_staccato",
     power: bool = False,
+    lh_upgrade: str | None = None,
 ) -> list[NoteEvent]:
-    """Generate LH piano notes for one bar. Patterns intentionally diverge by dance/orquesta."""
+    """Generate LH piano notes for one bar. Patterns intentionally diverge by dance/orquesta.
+
+    lh_upgrade (A′ elaboration): 'walking' | 'busier' — richer accompaniment without
+    changing the skeleton chord symbol.
+    """
     bass, root, third, fifth = _lh_tones(chord_pitches)
 
     staccato = articulation.get("staccato_level", "medium")
     pause = articulation.get("pause_frequency", "low")
     # Deterministic mix — reference tango MIDI LH often ~half+ block onsets
     bias = _block_bias(voicing_style, power=power)
+    if lh_upgrade == "walking":
+        bias *= 0.35  # prefer broken / linear bass
+    elif lh_upgrade == "busier":
+        bias *= 0.55
     salt = sum(ord(c) for c in voicing_style) + (7 if power else 0)
     use_block = ((bar_index * 3 + salt) % 100) < int(bias * 100)
 
@@ -131,6 +140,35 @@ def left_hand_for_bar(
     def hit_block(start_off: float, dur: float, pitches: list[int], vel: int) -> None:
         for i, pitch in enumerate(pitches):
             hit(start_off, dur, pitch, max(48, vel - i * 6))
+
+    # A′ walking: replace generic marcato with a clearer bass line (style patterns
+    # like yumba/sincopa still run below, then we overlay connectors).
+    walk_replace = lh_upgrade == "walking" and pattern in (
+        "marcato_en_cuatro",
+        "marcato_en_dos",
+        "pesante",
+        "lyrical_phrasing",
+    )
+    if walk_replace and beats_per_bar == 2:
+        walk = [bass, third, fifth, root + 12]
+        if bar_index % 2:
+            walk = [bass, fifth, third, root + 12]
+        for i, pitch in enumerate(walk):
+            hit(i * e, e * 0.85, pitch, 88 - i * 4)
+        if lh_upgrade:
+            for n in notes:
+                n.velocity = min(127, n.velocity + 6)
+        return notes
+
+    if walk_replace and beats_per_bar == 3:
+        # Vals: bass – mid – mid+oct (still one-bar walk, not tango 16ths)
+        mid = (third, fifth, root)[bar_index % 3]
+        hit(0.0, beat * 0.85, bass, 90)
+        hit(beat, beat * 0.7, mid, 74)
+        hit(beat * 2, beat * 0.65, mid + 12 if mid < 60 else fifth, 70)
+        for n in notes:
+            n.velocity = min(127, n.velocity + 5)
+        return notes
 
     if pattern == "milonga_habanera":
         # ♩.♪ ♪ ♪ on the 2/4 grid (no extra off-grid punches)
@@ -288,5 +326,14 @@ def left_hand_for_bar(
                 hit_block(i * unit, unit * 0.55, [pitches[i % 4], fifth], 90)
             else:
                 hit(i * unit, unit * 0.55, pitches[i % 4], 90)
+
+    # A′ busier: keep style identity, add a light connector + velocity lift
+    if lh_upgrade == "busier" and beats_per_bar == 2 and notes:
+        connector = third if abs(third - bass) <= 8 else fifth
+        hit(e, e * 0.45, connector, 72)
+        hit(e * 3, e * 0.4, root + 12 if root < 60 else fifth, 70)
+    if lh_upgrade:
+        for n in notes:
+            n.velocity = min(127, int(n.velocity) + (8 if lh_upgrade == "busier" else 5))
 
     return notes

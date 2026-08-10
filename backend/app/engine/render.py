@@ -235,9 +235,12 @@ def _render_melody(
     spb: float,
     staccato: str,
     voicing_style: str = "bright_staccato",
+    beats_per_bar: int = 2,
+    elaborations: dict[int, dict] | None = None,
 ) -> list[NoteEvent]:
     notes: list[NoteEvent] = []
     double_rate = _rh_double_rate(voicing_style)
+    elab_by_bar = elaborations or {}
     for m in melody:
         start = float(m["start_beat"]) * spb
         dur = float(m["duration_beats"]) * spb
@@ -246,6 +249,10 @@ def _render_melody(
         drama = m.get("drama") or "normal"
         energy = float(m.get("energy") or 0.5)
         phrase_end = bool(m.get("phrase_end"))
+        bar = int(float(m["start_beat"]) // max(beats_per_bar, 1))
+        elab = elab_by_bar.get(bar) or {}
+        orn_boost = float(elab.get("ornament_boost") or 0)
+        dyn_boost = float(elab.get("dynamics_boost") or 0)
         # Keep lead cantabile; only chop fill notes when staccato is high
         if voice != "lead" and staccato == "high":
             dur *= 0.65
@@ -269,11 +276,15 @@ def _render_melody(
             vel = min(127, vel + 10)
         elif drama == "anticipate":
             vel = max(48, vel - 6)
+        if dyn_boost:
+            vel = min(127, int(vel * (1.0 + dyn_boost) + 4))
         notes.append(NoteEvent(pitch, start, max(0.05, dur), min(127, vel), "piano_rh"))
 
         # Style voicing: doubles land on phrase ends / climax peaks — not every note
+        p_double = double_rate
+        if orn_boost:
+            p_double = min(1.0, p_double + orn_boost * 0.85)
         if voice == "lead" and dur >= spb * 0.35:
-            p_double = double_rate
             if drama == "climax" and phrase_end:
                 p_double = min(1.0, p_double + 0.4)
             elif drama == "rise" and phrase_end:
@@ -303,13 +314,14 @@ def _render_melody(
                             )
                         )
 
-        orn_p = decoration
+        orn_p = decoration + orn_boost
         if drama == "climax" and phrase_end:
-            orn_p = min(1.0, decoration + 0.25)
+            orn_p = min(1.0, orn_p + 0.25)
         elif drama in ("anticipate", "rise"):
             orn_p *= 0.25  # keep the approach clean
         elif drama == "dense":
             orn_p *= 0.4
+        orn_p = min(1.0, orn_p)
         if (
             voice == "lead"
             and m.get("phrase_end")
@@ -498,11 +510,18 @@ def render_skeleton(
     )
 
     if enabled.get("piano", True):
+        elaborations: dict[int, dict] = {}
+        for ch in skeleton["chords"]:
+            el = ch.get("elaboration")
+            if isinstance(el, dict):
+                elaborations[int(ch["bar"])] = el
+
         for ch in skeleton["chords"]:
             bar = int(ch["bar"])
             section = str(ch.get("section") or "A")
             drama_tag = str(ch.get("drama") or "normal")
             energy = float(ch.get("energy") or 0.5)
+            elab = elaborations.get(bar) or {}
             ch_tonic, ch_mode = _chord_tonality(ch, skeleton)
             pitches = chord_pitches(ch_tonic, ch_mode, ch["symbol"])
             bar_start = bar * bar_len
@@ -522,13 +541,17 @@ def render_skeleton(
                 articulation,
                 beats_per_bar=beats_per_bar,
                 voicing_style=voicing,
-                power=drama_tag in ("climax", "rise") or section == "B",
+                power=drama_tag in ("climax", "rise") or section == "B" or bool(elab),
+                lh_upgrade=str(elab["lh_upgrade"]) if elab.get("lh_upgrade") else None,
             )
             lh_scale = vols.get("piano_lh", 0.8)
             if section in ("intro", "bridge"):
                 lh_scale *= 0.85
-            elif section in ("A", "A_prime"):
+            elif section == "A":
                 lh_scale *= 0.82  # make room for the theme
+            elif section == "A_prime":
+                # Recap: fuller LH (elaboration) while still leaving the lead audible
+                lh_scale *= 0.92 + 0.15 * float(elab.get("dynamics_boost") or 0)
             if drama_tag == "pause":
                 # Tango hole: keep a single bass hit or full silence
                 lh = lh[:1] if lh and rng.random() < 0.55 else []
@@ -551,9 +574,12 @@ def render_skeleton(
                 # Drop some weak-beat LH under lead so melody isn't carpeted
                 if section in ("A", "A_prime", "B") and beats_per_bar == 2:
                     rel = (n.start - bar_start) / max(bar_len, 1e-6)
-                    if 0.4 < rel < 0.6 and n.velocity < 90 and drama_tag not in (
-                        "climax",
-                        "rise",
+                    # A′ walking needs those mid-bar steps — don't strip them
+                    if (
+                        section != "A_prime"
+                        and 0.4 < rel < 0.6
+                        and n.velocity < 90
+                        and drama_tag not in ("climax", "rise")
                     ):
                         continue
                 n.velocity = _apply_vel(n.velocity, lh_scale)
@@ -566,6 +592,8 @@ def render_skeleton(
             spb=spb,
             staccato=str(articulation.get("staccato_level", "medium")),
             voicing_style=voicing,
+            beats_per_bar=beats_per_bar,
+            elaborations=elaborations,
         )
         for n in rh:
             n.velocity = _apply_vel(n.velocity, vols.get("piano_rh", 1.0))
@@ -585,7 +613,9 @@ def render_skeleton(
                 sec = str(skeleton["chords"][bar_idx].get("section") or "A")
             if sec == "intro":
                 continue
-            scale = vols.get("bandoneon", 0.7) * (0.65 if sec in ("A", "A_prime") else 1.0)
+            scale = vols.get("bandoneon", 0.7) * (
+                0.65 if sec == "A" else (0.88 if sec == "A_prime" else 1.0)
+            )
             n.velocity = _apply_vel(n.velocity, scale)
             notes.append(n)
 
@@ -601,7 +631,7 @@ def render_skeleton(
             sec = "A"
             if bar_idx < len(skeleton["chords"]):
                 sec = str(skeleton["chords"][bar_idx].get("section") or "A")
-            theme_scale = 0.7 if sec in ("A", "A_prime") else 1.0
+            theme_scale = 0.7 if sec == "A" else (0.95 if sec == "A_prime" else 1.0)
             if n.track == "violin":
                 base = vols.get("violin", vols.get("strings", 0.45))
             else:
@@ -656,6 +686,8 @@ def render_skeleton(
                 "key": skeleton["chords"][i].get("key"),
                 "mode": skeleton["chords"][i].get("mode"),
                 "section": skeleton["chords"][i].get("section"),
+                "cadence": skeleton["chords"][i].get("cadence"),
+                "elaboration": skeleton["chords"][i].get("elaboration"),
             }
             for i, c in enumerate(draft.chords)
         ],

@@ -35,6 +35,21 @@ DENSITY_NOTES_PER_BAR = {
 # Stronger spread so medium/high actually change contours & reuse behaviour
 VARIATION_STRENGTH = {"low": 0.25, "medium": 0.55, "high": 0.85}
 
+_LEVEL_UP: dict[Level, Level] = {"low": "medium", "medium": "high", "high": "high"}
+
+
+def _roll_a_prime_elaboration(rng: random.Random, variation: Level) -> dict[str, Any]:
+    """E2: schedule how the recap is richer than A — render executes most of it."""
+    var = VARIATION_STRENGTH[variation]
+    lh = "walking" if rng.random() < (0.55 + 0.25 * var) else "busier"
+    return {
+        "ornament_boost": round(0.22 + 0.2 * var, 3),
+        "lh_upgrade": lh,
+        "dynamics_boost": round(0.14 + 0.12 * var, 3),
+        "density_bump": True,
+        "register_lift": rng.random() < (0.4 + 0.35 * var),
+    }
+
 
 def _parse_key(key_name: str) -> tuple[str, str, int]:
     parts = key_name.strip().split()
@@ -1535,7 +1550,11 @@ def _melody_for_section(
         elif section_name == "A_prime":
             seq = seq_unit if phrase_i >= 2 else 0
             transform_q = "prime"
-            reg = reg or (12 if phrase_i == 0 and rng.random() < 0.45 else 0)
+            # Recap: lift register more often so A′ reads as the same tune, brighter
+            if reg == 0 and rng.random() < 0.65:
+                reg = 12
+            elif reg == 0:
+                reg = 7 if rng.random() < 0.45 else 0
         else:
             seq = seq_unit * (phrase_i // 3)
             transform_q = "prime"
@@ -1684,6 +1703,11 @@ def build_skeleton(
             rng=rng,
         )
 
+        elaboration: dict[str, Any] | None = None
+        if section_name == "A_prime":
+            elaboration = _roll_a_prime_elaboration(rng, melody_variation)
+            sec["elaboration"] = elaboration
+
         for j in range(section_bars):
             symbol = section_symbols[j]
             energy = float((drama.get("energy") or {}).get(bar, 0.5))
@@ -1703,6 +1727,8 @@ def build_skeleton(
             role = cadence_roles.get(j)
             if role:
                 entry["cadence"] = role
+            if elaboration:
+                entry["elaboration"] = elaboration
             chords.append(entry)
             bar += 1
 
@@ -1723,6 +1749,8 @@ def build_skeleton(
         dens: Level = melody_density
         if section_name == "B" and melody_density == "high":
             dens = "medium"
+        elif section_name == "A_prime" and elaboration and elaboration.get("density_bump"):
+            dens = _LEVEL_UP[melody_density]
 
         melody.extend(
             _melody_for_section(
