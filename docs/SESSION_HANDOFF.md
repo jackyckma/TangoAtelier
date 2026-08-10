@@ -1,7 +1,7 @@
 # Session handoff
 
 **Last updated:** 2026-08-10  
-**Branch:** `main`（計劃文件已更新；下一刀實作前再對齊最新 commit）
+**Branch:** `main` @ `01d5ba8`（引擎 E-task plan 已入庫）
 
 ## Resume here
 
