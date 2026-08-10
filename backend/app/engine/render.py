@@ -32,23 +32,58 @@ SIMPLE_PROFILE = {
 PERSONALITY_MIX = {
     "neutral": {
         "decoration": 0.15,
-        "volumes": {"piano_lh": 0.62, "piano_rh": 1.0, "bandoneon": 0.0, "strings": 0.0},
+        "volumes": {
+            "piano_lh": 0.62,
+            "piano_rh": 1.0,
+            "bandoneon": 0.0,
+            "strings": 0.0,
+            "violin": 0.0,
+            "cello": 0.0,
+        },
     },
     "rhythmic": {
         "decoration": 0.35,
-        "volumes": {"piano_lh": 0.78, "piano_rh": 1.0, "bandoneon": 0.4, "strings": 0.2},
+        "volumes": {
+            "piano_lh": 0.78,
+            "piano_rh": 1.0,
+            "bandoneon": 0.4,
+            "strings": 0.2,
+            "violin": 0.22,
+            "cello": 0.18,
+        },
     },
     "lyrical": {
         "decoration": 0.55,
-        "volumes": {"piano_lh": 0.48, "piano_rh": 1.0, "bandoneon": 0.55, "strings": 0.45},
+        "volumes": {
+            "piano_lh": 0.48,
+            "piano_rh": 1.0,
+            "bandoneon": 0.55,
+            "strings": 0.45,
+            "violin": 0.5,
+            "cello": 0.38,
+        },
     },
     "smooth_powerful": {
         "decoration": 0.3,
-        "volumes": {"piano_lh": 0.7, "piano_rh": 0.98, "bandoneon": 0.4, "strings": 0.5},
+        "volumes": {
+            "piano_lh": 0.7,
+            "piano_rh": 0.98,
+            "bandoneon": 0.4,
+            "strings": 0.5,
+            "violin": 0.48,
+            "cello": 0.42,
+        },
     },
     "dramatic": {
         "decoration": 0.65,
-        "volumes": {"piano_lh": 0.72, "piano_rh": 1.0, "bandoneon": 0.5, "strings": 0.55},
+        "volumes": {
+            "piano_lh": 0.72,
+            "piano_rh": 1.0,
+            "bandoneon": 0.5,
+            "strings": 0.55,
+            "violin": 0.52,
+            "cello": 0.48,
+        },
     },
 }
 
@@ -325,25 +360,61 @@ def _bandoneon_pads(
     return notes
 
 
-def _strings_pads(
+def _strings_section(
     skeleton: dict,
     *,
     spb: float,
     dramatic: bool,
+    lyrical: bool,
 ) -> list[NoteEvent]:
+    """Split string section: violin (high) + cello (low), phrase-length sustains."""
     notes: list[NoteEvent] = []
     beats_per_bar = int(skeleton["beats_per_bar"])
     bar_len = beats_per_bar * spb
-    for ch in skeleton["chords"]:
-        bar = int(ch["bar"])
-        if not dramatic and bar % 2 == 1:
+    chords = skeleton["chords"]
+    i = 0
+    while i < len(chords):
+        ch = chords[i]
+        section = str(ch.get("section") or "A")
+        if section == "intro":
+            i += 1
             continue
         tonic, mode = _chord_tonality(ch, skeleton)
-        pitches = chord_pitches(tonic, mode, ch["symbol"], octave_shift=1)
-        start = bar * bar_len
-        dur = bar_len * (1.85 if dramatic and bar % 4 == 0 else 1.6)
-        for p in pitches[:2]:
-            notes.append(NoteEvent(p + 12, start, dur, 42 if not dramatic else 52, "strings"))
+        symbol = ch["symbol"]
+        hold = 1
+        max_hold = 4 if lyrical else (3 if dramatic else 2)
+        while (
+            i + hold < len(chords)
+            and chords[i + hold]["symbol"] == symbol
+            and chords[i + hold].get("key", ch.get("key")) == ch.get("key")
+            and str(chords[i + hold].get("section") or "") == section
+            and hold < max_hold
+        ):
+            hold += 1
+
+        pitches = chord_pitches(tonic, mode, symbol, octave_shift=0)
+        root = pitches[0]
+        third = pitches[1] if len(pitches) > 1 else root + 3
+        fifth = pitches[2] if len(pitches) > 2 else root + 7
+        start = int(ch["bar"]) * bar_len
+        dur = hold * bar_len * (0.96 if lyrical else 0.9)
+
+        # Violin: mid-high chord tones
+        violin_tones = [third + 12, fifth + 12] if lyrical else [fifth + 12, third + 12]
+        if dramatic and hold >= 2:
+            violin_tones = [third + 12, fifth + 12, root + 24]
+        for p in violin_tones[: 3 if dramatic else 2]:
+            notes.append(NoteEvent(p, start, dur, 48 if not dramatic else 56, "violin"))
+
+        # Cello: low root / fifth
+        cello_tones = [root - 12, fifth - 12] if root >= 48 else [root, fifth]
+        if section in ("A", "A_prime") and not dramatic:
+            cello_tones = [root - 12]
+        for p in cello_tones:
+            notes.append(
+                NoteEvent(max(28, p), start, dur * 1.02, 44 if not dramatic else 50, "cello")
+            )
+        i += hold
     return notes
 
 
@@ -399,9 +470,14 @@ def render_skeleton(
             if k in instruments:
                 enabled[k] = bool(instruments[k])
 
-    for layer, floor in (("bandoneon", 0.5), ("strings", 0.45)):
-        if enabled.get(layer) and vols.get(layer, 0) < 0.15:
+    for layer, floor in (("bandoneon", 0.5), ("violin", 0.4), ("cello", 0.35)):
+        if layer == "bandoneon":
+            if enabled.get("bandoneon") and vols.get("bandoneon", 0) < 0.15:
+                vols["bandoneon"] = floor
+        elif enabled.get("strings") and vols.get(layer, 0) < 0.15:
             vols[layer] = floor
+    if enabled.get("strings") and vols.get("strings", 0) < 0.15:
+        vols["strings"] = 0.45
 
     notes: list[NoteEvent] = []
     chord_events: list[ChordEvent] = []
@@ -514,13 +590,23 @@ def render_skeleton(
             notes.append(n)
 
     if enabled.get("strings"):
-        st = _strings_pads(
+        st = _strings_section(
             skeleton,
             spb=spb,
             dramatic=profile.get("personality_type") == "dramatic",
+            lyrical=profile.get("personality_type") == "lyrical",
         )
         for n in st:
-            n.velocity = _apply_vel(n.velocity, vols.get("strings", 0.6))
+            bar_idx = int(n.start / max(bar_len, 1e-6))
+            sec = "A"
+            if bar_idx < len(skeleton["chords"]):
+                sec = str(skeleton["chords"][bar_idx].get("section") or "A")
+            theme_scale = 0.7 if sec in ("A", "A_prime") else 1.0
+            if n.track == "violin":
+                base = vols.get("violin", vols.get("strings", 0.45))
+            else:
+                base = vols.get("cello", vols.get("strings", 0.4) * 0.85)
+            n.velocity = _apply_vel(n.velocity, base * theme_scale)
             notes.append(n)
 
     notes.sort(key=lambda n: (n.start, n.track, n.pitch))

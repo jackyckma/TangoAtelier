@@ -78,7 +78,7 @@ const resources = {
         instruments: {
           piano: '鋼琴',
           bandoneon: '班多鈕琴',
-          strings: '弦樂',
+          strings: '弦樂（小提琴／大提琴）',
           guitar: '吉他',
         },
       },
@@ -243,7 +243,7 @@ const resources = {
         instruments: {
           piano: 'Piano',
           bandoneon: 'Bandoneón',
-          strings: 'Strings',
+          strings: 'Strings (violin / cello)',
           guitar: 'Guitar',
         },
       },

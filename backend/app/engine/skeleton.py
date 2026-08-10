@@ -959,29 +959,193 @@ def _emit_bar_notes(
             note["phrase_end"] = True
         notes.append(note)
 
-        # High density: occasional 32nd neighbor — tango/milonga only (vals too fast)
+        # Cadential neighbor only on the true phrase end — never mid-bar spray
         if (
             voice == "lead"
-            and density == "high"
+            and phrase_end
+            and is_last
             and dance_type != "vals"
-            and not is_last
-            and gap >= 0.25
-            and rng.random() < (0.28 if variation == "high" else 0.15)
+            and density == "high"
+            and rng.random() < (0.4 if variation == "high" else 0.22)
         ):
             nbr = _clamp_melody(int(pitch + rng.choice([-1, 1, 2, -2])))
             if nbr != pitch:
                 notes.append(
                     {
                         "pitch": nbr,
-                        "start_beat": round(bar * beats_per_bar + start_local + 0.125, 3),
+                        "start_beat": round(
+                            bar * beats_per_bar + start_local + min(0.125, max(0.06, gap * 0.35)),
+                            3,
+                        ),
                         "duration_beats": 0.1,
-                        "phrase_role": role,
-                        "voice": "lead",
+                        "phrase_role": "ornament",
+                        "voice": "ornament",
                     }
                 )
 
     notes.sort(key=lambda n: n["start_beat"])
     return notes
+
+
+def _partition_phrases(
+    *,
+    bars: int,
+    start_bar: int,
+    chords_for_bars: list[str],
+    pause: set[int],
+    dance_type: str,
+) -> list[tuple[int, int]]:
+    """Split a section into 2–4 bar phrases (chord-aware), never across pauses."""
+    phrases: list[tuple[int, int]] = []
+    i = 0
+    while i < bars:
+        abs_i = start_bar + i
+        if abs_i in pause:
+            i += 1
+            continue
+
+        # Prefer 4-bar lines on tango/vals when aligned; milonga stays punchier at 2
+        prefer_four = dance_type in ("tango", "vals") and i % 4 == 0 and i + 4 <= bars
+        target = 4 if prefer_four else 2
+        if dance_type == "vals" and i + 3 <= bars and not prefer_four:
+            # Occasional 3-bar vals gesture when chords allow
+            if i + 2 < bars and chords_for_bars[i] == chords_for_bars[i + 1]:
+                target = 3
+
+        length = 1
+        for k in range(1, target):
+            nxt = i + k
+            if nxt >= bars or (start_bar + nxt) in pause:
+                break
+            length = k + 1
+        # If we only got 1 bar but next is free, try to pair (avoid orphan bars)
+        if length == 1 and i + 1 < bars and (start_bar + i + 1) not in pause:
+            length = 2
+        phrases.append((i, length))
+        i += length
+    return phrases
+
+
+def _emit_phrase(
+    rng: random.Random,
+    *,
+    start_bar: int,
+    n_bars: int,
+    beats_per_bar: int,
+    chords_for_bars: list[str],
+    motif: dict[str, Any],
+    density: Level,
+    variation: Level,
+    dance_type: str,
+    tonic: int,
+    mode: str,
+    transform_q: Literal["prime", "invert", "answer", "sequence"],
+    register_bias: int,
+    sequence_semitones: int,
+    start_pitch: int | None,
+) -> tuple[list[dict[str, Any]], int]:
+    """Write one 2–4 bar phrase as a single line; only the last note is phrase_end."""
+    q_bars = (n_bars + 1) // 2
+    a_bars = n_bars - q_bars
+    notes: list[dict[str, Any]] = []
+
+    # Question half
+    sym_q = chords_for_bars[0]
+    q_pitches = _realize_motif(
+        rng,
+        motif,
+        tonic=tonic,
+        mode=mode,
+        symbol=sym_q,
+        start_pitch=start_pitch,
+        transform=transform_q,
+        register_bias=register_bias,
+        sequence_semitones=sequence_semitones,
+        n=int(motif["n_notes"]),
+    )
+    # Spread question across q_bars — one emit per bar, phrase_end only if no answer
+    for j in range(q_bars):
+        bar = start_bar + j
+        # Slice pitches across bars so the line continues
+        if q_bars == 1:
+            slice_p = q_pitches
+        else:
+            cut = max(2, len(q_pitches) * (j + 1) // q_bars)
+            prev = max(0, len(q_pitches) * j // q_bars)
+            slice_p = q_pitches[prev:cut] or q_pitches[-2:]
+        is_phrase_end = a_bars == 0 and j == q_bars - 1
+        # Mid-phrase bars: never phrase_end; keep density at structural level
+        bar_density: Level = density if j == q_bars - 1 or a_bars == 0 else (
+            "low" if density == "medium" else density if density == "low" else "medium"
+        )
+        emitted = _emit_bar_notes(
+            rng,
+            bar=bar,
+            beats_per_bar=beats_per_bar,
+            pitches=slice_p,
+            density=bar_density if not is_phrase_end else density,
+            variation=variation,
+            phrase_end=is_phrase_end,
+            role="question" if a_bars > 0 else "answer",
+            dance_type=dance_type,
+            voice="lead",
+            tonic=tonic,
+            mode=mode,
+            symbol=chords_for_bars[min(j, len(chords_for_bars) - 1)],
+            fixed_placements=list(motif["rhythm_question"]),
+        )
+        notes.extend(emitted)
+    last = q_pitches[-1]
+
+    # Answer half
+    if a_bars > 0:
+        sym_a = chords_for_bars[min(q_bars, len(chords_for_bars) - 1)]
+        a_pitches = _realize_motif(
+            rng,
+            motif,
+            tonic=tonic,
+            mode=mode,
+            symbol=sym_a,
+            start_pitch=last,
+            transform="answer",
+            register_bias=max(0, register_bias - 2),
+            sequence_semitones=0,
+            n=max(3, int(motif["n_notes"]) - 1),
+        )
+        for j in range(a_bars):
+            bar = start_bar + q_bars + j
+            if a_bars == 1:
+                slice_p = a_pitches
+            else:
+                cut = max(2, len(a_pitches) * (j + 1) // a_bars)
+                prev = max(0, len(a_pitches) * j // a_bars)
+                slice_p = a_pitches[prev:cut] or a_pitches[-2:]
+            is_phrase_end = j == a_bars - 1
+            bar_density = density if is_phrase_end else (
+                "low" if density != "low" else "low"
+            )
+            emitted = _emit_bar_notes(
+                rng,
+                bar=bar,
+                beats_per_bar=beats_per_bar,
+                pitches=slice_p,
+                density=bar_density,
+                variation=variation,
+                phrase_end=is_phrase_end,
+                role="answer",
+                dance_type=dance_type,
+                voice="lead",
+                tonic=tonic,
+                mode=mode,
+                symbol=chords_for_bars[min(q_bars + j, len(chords_for_bars) - 1)],
+                fixed_placements=list(motif["rhythm_answer"]),
+            )
+            notes.extend(emitted)
+        last = a_pitches[-1]
+
+    for n in notes:
+        n["phrase_bars"] = n_bars
+    return notes, last
 
 
 def _intro_melody(
@@ -1238,156 +1402,79 @@ def _melody_for_section(
 
     notes: list[dict[str, Any]] = []
     last_pitch: int | None = None
-    phrase_i = 0  # Q/A pair index — drives sequence amount
+    phrase_i = 0
     seq_unit = int(motif.get("sequence_interval") or 0)
 
-    i = 0
-    while i < bars:
-        bar_q = start_bar + i
-        if bar_q in pause:
-            i += 1
-            continue
+    phrases = _partition_phrases(
+        bars=bars,
+        start_bar=start_bar,
+        chords_for_bars=chords_for_bars,
+        pause=pause,
+        dance_type=dance_type,
+    )
 
-        tag_q = _drama_tag_for_bar(bar_q, drama)
-        local_density = _density_for_drama(density, tag_q, dance_type=dance_type)
-
-        symbol_q = chords_for_bars[i]
-        is_pair = i + 1 < bars and (start_bar + i + 1) not in pause
-        role_first: Literal["question", "answer"] = "question" if is_pair else "answer"
-        reg_q = _register_for_drama(tag_q, phrase_i)
-        if reg_q == 0:
-            reg_q = _phrase_register_bias(
+    for local_start, plen in phrases:
+        abs_start = start_bar + local_start
+        tags = [_drama_tag_for_bar(abs_start + k, drama) for k in range(plen)]
+        if "climax" in tags:
+            tag = "climax"
+        elif "anticipate" in tags:
+            tag = "anticipate"
+        elif "rise" in tags:
+            tag = "rise"
+        else:
+            tag = tags[0] if tags else "normal"
+        local_density = _density_for_drama(density, tag, dance_type=dance_type)
+        reg = _register_for_drama(tag, phrase_i)
+        if reg == 0:
+            reg = _phrase_register_bias(
                 rng,
                 section_name=section_name,
-                role=role_first,
+                role="question",
                 drama_high=False,
                 variation=var,
             )
 
-        # Piece DNA: develop motif — rarely abandon for surface colour
-        abandon = var >= 0.8 and section_name == "B" and rng.random() < 0.18
         if section_name == "B":
             seq = seq_unit * (1 + phrase_i // 2)
-            q_transform: Literal["prime", "invert", "answer", "sequence"] = (
+            transform_q: Literal["prime", "invert", "answer", "sequence"] = (
                 "invert" if phrase_i % 2 else "sequence"
             )
         elif section_name == "A_prime":
             seq = seq_unit if phrase_i >= 2 else 0
-            q_transform = "prime"
-            reg_q = reg_q or (12 if phrase_i == 0 and rng.random() < 0.5 else 0)
-        else:  # A
-            seq = seq_unit * (phrase_i // 3)  # gentle rise later in A
-            q_transform = "prime"
-
-        if abandon:
-            q_pitches = _phrase_contour(
-                rng,
-                n=min(4, max(2, notes_per_bar // 2)),
-                role=role_first,
-                tonic=tonic,
-                mode=mode,
-                symbol=symbol_q,
-                start_pitch=last_pitch,
-                variation=var,
-                register_bias=reg_q,
-            )
-            q_places = None
+            transform_q = "prime"
+            reg = reg or (12 if phrase_i == 0 and rng.random() < 0.45 else 0)
         else:
-            q_pitches = _realize_motif(
-                rng,
-                motif,
-                tonic=tonic,
-                mode=mode,
-                symbol=symbol_q,
-                start_pitch=last_pitch if phrase_i > 0 else None,
-                transform=q_transform,
-                register_bias=reg_q,
-                sequence_semitones=seq,
-                n=int(motif["n_notes"]),
-            )
-            q_places = list(motif["rhythm_question"])
+            seq = seq_unit * (phrase_i // 3)
+            transform_q = "prime"
 
-        emitted = _emit_bar_notes(
+        chord_slice = chords_for_bars[local_start : local_start + plen]
+        emitted, last_pitch = _emit_phrase(
             rng,
-            bar=bar_q,
+            start_bar=abs_start,
+            n_bars=plen,
             beats_per_bar=beats_per_bar,
-            pitches=q_pitches,
+            chords_for_bars=chord_slice,
+            motif=motif,
             density=local_density,
             variation=variation,
-            phrase_end=not is_pair,
-            role=role_first,
             dance_type=dance_type,
-            voice="lead",
             tonic=tonic,
             mode=mode,
-            symbol=symbol_q,
-            fixed_placements=q_places,
+            transform_q=transform_q,
+            register_bias=reg,
+            sequence_semitones=seq,
+            start_pitch=last_pitch if phrase_i > 0 else None,
         )
         for n in emitted:
             n["_bpb"] = beats_per_bar
         notes.extend(emitted)
-        last_pitch = q_pitches[-1]
-        i += 1
-
-        if not is_pair:
-            phrase_i += 1
-            continue
-
-        bar_a = start_bar + i
-        if bar_a in pause:
-            i += 1
-            phrase_i += 1
-            continue
-
-        tag_a = _drama_tag_for_bar(bar_a, drama)
-        local_density = _density_for_drama(density, tag_a, dance_type=dance_type)
-        reg_a = _register_for_drama(tag_a, phrase_i)
-        if reg_a == 0:
-            reg_a = _phrase_register_bias(
-                rng,
-                section_name=section_name,
-                role="answer",
-                drama_high=False,
-                variation=var,
-            )
-        symbol_a = chords_for_bars[i]
-        a_pitches = _realize_motif(
-            rng,
-            motif,
-            tonic=tonic,
-            mode=mode,
-            symbol=symbol_a,
-            start_pitch=last_pitch,
-            transform="answer",
-            register_bias=reg_a,
-            sequence_semitones=seq if section_name == "B" else 0,
-            n=max(3, int(motif["n_notes"]) - 1),
-        )
-        emitted = _emit_bar_notes(
-            rng,
-            bar=bar_a,
-            beats_per_bar=beats_per_bar,
-            pitches=a_pitches,
-            density=local_density,
-            variation=variation,
-            phrase_end=True,
-            role="answer",
-            dance_type=dance_type,
-            voice="lead",
-            tonic=tonic,
-            mode=mode,
-            symbol=symbol_a,
-            fixed_placements=list(motif["rhythm_answer"]),
-        )
-        for n in emitted:
-            n["_bpb"] = beats_per_bar
-        notes.extend(emitted)
-        last_pitch = a_pitches[-1]
-        # Keep a short absolute snapshot for coda fallback / UI
         if section_name == "A" and phrase_i == 0:
-            theme_state["cells"] = [list(q_pitches), list(a_pitches)]
+            # Snapshot first phrase contour for coda fallback
+            lead_ps = [n["pitch"] for n in emitted if n.get("voice") == "lead"]
+            mid = max(1, len(lead_ps) // 2)
+            theme_state["cells"] = [lead_ps[:mid], lead_ps[mid:] or lead_ps[-2:]]
         phrase_i += 1
-        i += 1
 
     return _annotate_drama(notes, drama)
 

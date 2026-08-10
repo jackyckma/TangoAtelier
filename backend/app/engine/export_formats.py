@@ -12,6 +12,8 @@ _PART_NAMES = {
     "piano_lh": "Piano LH",
     "piano_rh": "Piano RH",
     "bandoneon": "Bandoneón",
+    "violin": "Violin",
+    "cello": "Cello",
     "strings": "Strings",
 }
 
@@ -44,8 +46,8 @@ def draft_to_score(draft: PieceDraft) -> stream.Score:
         target.insert(offset, m21)
 
     # Insert parts that have content (RH before LH for piano-score reading habit)
-    for track_id in ("piano_rh", "piano_lh", "bandoneon", "strings"):
-        if len(parts[track_id].notes) > 0:
+    for track_id in ("piano_rh", "piano_lh", "bandoneon", "violin", "cello", "strings"):
+        if track_id in parts and len(parts[track_id].notes) > 0:
             score.insert(0, parts[track_id])
     return score
 

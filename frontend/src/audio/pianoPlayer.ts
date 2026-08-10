@@ -6,7 +6,8 @@ const SALAMANDER_BASE = 'https://tonejs.github.io/audio/salamander/'
 
 let sampler: Tone.Sampler | null = null
 let bandoneon: Tone.PolySynth | null = null
-let strings: Tone.PolySynth | null = null
+let violin: Tone.PolySynth | null = null
+let cello: Tone.PolySynth | null = null
 let loadPromise: Promise<void> | null = null
 
 export type PlaybackHandlers = {
@@ -19,7 +20,7 @@ export type PlaybackHandlers = {
 }
 
 async function ensureInstruments(): Promise<void> {
-  if (sampler?.loaded && bandoneon && strings) return
+  if (sampler?.loaded && bandoneon && violin && cello) return
   if (!loadPromise) {
     loadPromise = (async () => {
       const s = new Tone.Sampler({
@@ -59,7 +60,7 @@ async function ensureInstruments(): Promise<void> {
         baseUrl: SALAMANDER_BASE,
       }).toDestination()
 
-      // Interim stand-ins — PolySynth so bandoneón can hold chords
+      // Interim stand-ins until real bandoneón / string samples
       const bn = new Tone.PolySynth(Tone.Synth, {
         oscillator: { type: 'sawtooth' },
         envelope: { attack: 0.08, decay: 0.3, sustain: 0.65, release: 0.6 },
@@ -67,17 +68,27 @@ async function ensureInstruments(): Promise<void> {
       bn.volume.value = -12
       bn.maxPolyphony = 8
 
-      const st = new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: 'triangle' },
-        envelope: { attack: 0.3, decay: 0.4, sustain: 0.75, release: 1.4 },
+      // Violin: brighter, quicker bow attack
+      const vn = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'sawtooth' },
+        envelope: { attack: 0.18, decay: 0.35, sustain: 0.7, release: 1.1 },
       }).toDestination()
-      st.volume.value = -16
-      st.maxPolyphony = 8
+      vn.volume.value = -18
+      vn.maxPolyphony = 6
+
+      // Cello: darker, slower pad under the band
+      const vc = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'triangle' },
+        envelope: { attack: 0.35, decay: 0.45, sustain: 0.8, release: 1.6 },
+      }).toDestination()
+      vc.volume.value = -15
+      vc.maxPolyphony = 6
 
       await Tone.loaded()
       sampler = s
       bandoneon = bn
-      strings = st
+      violin = vn
+      cello = vc
     })()
   }
   await loadPromise
@@ -94,7 +105,8 @@ export function stopPlayback() {
   transport.cancel(0)
   sampler?.releaseAll()
   bandoneon?.releaseAll()
-  strings?.releaseAll()
+  violin?.releaseAll()
+  cello?.releaseAll()
 }
 
 function trigger(
@@ -108,8 +120,12 @@ function trigger(
     bandoneon.triggerAttackRelease(midiNote, dur, time, vel * 0.55)
     return
   }
-  if (track === 'strings' && strings) {
-    strings.triggerAttackRelease(midiNote, dur, time, vel * 0.4)
+  if ((track === 'violin' || track === 'strings') && violin) {
+    violin.triggerAttackRelease(midiNote, dur, time, vel * 0.38)
+    return
+  }
+  if (track === 'cello' && cello) {
+    cello.triggerAttackRelease(midiNote, dur, time, vel * 0.42)
     return
   }
   sampler?.triggerAttackRelease(midiNote, dur, time, vel)

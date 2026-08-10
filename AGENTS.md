@@ -36,7 +36,12 @@ See `docs/AGENT_ENV.md` for local vs cloud capability matrix.
 - Prefer a rule-engine music path (not AI music APIs as the core); playback should sound musical, not like a cheap synth.
 - Preferred compose UX: generate a dance-type skeleton first (Tango / Milonga / Waltz plus shared params such as key, progression, form), then let users compare orchestra-style renderings of the same piece.
 - Keep generation/playback on the orchestra detail view so users can read the orchestra description while listening.
-- Orchestra style rendering should aim beyond crude rhythm caricatures (decoration, relative instrument balance, optional backdrop instruments) so Golden Age styles are not oversimplified for aficionados.
+- Orchestra style rendering should aim beyond crude rhythm caricatures (decoration, relative instrument balance, optional backdrop instruments, distinct lead vs harmonic roles) so Golden Age styles are not oversimplified for aficionados.
+- Generated pieces should feel like playable tango songs with a clear lead melody and form-level drama (intro/bridge/coda, tension/release), not looping background music.
+- Milonga and vals need dance-specific skeleton rules; vals at high BPM must stay lyrical and must not inherit tango-style dense 16th/32nd figuration.
+- Prefer piece-level compositional building blocks (form, progression changes, relative major/minor, fixed framework vs surface variation) over mechanical per-note randomness.
+- While playing, show chord-progression visualization in bar groups to support learning and listening diagnosis.
+- Melody and LH should follow performance practice: phrase/motive shapes with useful register span; accompaniment that mixes block and broken chords rather than one ostinato.
 
 ## Learned Workspace Facts
 
@@ -46,3 +51,4 @@ See `docs/AGENT_ENV.md` for local vs cloud capability matrix.
 - Phase 0 ships six orchestras as a starter set covering four personalities, not a hard roster cap; more orchestras from research docs can be added later as Style Profiles.
 - Save / rename / share of generated pieces is planned for Phase 5, not earlier phases by default.
 - Generation pipeline center of gravity: music21 Score → MusicXML (primary), MIDI, and note-event JSON for Tone.js + teaching hints.
+- Compose flow center of gravity: dance-type skeleton (shared harmony/melody/form) then per-orchestra style render; simple skeleton playback is a first-class comparison baseline.
