@@ -1026,6 +1026,98 @@ def _partition_phrases(
     return phrases
 
 
+def _tonic_symbol(mode: str) -> str:
+    return "i" if mode == "minor" else "I"
+
+
+def _pick_dominant(rng: random.Random, mode: str, *, spicy: bool) -> str:
+    """Phrase-boundary dominant — V7b9 is a teaching tango colour in minor."""
+    if mode == "minor":
+        if spicy and rng.random() < 0.55:
+            return "V7b9"
+        return "V7" if rng.random() < 0.8 else "V"
+    return "V7" if rng.random() < 0.7 else "V"
+
+
+def _apply_phrase_cadences(
+    symbols: list[str],
+    phrases: list[tuple[int, int]],
+    *,
+    mode: str,
+    section_name: str,
+    rng: random.Random,
+) -> tuple[list[str], dict[int, str]]:
+    """Force phrase-level cadences; leave mid-phrase chords from the progression.
+
+    Question half → half cadence (dominant). Answer / phrase end → tonic.
+    When the answer is ≥2 bars, penultimate bar is dominant approach.
+    """
+    out = list(symbols)
+    roles: dict[int, str] = {}
+    tonic = _tonic_symbol(mode)
+    n = len(out)
+    if n == 0:
+        return out, roles
+
+    if section_name == "intro":
+        # Establish tonic; optional soft open on last bar only if short
+        if n >= 1:
+            out[0] = tonic
+        return out, roles
+
+    if section_name == "bridge":
+        # Pivot hangs on dominant so the next section can resolve
+        spicy = rng.random() < 0.35
+        for i in range(max(0, n - 2), n):
+            out[i] = _pick_dominant(rng, mode, spicy=spicy)
+            roles[i] = "half"
+        return out, roles
+
+    if section_name == "coda":
+        if n >= 2:
+            out[-2] = _pick_dominant(rng, mode, spicy=False)
+            roles[n - 2] = "approach"
+        out[-1] = tonic
+        roles[n - 1] = "authentic"
+        return out, roles
+
+    spicy_section = section_name in ("B", "A_prime")
+    for local_start, plen in phrases:
+        if plen <= 0 or local_start >= n:
+            continue
+        end = min(local_start + plen, n)
+        plen = end - local_start
+        if plen <= 0:
+            continue
+
+        q_bars = (plen + 1) // 2
+        a_bars = plen - q_bars
+
+        if a_bars == 0:
+            # Rare short phrase: still land tonic; dominant approach if possible
+            last = local_start + plen - 1
+            out[last] = tonic
+            roles[last] = "authentic"
+            if plen >= 2:
+                prev = last - 1
+                out[prev] = _pick_dominant(rng, mode, spicy=spicy_section)
+                roles[prev] = "approach"
+            continue
+
+        q_end = local_start + q_bars - 1
+        a_end = local_start + plen - 1
+        out[q_end] = _pick_dominant(rng, mode, spicy=spicy_section)
+        roles[q_end] = "half"
+        out[a_end] = tonic
+        roles[a_end] = "authentic"
+        if a_bars >= 2:
+            prev = a_end - 1
+            out[prev] = _pick_dominant(rng, mode, spicy=False)
+            roles[prev] = "approach"
+
+    return out, roles
+
+
 def _emit_phrase(
     rng: random.Random,
     *,
@@ -1574,22 +1666,44 @@ def build_skeleton(
             else:
                 symbol = section_symbols[-1] if section_symbols else prog[0]
             section_symbols.append(symbol)
+
+        # E1: phrase-level cadence hard rules (mid-phrase keeps progression colour)
+        pause = set(drama.get("pause_bars") or [])
+        phrases = _partition_phrases(
+            bars=section_bars,
+            start_bar=section_start_bar,
+            chords_for_bars=section_symbols,
+            pause=pause,
+            dance_type=dance_type,
+        )
+        section_symbols, cadence_roles = _apply_phrase_cadences(
+            section_symbols,
+            phrases,
+            mode=str(sec["mode"]),
+            section_name=section_name,
+            rng=rng,
+        )
+
+        for j in range(section_bars):
+            symbol = section_symbols[j]
             energy = float((drama.get("energy") or {}).get(bar, 0.5))
             tag = _drama_tag_for_bar(bar, drama)
-            chords.append(
-                {
-                    "bar": bar,
-                    "symbol": symbol,
-                    "start_beat": bar * beats_per_bar,
-                    "duration_beats": beats_per_bar,
-                    "key": sec["key"],
-                    "mode": sec["mode"],
-                    "tonic": sec["tonic"],
-                    "section": section_name,
-                    "drama": tag,
-                    "energy": energy,
-                }
-            )
+            entry: dict[str, Any] = {
+                "bar": bar,
+                "symbol": symbol,
+                "start_beat": bar * beats_per_bar,
+                "duration_beats": beats_per_bar,
+                "key": sec["key"],
+                "mode": sec["mode"],
+                "tonic": sec["tonic"],
+                "section": section_name,
+                "drama": tag,
+                "energy": energy,
+            }
+            role = cadence_roles.get(j)
+            if role:
+                entry["cadence"] = role
+            chords.append(entry)
             bar += 1
 
         # What the listener actually hears (collapse held repeats) — not the unused template tail
@@ -1601,6 +1715,10 @@ def build_skeleton(
         sec["bar_to"] = bar
         sec["progression_template"] = list(prog)
         sec["progression"] = realized
+        sec["phrases"] = [
+            {"bar_from": section_start_bar + s + 1, "bars": plen}
+            for s, plen in phrases
+        ]
 
         dens: Level = melody_density
         if section_name == "B" and melody_density == "high":

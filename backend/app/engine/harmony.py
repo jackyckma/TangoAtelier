@@ -59,7 +59,9 @@ def _root_for_degree(tonic: int, mode: str, degree: int) -> int:
 
 
 def _quality_for(symbol: str, mode: str) -> tuple[int, ...]:
-    if symbol in ("V7", "V7b9", "V"):
+    if symbol == "V7b9":
+        return (0, 4, 7, 10, 13)  # dominant 7 + flat 9 (13≡1)
+    if symbol in ("V7", "V"):
         return DOM7 if "7" in symbol else TRIAD_MAJ
     if symbol in ("i", "iv", "vi", "ii", "iii"):
         return TRIAD_MIN
