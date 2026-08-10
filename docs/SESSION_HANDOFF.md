@@ -1,7 +1,7 @@
 # Session handoff
 
 **Last updated:** 2026-08-10  
-**Branch:** `main`（E1 實作待 push 後更新 hash）
+**Branch:** `main` @ `2eaddb2`（E1 phrase cadences）
 
 ## Resume here
 
