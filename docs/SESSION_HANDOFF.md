@@ -1,7 +1,7 @@
 # Session handoff
 
 **Last updated:** 2026-08-10  
-**Branch:** `main`（E2 待 push 後填 hash）
+**Branch:** `main` @ `645995f`（E2 A′ elaboration）
 
 ## Resume here
 
