@@ -526,83 +526,176 @@ def _build_drama_map(
     dance_type: str,
     variation: Level,
 ) -> dict[str, Any]:
-    """Per-bar tension plan: pauses (silence), dense bursts, climax."""
+    """Tension arc: rise → anticipate → climax → release (not a sudden density dump)."""
     bar_sections: list[str] = []
     for name, n in sections:
         bar_sections.extend([name] * n)
     total = len(bar_sections)
     var = VARIATION_STRENGTH[variation]
 
-    # Climax: late A_prime, else late final A before coda
+    # Climax peak: late A_prime (or late thematic material)
     climax_candidates = [i for i, s in enumerate(bar_sections) if s == "A_prime"]
     if not climax_candidates:
         climax_candidates = [i for i, s in enumerate(bar_sections) if s in ("A", "B")]
     climax_bar = (
-        climax_candidates[int(len(climax_candidates) * 0.7)]
+        climax_candidates[int(len(climax_candidates) * 0.72)]
         if climax_candidates
         else max(0, total - 5)
     )
-    # Stretch climax across 2–3 bars
-    climax_bars = {climax_bar, min(total - 1, climax_bar + 1)}
-    if var > 0.5:
-        climax_bars.add(min(total - 1, climax_bar + 2))
+    # Peak is short — 1–2 bars, not a 3-bar machine-gun
+    climax_bars = {climax_bar}
+    if var >= 0.5 and climax_bar + 1 < total and bar_sections[climax_bar + 1] == bar_sections[climax_bar]:
+        climax_bars.add(climax_bar + 1)
 
+    # Approach window (bars before peak)
+    rise_len = 3 if dance_type == "vals" else 4
+    rise_bars = {
+        i
+        for i in range(max(0, climax_bar - rise_len), climax_bar - 1)
+        if bar_sections[i] in ("A", "A_prime", "B")
+    }
+    anticipate_bar = climax_bar - 1
+    anticipate_bars: set[int] = set()
+    if anticipate_bar >= 0 and bar_sections[anticipate_bar] in ("A", "A_prime", "B"):
+        anticipate_bars.add(anticipate_bar)
+        rise_bars.discard(anticipate_bar)
+
+    release_bars = {
+        i
+        for i in range(max(climax_bars) + 1, min(total, max(climax_bars) + 3))
+        if bar_sections[i] in ("A", "A_prime", "B", "coda")
+    }
+
+    # Phrase-end air — never inside the approach/peak window (that kills anticipation)
+    protected = rise_bars | anticipate_bars | climax_bars | release_bars
     pause_bars: set[int] = set()
-    # Phrase-end holes (classic tango air) — more in tango than milonga
-    pause_budget = (3 if dance_type == "tango" else 1) + int(var * 3)
+    pause_budget = (2 if dance_type == "tango" else 1) + int(var * 2)
     pause_pool = [
         i
         for i, s in enumerate(bar_sections)
-        if s in ("A", "A_prime", "B") and i % 4 == 3 and i not in climax_bars
+        if s in ("A", "A_prime", "B") and i % 4 == 3 and i not in protected
     ]
     rng.shuffle(pause_pool)
     for i in pause_pool[:pause_budget]:
         pause_bars.add(i)
-    # Breath into coda
+    # One breath on the downbeat into coda (not every coda bar)
     for i, s in enumerate(bar_sections):
-        if s == "coda" and i > 0 and bar_sections[i - 1] != "coda":
-            pause_bars.add(i - 1)
+        if s == "coda" and (i == 0 or bar_sections[i - 1] != "coda"):
+            if i > 0 and (i - 1) not in protected:
+                pause_bars.add(i - 1)
 
+    # Mid-piece colour bursts — away from the climax approach
     dense_bars: set[int] = set()
-    dense_budget = (1 if dance_type == "vals" else 2) + int(var * 3)
+    dense_budget = 1 + int(var * 2)
+    if dance_type == "vals":
+        dense_budget = max(0, dense_budget - 1)
     dense_pool = [
         i
         for i, s in enumerate(bar_sections)
-        if s in ("A", "A_prime", "B") and i not in pause_bars
+        if s in ("A", "B")
+        and i not in pause_bars
+        and i not in protected
+        and abs(i - climax_bar) > rise_len + 1
     ]
-    # Prefer just before climax
-    dense_pool.sort(key=lambda i: abs(i - climax_bar))
+    rng.shuffle(dense_pool)
     for i in dense_pool[:dense_budget]:
         dense_bars.add(i)
 
+    # Smooth energy: ramp through rise → hold breath on anticipate → peak → settle
     energy: dict[int, float] = {}
     for i, s in enumerate(bar_sections):
         if s == "intro":
-            e = 0.25
+            e = 0.22
         elif s == "bridge":
-            e = 0.55 + 0.1 * var
+            e = 0.5
         elif s == "coda":
-            e = 0.35
+            e = 0.32
         elif s == "B":
-            e = 0.65
+            e = 0.58
         elif s == "A_prime":
-            e = 0.7
+            e = 0.55
         else:
-            e = 0.45 + 0.2 * (i / max(1, total - 1))
-        if i in dense_bars:
-            e = min(1.0, e + 0.15)
+            e = 0.4 + 0.12 * (i / max(1, total - 1))
+
+        if i in rise_bars:
+            # 0.55 → ~0.85 across the rise window
+            order = sorted(rise_bars)
+            idx = order.index(i) if i in order else 0
+            e = 0.55 + 0.3 * ((idx + 1) / max(1, len(order)))
+        if i in anticipate_bars:
+            e = 0.78  # charged but not exploded
         if i in climax_bars:
             e = 1.0
+        if i in release_bars:
+            order = sorted(release_bars)
+            idx = order.index(i) if i in order else 0
+            e = 0.85 - 0.2 * ((idx + 1) / max(1, len(order)))
+        if i in dense_bars:
+            e = min(0.9, e + 0.1)
         if i in pause_bars:
-            e = max(0.1, e - 0.35)
+            e = max(0.12, e - 0.3)
         energy[i] = round(e, 3)
 
     return {
         "climax_bars": sorted(climax_bars),
         "pause_bars": sorted(pause_bars),
         "dense_bars": sorted(dense_bars),
+        "rise_bars": sorted(rise_bars),
+        "anticipate_bars": sorted(anticipate_bars),
+        "release_bars": sorted(release_bars),
         "energy": energy,
     }
+
+
+def _drama_tag_for_bar(bar: int, drama: dict[str, Any]) -> str:
+    if bar in set(drama.get("pause_bars") or []):
+        return "pause"
+    if bar in set(drama.get("climax_bars") or []):
+        return "climax"
+    if bar in set(drama.get("anticipate_bars") or []):
+        return "anticipate"
+    if bar in set(drama.get("rise_bars") or []):
+        return "rise"
+    if bar in set(drama.get("release_bars") or []):
+        return "release"
+    if bar in set(drama.get("dense_bars") or []):
+        return "dense"
+    return "normal"
+
+
+def _density_for_drama(base: Level, tag: str, *, dance_type: str) -> Level:
+    """Drama shapes intensity via energy/register — not sudden note sprays."""
+    order: list[Level] = ["low", "medium", "high"]
+    idx = order.index(base) if base in order else 1
+    if tag == "anticipate":
+        # Thin the lead so the peak can land
+        return order[max(0, idx - 1)]
+    if tag == "rise":
+        return base  # same note count, rising register/energy elsewhere
+    if tag == "climax":
+        if dance_type == "vals":
+            return base
+        return order[min(2, idx + 1)]  # one step up only
+    if tag == "release":
+        return order[max(0, idx - 1)] if base == "high" else base
+    if tag == "dense":
+        return order[min(2, idx + 1)]
+    return base
+
+
+def _register_for_drama(tag: str, phrase_i: int) -> int:
+    """Gradual register climb into climax — no post-hoc octave dump."""
+    if tag == "rise":
+        return 5 if phrase_i % 2 == 0 else 7
+    if tag == "anticipate":
+        return 7
+    if tag == "climax":
+        return 12
+    if tag == "release":
+        return 0
+    if tag == "dense":
+        return 5
+    return 0
 
 
 def _tag_voice(notes: list[dict[str, Any]], voice: str) -> list[dict[str, Any]]:
@@ -1045,8 +1138,6 @@ def _annotate_drama(
     drama: dict[str, Any],
 ) -> list[dict[str, Any]]:
     pause = set(drama.get("pause_bars") or [])
-    climax = set(drama.get("climax_bars") or [])
-    dense = set(drama.get("dense_bars") or [])
     energy = drama.get("energy") or {}
     out: list[dict[str, Any]] = []
     for n in notes:
@@ -1054,16 +1145,15 @@ def _annotate_drama(
         bar = int(float(n["start_beat"]) // bpb)
         if bar in pause and n.get("voice") == "lead":
             continue  # dramatic hole — drop lead note
-        if bar in climax:
-            # Lift register without stacking everything on the same top pitch
-            p = int(n["pitch"])
-            n["pitch"] = _clamp_melody(p + (12 if p <= 72 else 5))
-            n["drama"] = "climax"
-            n["duration_beats"] = round(float(n["duration_beats"]) * 1.15, 3)
-        elif bar in dense:
-            n["drama"] = "dense"
-        else:
-            n["drama"] = "normal"
+        tag = _drama_tag_for_bar(bar, drama)
+        n["drama"] = tag
+        # Sustain into the peak; don't chop anticipation into dust
+        if tag == "anticipate":
+            n["duration_beats"] = round(float(n["duration_beats"]) * 1.2, 3)
+        elif tag == "climax":
+            n["duration_beats"] = round(float(n["duration_beats"]) * 1.12, 3)
+        elif tag == "rise":
+            n["duration_beats"] = round(float(n["duration_beats"]) * 1.05, 3)
         n["energy"] = energy.get(bar, 0.5)
         out.append(n)
     return out
@@ -1088,8 +1178,6 @@ def _melody_for_section(
     theme_state = theme_state if theme_state is not None else {}
     drama = drama or {}
     pause = set(drama.get("pause_bars") or [])
-    dense = set(drama.get("dense_bars") or [])
-    climax = set(drama.get("climax_bars") or [])
 
     if section_name == "intro":
         notes = _intro_melody(
@@ -1160,20 +1248,21 @@ def _melody_for_section(
             i += 1
             continue
 
-        local_density: Level = density
-        if bar_q in dense or bar_q in climax:
-            local_density = "high"
+        tag_q = _drama_tag_for_bar(bar_q, drama)
+        local_density = _density_for_drama(density, tag_q, dance_type=dance_type)
 
         symbol_q = chords_for_bars[i]
         is_pair = i + 1 < bars and (start_bar + i + 1) not in pause
         role_first: Literal["question", "answer"] = "question" if is_pair else "answer"
-        reg_q = _phrase_register_bias(
-            rng,
-            section_name=section_name,
-            role=role_first,
-            drama_high=bar_q in climax or bar_q in dense,
-            variation=var,
-        )
+        reg_q = _register_for_drama(tag_q, phrase_i)
+        if reg_q == 0:
+            reg_q = _phrase_register_bias(
+                rng,
+                section_name=section_name,
+                role=role_first,
+                drama_high=False,
+                variation=var,
+            )
 
         # Piece DNA: develop motif — rarely abandon for surface colour
         abandon = var >= 0.8 and section_name == "B" and rng.random() < 0.18
@@ -1250,14 +1339,17 @@ def _melody_for_section(
             phrase_i += 1
             continue
 
-        local_density = "high" if bar_a in dense or bar_a in climax else density
-        reg_a = _phrase_register_bias(
-            rng,
-            section_name=section_name,
-            role="answer",
-            drama_high=bar_a in climax or bar_a in dense,
-            variation=var,
-        )
+        tag_a = _drama_tag_for_bar(bar_a, drama)
+        local_density = _density_for_drama(density, tag_a, dance_type=dance_type)
+        reg_a = _register_for_drama(tag_a, phrase_i)
+        if reg_a == 0:
+            reg_a = _phrase_register_bias(
+                rng,
+                section_name=section_name,
+                role="answer",
+                drama_high=False,
+                variation=var,
+            )
         symbol_a = chords_for_bars[i]
         a_pitches = _realize_motif(
             rng,
@@ -1396,13 +1488,7 @@ def build_skeleton(
                 symbol = section_symbols[-1] if section_symbols else prog[0]
             section_symbols.append(symbol)
             energy = float((drama.get("energy") or {}).get(bar, 0.5))
-            tag = "normal"
-            if bar in set(drama.get("climax_bars") or []):
-                tag = "climax"
-            elif bar in set(drama.get("pause_bars") or []):
-                tag = "pause"
-            elif bar in set(drama.get("dense_bars") or []):
-                tag = "dense"
+            tag = _drama_tag_for_bar(bar, drama)
             chords.append(
                 {
                     "bar": bar,
@@ -1470,6 +1556,9 @@ def build_skeleton(
             "climax_bars": [b + 1 for b in drama["climax_bars"]],
             "pause_bars": [b + 1 for b in drama["pause_bars"]],
             "dense_bars": [b + 1 for b in drama["dense_bars"]],
+            "rise_bars": [b + 1 for b in drama.get("rise_bars", [])],
+            "anticipate_bars": [b + 1 for b in drama.get("anticipate_bars", [])],
+            "release_bars": [b + 1 for b in drama.get("release_bars", [])],
         },
         "melody_density": melody_density,
         "melody_variation": melody_variation,

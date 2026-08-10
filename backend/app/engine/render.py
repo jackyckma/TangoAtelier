@@ -217,40 +217,45 @@ def _render_melody(
         elif staccato == "low" or voice == "lead":
             dur *= 1.08 if voice == "lead" else 1.0
         if drama == "dense":
-            dur *= 0.75
+            dur *= 0.85
+        elif drama == "anticipate":
+            dur *= 1.15  # held tension
+        elif drama == "rise":
+            dur *= 1.05
         if voice == "lead":
             vel = 96 if staccato != "low" else 88
         elif voice == "fill":
             vel = 64
         else:
             vel = 78
-        # Energy arc → velocity (climax punches harder)
+        # Energy arc → velocity (build, don't teleport)
         vel = int(vel * (0.75 + 0.45 * energy))
         if drama == "climax":
-            vel = min(127, vel + 12)
-            # Octave reinforcement for a short dramatic peak
-            notes.append(
-                NoteEvent(pitch - 12, start, max(0.05, dur * 0.9), max(50, vel - 25), "piano_rh")
-            )
+            vel = min(127, vel + 10)
+        elif drama == "anticipate":
+            vel = max(48, vel - 6)
         notes.append(NoteEvent(pitch, start, max(0.05, dur), min(127, vel), "piano_rh"))
 
-        # Style voicing: octave doubles + occasional mid-chord under longer lead notes
+        # Style voicing: doubles land on phrase ends / climax peaks — not every note
         if voice == "lead" and dur >= spb * 0.35:
             p_double = double_rate
-            if drama == "climax":
-                p_double = min(1.0, p_double + 0.35)
+            if drama == "climax" and phrase_end:
+                p_double = min(1.0, p_double + 0.4)
+            elif drama == "rise" and phrase_end:
+                p_double = min(1.0, p_double + 0.15)
             elif phrase_end:
                 p_double = min(1.0, p_double + 0.2)
+            elif drama == "climax":
+                p_double *= 0.35  # avoid stacking octaves on every climax attack
+            else:
+                p_double *= 0.55
             if rng.random() < p_double:
                 below = pitch - 12
                 if below >= 48:
                     notes.append(
                         NoteEvent(below, start, max(0.05, dur * 0.92), max(48, vel - 22), "piano_rh")
                     )
-                # Dense / powerful styles: add a chord tone under the melody tip
-                if voicing_style in ("dense_dramatic", "octave_unison_bass") and (
-                    phrase_end or drama == "climax" or rng.random() < 0.35
-                ):
+                if voicing_style in ("dense_dramatic", "octave_unison_bass") and phrase_end:
                     mid = pitch - rng.choice([3, 4, 5, 7])
                     if mid >= 55:
                         notes.append(
@@ -264,8 +269,10 @@ def _render_melody(
                         )
 
         orn_p = decoration
-        if drama == "climax":
-            orn_p = min(1.0, decoration + 0.35)
+        if drama == "climax" and phrase_end:
+            orn_p = min(1.0, decoration + 0.25)
+        elif drama in ("anticipate", "rise"):
+            orn_p *= 0.25  # keep the approach clean
         elif drama == "dense":
             orn_p *= 0.4
         if (
@@ -439,7 +446,7 @@ def render_skeleton(
                 articulation,
                 beats_per_bar=beats_per_bar,
                 voicing_style=voicing,
-                power=drama_tag in ("climax", "dense") or section in ("B", "A_prime"),
+                power=drama_tag in ("climax", "rise") or section == "B",
             )
             lh_scale = vols.get("piano_lh", 0.8)
             if section in ("intro", "bridge"):
@@ -450,8 +457,16 @@ def render_skeleton(
                 # Tango hole: keep a single bass hit or full silence
                 lh = lh[:1] if lh and rng.random() < 0.55 else []
                 lh_scale *= 0.55
+            elif drama_tag == "anticipate":
+                # Thin LH — leave air so the peak can land
+                lh = lh[: max(1, len(lh) // 2)]
+                lh_scale *= 0.7
+            elif drama_tag == "rise":
+                lh_scale *= 0.95 + 0.15 * energy
             elif drama_tag == "climax":
-                lh_scale *= 1.15
+                lh_scale *= 1.12
+            elif drama_tag == "release":
+                lh_scale *= 0.9
             elif drama_tag == "dense":
                 lh_scale *= 1.05
             else:
@@ -460,7 +475,10 @@ def render_skeleton(
                 # Drop some weak-beat LH under lead so melody isn't carpeted
                 if section in ("A", "A_prime", "B") and beats_per_bar == 2:
                     rel = (n.start - bar_start) / max(bar_len, 1e-6)
-                    if 0.4 < rel < 0.6 and n.velocity < 90 and drama_tag != "climax":
+                    if 0.4 < rel < 0.6 and n.velocity < 90 and drama_tag not in (
+                        "climax",
+                        "rise",
+                    ):
                         continue
                 n.velocity = _apply_vel(n.velocity, lh_scale)
                 notes.append(n)
