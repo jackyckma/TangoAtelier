@@ -15,7 +15,8 @@ Customize this file for **this repository**. Shared methodologies live in `.agen
 | One-liner | 雙語探戈音樂教學站：規則引擎生成原創 MIDI／MusicXML，配合 Hint 視覺化，學習黃金時代樂團風格與即興 |
 | Spec | `docs/product/tango-learning-webapp-project-doc.md` |
 | Plan | `docs/product/PROJECT_PLAN.md` |
-| Research | `docs/research/milonga_story1.md`, `docs/research/milonga_story2.md` |
+| Research | `docs/research/Tango_music_synthesis.md`（引擎分層）, `docs/research/milonga_story1.md`, `docs/research/milonga_story2.md` |
+| Engine backlog | `docs/product/PROJECT_PLAN.md` §3b（E0–E10，逐項聽驗） |
 
 ## Stack
 
