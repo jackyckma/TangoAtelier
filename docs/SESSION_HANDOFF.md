@@ -1,19 +1,18 @@
 # Session handoff
 
-**Last updated:** 2026-08-10  
-**Branch:** `main` @ `645995f`（E2 A′ elaboration）
+**Last updated:** 2026-08-11  
+**Branch:** `main`（E11 入 plan 待 push 後填 hash）
 
 ## Resume here
 
-1. **聽感驗收 E2**：工房選含 `A_prime` 的 form（如 `intro_aa_coda`）→ A 段 vs A′：LH 更動、裝飾／力度更滿  
-2. 下一實作：**E3 — 張力曲線跨層修正**
+1. 讀 `docs/product/PROJECT_PLAN.md` §3b — **E11 Motivic cells** 說明  
+2. 下一實作建議：**E11**（擴充現有 motif，勿平行重寫）；或依 founder 改開 **E3**
 
 ## Context
 
-- E2 skeleton：`_roll_a_prime_elaboration`；chord／`harmony_plan[].elaboration`  
-- E2 render／rhythm：`lh_upgrade`、`_render_melody` ornament／dynamics boost  
-- E1：`_apply_phrase_cadences`
+- E11：1–3 主題細胞、A／B 分配與交織、同 cell 由簡到繁（decoration／voicing／和弦應和／變調）  
+- E1–E2 已落地；單一 `motif` 仍在，E11 應接上而非取代重寫
 
 ## Top priority next
 
-人耳驗收 E2 → **E3**
+**E11** 入庫後等人耳／實作指令；plan 已含完整說明

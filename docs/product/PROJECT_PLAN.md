@@ -1,7 +1,7 @@
 # TangoAtelier — Multi-Phase Project Plan
 
-**Last updated:** 2026-08-10  
-**Status:** Phase 0–1 已落地；主流程為 **Skeleton → Style render**；引擎保真度 backlog（§3b）待逐項聽驗推進  
+**Last updated:** 2026-08-11  
+**Status:** Phase 0–1 已落地；主流程為 **Skeleton → Style render**；引擎保真度 E1–E2 done，**E11 Motivic cells** 已入 plan；下一刀建議 E11（或依聽感改 E3）  
 **Canonical product spec:** [tango-learning-webapp-project-doc.md](./tango-learning-webapp-project-doc.md)  
 **引擎分層規格（研究）：** [../research/Tango_music_synthesis.md](../research/Tango_music_synthesis.md)
 
@@ -75,7 +75,7 @@ Tone.js 播放（鋼琴 soundfont + 暫代 synth 聲部）
 | 節奏骨架 | Marcato en cuatro / en dos、Síncopa、Yumba、Habanera、3+3+2 | 最容易聽出差異的軸 |
 | 舞曲類型 | Tango / Vals / Milonga | 拍號與節奏骨架切換 |
 | 和聲模板庫 | 順階、下行五度、V7♭9、借用和弦頻率 | 柔情／戲劇系比節奏系更繞 |
-| 曲式段落 | intro–A–過渡–B–A'–coda；再現加花 | 避免整首同一個 loop |
+| 曲式段落 | intro–A–過渡–B–A'–coda；再現加花；**少數主題細胞交織（E11）** | 避免整首同一個 loop，又避免每句新發明 |
 | 音色／編制 | 鋼琴 → +吉他 → +bandoneón → 簡化 orchestra | 同骨架不同「衣服」 |
 | Articulation | staccato／rubato／留白／動態對比權重 | Biagi「突然空白」、Di Sarli 留白重量感 |
 | 隨機種子 | seed 可重現；未鎖定則每次不同 | 同參數也可多次抽樣 |
@@ -115,7 +115,8 @@ Tone.js 播放（鋼琴 soundfont + 暫代 synth 聲部）
 ### Phase 2 — 完整曲式、長度、再現闡述
 
 - [ ] 更完整 form：intro–A–過渡–B–過渡–A'–coda（長度約 2–4 分鐘可調）
-- [ ] **再現加花** → 主要落在 §3b **E2**（A′ 闡述變形表）
+- [x] **再現加花** → §3b **E2**（A′ 闡述變形表）— 已落地，聽感持續驗收
+- [ ] **主題細胞 1–3 個 + 段落交織** → §3b **E11**
 - [ ] 曲式慣例強化（8／16 小節傾向）→ **E0**
 
 **驗收：** 約 3 分鐘曲子有清楚段落對比；A′ 聽得出「同一主題講第二次、更豐富」。
@@ -190,6 +191,7 @@ Tone.js 播放（鋼琴 soundfont + 暫代 synth 聲部）
 | **E0** | 曲式慣例：段落長度偏 8／16；form 時間軸帶情緒等級 | Skeleton | §2 第一層 | 2 | pending | 段落邊界清楚，不像任意長度拼貼 |
 | **E1** | **樂句終止硬規則**（句末傾向 V／V7♭9→i 等）；中段才較自由 | Skeleton | §2 第二層 | 1–2 | done | 樂句「有收束」；仍跨風格共用 |
 | **E2** | **A′／再現闡述變形表**（裝飾↑、LH 織體升級、可選局部再和聲、動態↑） | 偏 Render（intent 可標在 Skeleton） | §2 第六層 | 2 | done | A 與 A′ 像同一故事講兩次，第二次更豐富 |
+| **E11** | **Motivic cells（主題細胞）**：1–3 個核心句；A／B 分配與交織；同 cell 上由簡到繁發展 | Skeleton 為主（Render 執行發展軸） | §2 第五／六層；§3.4 | 2 | pending | 哼得出核心句；後段仍是那句，只是更密／更滿／和聲更繞 |
 | **E3** | **張力曲線**當跨層修正（密度／不協和權重／decoration／力度） | Skeleton 目標 + Render 執行 | §3.3 | 2–7 | pending | 高潮／釋放可聽；非突然 dump 密集音 |
 | **E4** | **微人性化**：小幅 timing／velocity jitter（幅度之後接滑桿） | Render | §2 第三層 | 3／6 | pending | 少機械量化感；seed 仍可重現 |
 | **E5** | **風格表面再和聲**（借用／次屬等）；**不改**共享 chord grid 主幹 | Render | §2 第二／六層 | 2–3 | pending | 同 skeleton 和弦格仍對得上；風格聽感更繞／更直 |
@@ -202,7 +204,8 @@ Tone.js 播放（鋼琴 soundfont + 暫代 synth 聲部）
 ### 建議推進順序（聽感優先）
 
 ```
-E1 終止式 → E2 A′闡述 → E3 張力曲線
+E1 終止式 → E2 A′闡述 → E11 Motivic cells
+    → E3 張力曲線
     → E6 voice leading → E5 表面再和聲
     → E4 人性化 → E0 曲式慣例
     → E7 配器角色（搭 Phase 3）
@@ -210,15 +213,37 @@ E1 終止式 → E2 A′闡述 → E3 張力曲線
     → E9 / E10（Phase 7，可選）
 ```
 
-已部分落地、**不算 E-task 完成**（避免重複開工）：piece motif、phrase 2–4 小節、drama rise／climax／release、violin／cello 分軌、personality mix。後續 E-task 應**接上**這些，不要平行重寫。
+### E11 說明 — Motivic cells（主題細胞）
+
+**現場觀察（2026-08 milonga 聽感）：** 許多探戈圍繞少數「核心句子」發展——開頭較平，一路加變化，但基本模式常維持可辨；核心概念通常 **1–3 個**；有時 A 一段一個、B 一段另一個，再交織。
+
+**正式說法：** thematic／motivic development（主題／動機發展）；近義 developing variation、固定骨架＋表面變奏（fixed framework／surface variation）。發展軸包括：變調、decoration、voicing、換和弦應和（輪廓仍在）。
+
+**與現有能力的關係：**
+
+| 已有 | E11 要補 |
+|------|----------|
+| 單一 piece motif DNA、問答樂句 | 明確 **1–3 cells**（輪廓＋節奏骨架） |
+| E2 A′ 闡述（再現跳級變豐富） | **段內**同 cell 由簡→繁的發展軌 |
+| Section harmony／drama | **A-cell／B-cell 分配與交織**（B 可引用 A 片段、coda 疊合） |
+| E5／E6（計劃中） | E11 管「**變哪個身份**」；E5／E6 管「用和聲／voicing 軸去變」 |
+
+**建議實作要點（實作時可再拆子任務）：**
+
+1. Skeleton：roll `cells[0..2]`；標 `A→cell0`、`B→cell1`（可選第三個給 bridge／coda）  
+2. 發展規則：同 cell 上依序／依張力開 decoration → voicing →（可選）表面和弦應和 →（可選）調性位移  
+3. Render：風格只決定「怎麼變」，不換「是哪句」  
+4. 驗收：固定 seed 可重現；聽者能哼 A 的核心句；A′／後段仍是那句  
+
+已部分落地、**不算 E-task 完成**（避免重複開工）：piece motif、phrase 2–4 小節、drama rise／climax／release、violin／cello 分軌、personality mix、E1 cadence、E2 A′ elaboration。後續 E-task 應**接上**這些，不要平行重寫。
 
 ---
 
 ## 4. 建議實作順序（近期）
 
-1. **現在：** **E1–E2 done** → 下一刀 **E3 張力曲線**；每項 deploy 後工房聽感驗收  
+1. **現在：** **E1–E2 done** → 下一刀建議 **E11 Motivic cells**（再 **E3 張力曲線**）；每項 deploy 後工房聽感驗收  
 2. 穿插：同骨架 D'Arienzo vs Di Sarli 對照（產品驗收，不單獨佔 E-id）  
-3. Phase 4 Hint、Phase 5 Save／Share 仍依產品優先級；**不阻擋** E1–E3  
+3. Phase 4 Hint、Phase 5 Save／Share 仍依產品優先級；**不阻擋** 引擎保真度主線  
 4. Phase 6 滑桿／E8、Phase 3／E7 在保真度主線穩定後再加重
 
 ---
@@ -232,6 +257,7 @@ E1 終止式 → E2 A′闡述 → E3 張力曲線
 | 風格再和聲（E5）會否破壞「同骨架對照」 | 必須只動表面層；chord 教學格以 skeleton 為準 |
 | Soundfont／弦樂／bandoneón 真 samples | 編制聽感未到位前，規則層與音色層分開評 |
 | E9／E10 是否值得做 | 等長曲／複雜 form 有痛點再啟動 |
+| E11 vs 現有單一 motif | E11 應**擴充** motif，勿平行重寫一套旋律引擎；與 E2／E5／E6 互補 |
 
 ---
 

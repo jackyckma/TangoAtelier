@@ -40,6 +40,7 @@ See `docs/AGENT_ENV.md` for local vs cloud capability matrix.
 - Generated pieces should feel like playable tango songs with a clear lead melody and form-level drama (intro/bridge/coda, tension/release), not looping background music.
 - Milonga and vals need dance-specific skeleton rules; vals at high BPM must stay lyrical and must not inherit tango-style dense 16th/32nd figuration.
 - Prefer piece-level compositional building blocks (form, progression changes, relative major/minor, fixed framework vs surface variation) over mechanical per-note randomness.
+- Motivic cells: pieces typically develop 1–3 core phrases (tema/motivo); A and B may each own a cell and interweave — plan as engine task E11 in `docs/product/PROJECT_PLAN.md` §3b.
 - While playing, show chord-progression visualization in bar groups to support learning and listening diagnosis.
 - Melody and LH should follow performance practice: phrase/motive shapes with useful register span; accompaniment that mixes block and broken chords rather than one ostinato.
 
