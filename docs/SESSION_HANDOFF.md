@@ -1,7 +1,7 @@
 # Session handoff
 
 **Last updated:** 2026-08-11  
-**Branch:** `main`（E11 入 plan 待 push 後填 hash）
+**Branch:** `main` @ `fa37b8d`（E11 plan）
 
 ## Resume here
 
