@@ -37,10 +37,11 @@
       ],
       "deps": [],
       "flag": null,
-      "status": "in_progress",
+      "status": "in_review",
       "retries": 0,
       "feedback": [
-        "Template seed \u2014 delete or complete after first successful Maker tick."
+        "Template seed \u2014 delete or complete after first successful Maker tick.",
+        "Maker IMPLEMENT complete: PR #1 on cursor/autopilot-maker-action-2b05; acceptance + agent-verify green."
       ]
     }
   ]

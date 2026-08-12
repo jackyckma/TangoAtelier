@@ -4,8 +4,8 @@
     "T-0001": {
       "by": "maker",
       "since": "2026-08-12T03:02:26Z",
-      "branch": null,
-      "pr": null
+      "branch": "cursor/autopilot-maker-action-2b05",
+      "pr": "https://github.com/jackyckma/TangoAtelier/pull/1"
     }
   }
 }
