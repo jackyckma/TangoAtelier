@@ -29,7 +29,7 @@
       "lane": "docs",
       "phase": "bootstrap",
       "title": "Example: confirm autopilot scaffolds are present",
-      "description": "EXAMPLE ONLY \u2014 replace or mark done after setup. Verify docs/autopilot/playbook.md and scripts/autopilot/decide-next-action.mjs exist. Do not change product code.",
+      "description": "EXAMPLE ONLY — replace or mark done after setup. Verify docs/autopilot/playbook.md and scripts/autopilot/decide-next-action.mjs exist. Do not change product code.",
       "acceptance": [
         "test -f docs/autopilot/playbook.md",
         "test -f scripts/autopilot/decide-next-action.mjs",
@@ -37,11 +37,12 @@
       ],
       "deps": [],
       "flag": null,
-      "status": "in_review",
+      "status": "done",
       "retries": 0,
       "feedback": [
-        "Template seed \u2014 delete or complete after first successful Maker tick.",
-        "Maker IMPLEMENT complete: PR #1 on cursor/autopilot-maker-action-2b05; acceptance + agent-verify green."
+        "Template seed — delete or complete after first successful Maker tick.",
+        "Maker IMPLEMENT complete: PR #1 on cursor/autopilot-maker-action-2b05; acceptance + agent-verify green.",
+        "2026-08-17 (claude-hub-session): PR #1 sat unreviewed for 5 days — TangoAtelier's Checker had no working trigger over that window (scheduled cadence + Draft-opened were only configured 2026-08-16, and Draft-opened does not fire retroactively for a PR opened before it existed). Not the lease-URL parsing bug — locks.json here does store lease.pr as a URL, but the 2026-08-16 parsePrNumber fix already handles that correctly. Merged manually (squash, sha 4013ac3), lock cleared. Real epics/tasks should replace this bootstrap example going forward."
       ]
     }
   ]
