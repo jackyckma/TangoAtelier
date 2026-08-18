@@ -6,7 +6,7 @@
 
 **TangoAtelier** 主流程：**Skeleton → Style render**。線上：https://tangoatelier.zeabur.app/atelier  
 
-引擎保真度 **E1、E2、E11、E3、E4、E5、E6** 已落地。下一刀：**E0** 曲式慣例或 **E7** 配器角色。
+引擎保真度 **E1、E2、E11、E3、E4、E5、E6** 已落地。下一刀候選：**E12** 段落 groove 變奏（或 E0／E7）。
 
 ## What works
 
@@ -17,7 +17,7 @@
 
 ## Known gaps
 
-- E0 曲式 8／16 慣例；E7 配器角色；E8 分層鎖定；E9–E10 deferred
+- E0 曲式 8／16；**E12** 段落內 groove 變奏；E7 配器角色；E8 分層鎖定；E9–E10 deferred
 - Vals／Milonga 節奏仍簡化；真實 samples 未到位
 - Hint／Save／Share／參數滑桿未做
 

@@ -197,6 +197,7 @@ Tone.js 播放（鋼琴 soundfont + 暫代 synth 聲部）
 | **E5** | **風格表面再和聲**（借用／次屬等）；**不改**共享 chord grid 主幹 | Render | §2 第二／六層 | 2–3 | done | 同 skeleton 和弦格仍對得上；風格聽感更繞／更直 |
 | **E6** | **Voicing 平滑進行**（LH／pads 選 inversion，最小化聲部跳躍） | Render | §2 第四層 | 2–3 | done | 伴奏較少無意義大跳 |
 | **E7** | **配器角色分配**（誰扛節奏、誰對位；吉他／bandoneón 真接手） | Render + 前端音色 | §2 第七層 | 3 | pending | 開關編制時織體角色變，不是只多一層 pad |
+| **E12** | **段落內 groove 變奏**：同一 base rhythm，intro／A／B／coda 用範圍內不同處理（不是整首複製、也不是換一套節奏） | 偏 Render（可在 Skeleton 標 section groove intent） | §2 第三層 | 2–3 | pending | 同是 marcato／habanera，A 與 B／intro 聽得出踩法深淺，但仍是同一首歌 |
 | **E8** | **分層鎖定重跑**（固定若干層 seed／輸出，只重抽其他層） | API + UI | §4 | 6 | pending | 「鎖和聲、換節奏」教學場景可用 |
 | **E9** | 錨點＋簡化雙向／插值填充（非完整搜尋） | Skeleton＋Render | §3.1–3.2 | 7 | deferred | 長曲敘事更穩；短曲可跳過 |
 | **E10** | 動機 setup／payoff 早排程（伏筆→錨點回收） | Skeleton | §3.4 | 7 | deferred | 再現／coda 聽得出「回收」 |
@@ -204,13 +205,19 @@ Tone.js 播放（鋼琴 soundfont + 暫代 synth 聲部）
 ### 建議推進順序（聽感優先）
 
 ```
-E1 終止式 → E2 A′闡述 → E11 Motivic cells → E3 張力曲線
-    → E6 voice leading → E5 表面再和聲 → E4 人性化   [done]
+E1–E6、E11 [done]
+    → E12 段落內 groove 變奏   ← 聽感下一刀候選
     → E0 曲式慣例
     → E7 配器角色（搭 Phase 3）
     → E8 分層鎖定（搭 Phase 6）
     → E9 / E10（Phase 7，可選）
 ```
+
+### E12 說明 — 段落內 groove 變奏
+
+**觀察：** 現況 `_pattern_for_bar` 多半整首鎖同一個 primary（vals 甚至沒有 secondary），只按 8 小節窗插 colour。真曲則是**同一套節奏家族**，intro 較淡、A 立住踩法、B 換深淺或切分密度、coda 收束——變化在範圍內，不是換一首。
+
+**建議：** 每曲仍鎖一個 base（marcato en dos／habanera／vals 1–2–3）；section 只調：articulation、block/broken 比例、偶爾 332／sincopa、intro 較疏、A′ 可沿用 A 但稍滿。不改共享 chord／motif。
 
 ### E11 說明 — Motivic cells（主題細胞）
 
@@ -240,7 +247,7 @@ E1 終止式 → E2 A′闡述 → E11 Motivic cells → E3 張力曲線
 
 ## 4. 建議實作順序（近期）
 
-1. **現在：** E1–E6、E11 done → 下一刀 **E0 曲式慣例** 或 **E7 配器角色**；每項 deploy 後工房聽感驗收  
+1. **現在：** E1–E6、E11 done → 聽感下一刀建議 **E12 段落 groove 變奏**（或 E0／E7，見下表）  
 2. 穿插：同骨架 D'Arienzo vs Di Sarli 對照  
 3. Phase 4 Hint、Phase 5 Save／Share 仍依產品優先級  
 4. Phase 6 滑桿／E8 在保真度主線穩定後再加重
