@@ -1,7 +1,7 @@
 # Session handoff
 
 **Last updated:** 2026-08-19  
-**Branch:** `main`（待 push 後填 hash）
+**Branch:** `main` @ `340fd85`
 
 ## Resume here
 
