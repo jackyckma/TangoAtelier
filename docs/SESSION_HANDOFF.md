@@ -1,18 +1,18 @@
 # Session handoff
 
-**Last updated:** 2026-08-11  
-**Branch:** `main` @ `fa37b8d`（E11 plan）
+**Last updated:** 2026-08-19  
+**Branch:** `main`（待 push 後填 hash）
 
 ## Resume here
 
-1. 讀 `docs/product/PROJECT_PLAN.md` §3b — **E11 Motivic cells** 說明  
-2. 下一實作建議：**E11**（擴充現有 motif，勿平行重寫）；或依 founder 改開 **E3**
+1. 聽感驗收：工房固定 seed → 哼 A 核心句；A′ 更滿；同骨架換風格 chord 格不變  
+2. 下一實作：**E0**（8／16 曲式）或 **E7**（配器角色）
 
 ## Context
 
-- E11：1–3 主題細胞、A／B 分配與交織、同 cell 由簡到繁（decoration／voicing／和弦應和／變調）  
-- E1–E2 已落地；單一 `motif` 仍在，E11 應接上而非取代重寫
+- E11：`_roll_motivic_cells`、`_motivic_cell_index_for_section`、melody tags  
+- E3–E6：`tension_curve`；render `_humanize` / `_surface_reharm_symbol`；rhythm `prev_bass`
 
 ## Top priority next
 
-**E11** 入庫後等人耳／實作指令；plan 已含完整說明
+人耳驗收 → E0 或 E7

@@ -471,6 +471,121 @@ def _roll_piece_motif(
     }
 
 
+def _export_motivic_cell(cell: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "steps": list(cell.get("steps") or []),
+        "n_notes": cell.get("n_notes"),
+        "sequence_interval": cell.get("sequence_interval"),
+        "rhythm_question": list(cell.get("rhythm_question") or []),
+        "rhythm_answer": list(cell.get("rhythm_answer") or []),
+        "head_pitch": cell.get("head_pitch"),
+        "development_axis": (
+            "0=plain, 1=slight, 2=decorated, 3=dense; "
+            "rises with bar index and drama energy; A_prime starts +1"
+        ),
+    }
+
+
+def _roll_motivic_cells(
+    rng: random.Random,
+    dance_type: str,
+    tonic: int,
+    mode: str,
+) -> list[dict[str, Any]]:
+    """1–3 identifiable cells; cell 0 is the home theme (legacy motif)."""
+    n = rng.choice([2, 2, 2, 3, 3, 1])
+    home = _roll_piece_motif(rng, dance_type=dance_type, tonic=tonic, mode=mode)
+    cells: list[dict[str, Any]] = [home]
+    if n >= 2:
+        contrast = _roll_piece_motif(rng, dance_type=dance_type, tonic=tonic, mode=mode)
+        contrast["steps"] = [-s for s in home["steps"]]
+        contrast["n_notes"] = home["n_notes"]
+        cells.append(contrast)
+    if n >= 3:
+        coda_cell = dict(home)
+        coda_cell["steps"] = list(home["steps"])
+        if len(coda_cell["steps"]) > 2:
+            coda_cell["steps"] = coda_cell["steps"][:2] + [-s for s in coda_cell["steps"][2:]]
+        coda_cell["sequence_interval"] = int(home.get("sequence_interval") or 2)
+        cells.append(coda_cell)
+    return cells
+
+
+def _motivic_cell_index_for_section(section_name: str, n_cells: int) -> int:
+    n = max(1, int(n_cells))
+    if section_name in ("intro", "A", "A_prime"):
+        return 0
+    if section_name in ("B", "bridge"):
+        return min(1, n - 1)
+    if section_name == "coda":
+        return min(2, n - 1) if n >= 3 else 0
+    return 0
+
+
+def _motivic_development_level(
+    *,
+    local_bar: int,
+    section_bars: int,
+    drama_tag: str,
+    energy: float,
+    section_name: str,
+) -> int:
+    """0–3 surface intensity on a locked cell contour."""
+    span = max(1, section_bars - 1)
+    level = int(round(3 * max(0, local_bar) / span))
+    if drama_tag in ("dense", "climax"):
+        level += 1
+    elif drama_tag in ("rise",) and energy >= 0.55:
+        level += 1
+    if energy >= 0.75:
+        level += 1
+    if section_name == "A_prime":
+        level += 1
+    return max(0, min(3, level))
+
+
+def _density_for_development(base: Level, development: int, *, dance_type: str) -> Level:
+    dens = base
+    if development >= 2:
+        dens = _LEVEL_UP[dens]
+    if development >= 3 and dance_type != "vals":
+        dens = _LEVEL_UP[dens]
+    return dens
+
+
+def _stamp_motivic_meta(
+    notes: list[dict[str, Any]],
+    *,
+    section_name: str,
+    start_bar: int,
+    section_bars: int,
+    beats_per_bar: int,
+    cell_id: int | None,
+    drama: dict[str, Any],
+    interweave_bars: set[int] | None = None,
+) -> list[dict[str, Any]]:
+    iw = interweave_bars or set()
+    energy_map = drama.get("energy") or {}
+    for n in notes:
+        n["section"] = section_name
+        bar = int(float(n["start_beat"]) // max(beats_per_bar, 1))
+        local = bar - start_bar
+        tag = str(n.get("drama") or "normal")
+        energy = float(energy_map.get(bar, 0.5))
+        if cell_id is not None:
+            n["motivic_cell_id"] = int(cell_id)
+        n["motivic_development"] = _motivic_development_level(
+            local_bar=local,
+            section_bars=section_bars,
+            drama_tag=tag,
+            energy=energy,
+            section_name=section_name,
+        )
+        if bar in iw:
+            n["motivic_interweave"] = True
+    return notes
+
+
 def _realize_motif(
     rng: random.Random,
     motif: dict[str, Any],
@@ -1329,22 +1444,29 @@ def _coda_melody(
     theme_cells: list[list[int]] | None,
     dance_type: str,
     motif: dict[str, Any] | None = None,
-) -> list[dict[str, Any]]:
+    quote_motif: dict[str, Any] | None = None,
+) -> tuple[list[dict[str, Any]], set[int]]:
     """Theme tag (if we have one) then a long tonic cadence."""
     notes: list[dict[str, Any]] = []
+    interweave_bars: set[int] = set()
     tag_bars = min(2, bars - 1) if bars > 1 else 0
-    if motif and tag_bars:
+    quote = quote_motif if quote_motif is not None and quote_motif is not motif else None
+    lead_motif = quote or motif
+    if lead_motif and tag_bars:
         for j in range(tag_bars):
             symbol = chords_for_bars[j]
+            use = quote if (quote is not None and j == 0) else (motif or lead_motif)
+            if use is quote and quote is not None:
+                interweave_bars.add(start_bar + j)
             pitches = _realize_motif(
                 rng,
-                motif,
+                use,
                 tonic=tonic,
                 mode=mode,
                 symbol=symbol,
                 start_pitch=None,
                 transform="prime" if j == 0 else "answer",
-                n=min(3, int(motif["n_notes"])),
+                n=min(3, int(use["n_notes"])),
             )
             notes.extend(
                 _emit_bar_notes(
@@ -1361,7 +1483,7 @@ def _coda_melody(
                     tonic=tonic,
                     mode=mode,
                     symbol=symbol,
-                    fixed_placements=list(motif["rhythm_question" if j == 0 else "rhythm_answer"]),
+                    fixed_placements=list(use["rhythm_question" if j == 0 else "rhythm_answer"]),
                 )
             )
     elif theme_cells and tag_bars:
@@ -1401,7 +1523,7 @@ def _coda_melody(
             "phrase_end": True,
         }
     )
-    return notes
+    return notes, interweave_bars
 
 
 def _annotate_drama(
@@ -1450,6 +1572,30 @@ def _melody_for_section(
     drama = drama or {}
     pause = set(drama.get("pause_bars") or [])
 
+    cells: list[dict[str, Any]] = list(theme_state.get("motivic_cells") or [])
+    if not cells and theme_state.get("motif"):
+        cells = [theme_state["motif"]]
+    n_cells = len(cells)
+    cell_id = _motivic_cell_index_for_section(section_name, n_cells) if n_cells else 0
+    primary_motif: dict[str, Any] | None = cells[cell_id] if cells else theme_state.get("motif")
+    quote_motif = cells[0] if n_cells >= 2 and cell_id != 0 else None
+    interweave_bars: set[int] = set()
+
+    def _finish(raw: list[dict[str, Any]], extra_iw: set[int] | None = None) -> list[dict[str, Any]]:
+        for n in raw:
+            n["_bpb"] = beats_per_bar
+        annotated = _annotate_drama(raw, drama)
+        return _stamp_motivic_meta(
+            annotated,
+            section_name=section_name,
+            start_bar=start_bar,
+            section_bars=bars,
+            beats_per_bar=beats_per_bar,
+            cell_id=cell_id if n_cells else None,
+            drama=drama,
+            interweave_bars=(interweave_bars | (extra_iw or set())),
+        )
+
     if section_name == "intro":
         notes = _intro_melody(
             rng,
@@ -1461,9 +1607,7 @@ def _melody_for_section(
             chords_for_bars=chords_for_bars,
             dance_type=dance_type,
         )
-        for n in notes:
-            n["_bpb"] = beats_per_bar
-        return _annotate_drama(notes, drama)
+        return _finish(notes)
     if section_name == "bridge":
         notes = _bridge_melody(
             rng,
@@ -1474,11 +1618,26 @@ def _melody_for_section(
             mode=mode,
             chords_for_bars=chords_for_bars,
         )
-        for n in notes:
-            n["_bpb"] = beats_per_bar
-        return _annotate_drama(notes, drama)
+        if quote_motif is not None:
+            # Quote home cell on the last sounding bar (non-primary cell section)
+            interweave_bars.add(start_bar + bars - 1)
+            if notes:
+                symbol = chords_for_bars[-1]
+                quoted = _realize_motif(
+                    rng,
+                    quote_motif,
+                    tonic=tonic,
+                    mode=mode,
+                    symbol=symbol,
+                    start_pitch=None,
+                    transform="prime",
+                    n=min(3, int(quote_motif["n_notes"])),
+                )
+                if quoted:
+                    notes[-1]["pitch"] = int(quoted[0])
+        return _finish(notes)
     if section_name == "coda":
-        notes = _coda_melody(
+        notes, coda_iw = _coda_melody(
             rng,
             start_bar=start_bar,
             bars=bars,
@@ -1488,11 +1647,10 @@ def _melody_for_section(
             chords_for_bars=chords_for_bars,
             theme_cells=theme_state.get("cells"),
             dance_type=dance_type,
-            motif=theme_state.get("motif"),
+            motif=primary_motif,
+            quote_motif=quote_motif,
         )
-        for n in notes:
-            n["_bpb"] = beats_per_bar
-        return _annotate_drama(notes, drama)
+        return _finish(notes, coda_iw)
 
     notes_per_bar = DENSITY_NOTES_PER_BAR.get(dance_type, DENSITY_NOTES_PER_BAR["tango"])[
         density
@@ -1501,11 +1659,15 @@ def _melody_for_section(
     if var >= 0.5 and rng.random() < var * 0.4 and dance_type != "vals":
         notes_per_bar = min(beats_per_bar * 4, notes_per_bar + 2)
 
-    motif: dict[str, Any] | None = theme_state.get("motif")
+    motif: dict[str, Any] | None = primary_motif
     if motif is None:
-        # Safety: should be rolled in build_skeleton; keep identity if missing
         motif = _roll_piece_motif(rng, dance_type=dance_type, tonic=tonic, mode=mode)
         theme_state["motif"] = motif
+        if not cells:
+            theme_state["motivic_cells"] = [motif]
+            cells = [motif]
+            n_cells = 1
+            cell_id = 0
 
     notes: list[dict[str, Any]] = []
     last_pitch: int | None = None
@@ -1532,6 +1694,15 @@ def _melody_for_section(
         else:
             tag = tags[0] if tags else "normal"
         local_density = _density_for_drama(density, tag, dance_type=dance_type)
+        energy0 = float((drama.get("energy") or {}).get(abs_start, 0.5))
+        dev = _motivic_development_level(
+            local_bar=local_start,
+            section_bars=bars,
+            drama_tag=tag,
+            energy=energy0,
+            section_name=section_name,
+        )
+        local_density = _density_for_development(local_density, dev, dance_type=dance_type)
         reg = _register_for_drama(tag, phrase_i)
         if reg == 0:
             reg = _phrase_register_bias(
@@ -1541,6 +1712,16 @@ def _melody_for_section(
                 drama_high=False,
                 variation=var,
             )
+
+        phrase_motif = motif
+        if (
+            quote_motif is not None
+            and section_name == "B"
+            and phrase_i % 2 == 1
+        ):
+            phrase_motif = quote_motif
+            for k in range(plen):
+                interweave_bars.add(abs_start + k)
 
         if section_name == "B":
             seq = seq_unit * (1 + phrase_i // 2)
@@ -1566,7 +1747,7 @@ def _melody_for_section(
             n_bars=plen,
             beats_per_bar=beats_per_bar,
             chords_for_bars=chord_slice,
-            motif=motif,
+            motif=phrase_motif,
             density=local_density,
             variation=variation,
             dance_type=dance_type,
@@ -1577,8 +1758,6 @@ def _melody_for_section(
             sequence_semitones=seq,
             start_pitch=last_pitch if phrase_i > 0 else None,
         )
-        for n in emitted:
-            n["_bpb"] = beats_per_bar
         notes.extend(emitted)
         if section_name == "A" and phrase_i == 0:
             # Snapshot first phrase contour for coda fallback
@@ -1587,7 +1766,7 @@ def _melody_for_section(
             theme_state["cells"] = [lead_ps[:mid], lead_ps[mid:] or lead_ps[-2:]]
         phrase_i += 1
 
-    return _annotate_drama(notes, drama)
+    return _finish(notes)
 
 
 def build_skeleton(
@@ -1651,11 +1830,10 @@ def build_skeleton(
     form_labels: list[str] = []
     harmony_plan: list[dict[str, Any]] = []
     piece_harmony: dict[str, Any] = {}
-    theme_state: dict[str, Any] = {
-        "motif": _roll_piece_motif(
-            rng, dance_type=dance_type, tonic=tonic, mode=mode
-        )
-    }
+    theme_state: dict[str, Any] = {}
+    cells = _roll_motivic_cells(rng, dance_type, tonic, mode)
+    theme_state["motivic_cells"] = cells
+    theme_state["motif"] = cells[0]
     bar = 0
 
     for section_name, section_bars in sections:
@@ -1798,15 +1976,16 @@ def build_skeleton(
         "bars": total_bars,
         "chords": chords,
         "melody": melody,
-        "motif": {
-            "steps": list((theme_state.get("motif") or {}).get("steps") or []),
-            "n_notes": (theme_state.get("motif") or {}).get("n_notes"),
-            "sequence_interval": (theme_state.get("motif") or {}).get("sequence_interval"),
-            "rhythm_question": list(
-                (theme_state.get("motif") or {}).get("rhythm_question") or []
-            ),
-            "rhythm_answer": list(
-                (theme_state.get("motif") or {}).get("rhythm_answer") or []
-            ),
+        "motif": _export_motivic_cell(theme_state.get("motif") or {}),
+        "motivic_cells": [_export_motivic_cell(c) for c in (theme_state.get("motivic_cells") or [])],
+        "motivic_section_map": {
+            name: _motivic_cell_index_for_section(
+                name, len(theme_state.get("motivic_cells") or [])
+            )
+            for name in dict.fromkeys(form_labels)
         },
+        "tension_curve": [
+            round(float((drama.get("energy") or {}).get(i, 0.5)), 3)
+            for i in range(total_bars)
+        ],
     }

@@ -1,7 +1,7 @@
 # TangoAtelier — Multi-Phase Project Plan
 
-**Last updated:** 2026-08-11  
-**Status:** Phase 0–1 已落地；主流程為 **Skeleton → Style render**；引擎保真度 E1–E2 done，**E11 Motivic cells** 已入 plan；下一刀建議 E11（或依聽感改 E3）  
+**Last updated:** 2026-08-19  
+**Status:** Phase 0–1 已落地；引擎 **E1、E2、E11、E3、E4、E5、E6** done；下一刀 **E0／E7／E8**（E9–E10 deferred）  
 **Canonical product spec:** [tango-learning-webapp-project-doc.md](./tango-learning-webapp-project-doc.md)  
 **引擎分層規格（研究）：** [../research/Tango_music_synthesis.md](../research/Tango_music_synthesis.md)
 
@@ -116,7 +116,7 @@ Tone.js 播放（鋼琴 soundfont + 暫代 synth 聲部）
 
 - [ ] 更完整 form：intro–A–過渡–B–過渡–A'–coda（長度約 2–4 分鐘可調）
 - [x] **再現加花** → §3b **E2**（A′ 闡述變形表）— 已落地，聽感持續驗收
-- [ ] **主題細胞 1–3 個 + 段落交織** → §3b **E11**
+- [x] **主題細胞 1–3 個 + 段落交織** → §3b **E11**
 - [ ] 曲式慣例強化（8／16 小節傾向）→ **E0**
 
 **驗收：** 約 3 分鐘曲子有清楚段落對比；A′ 聽得出「同一主題講第二次、更豐富」。
@@ -191,11 +191,11 @@ Tone.js 播放（鋼琴 soundfont + 暫代 synth 聲部）
 | **E0** | 曲式慣例：段落長度偏 8／16；form 時間軸帶情緒等級 | Skeleton | §2 第一層 | 2 | pending | 段落邊界清楚，不像任意長度拼貼 |
 | **E1** | **樂句終止硬規則**（句末傾向 V／V7♭9→i 等）；中段才較自由 | Skeleton | §2 第二層 | 1–2 | done | 樂句「有收束」；仍跨風格共用 |
 | **E2** | **A′／再現闡述變形表**（裝飾↑、LH 織體升級、可選局部再和聲、動態↑） | 偏 Render（intent 可標在 Skeleton） | §2 第六層 | 2 | done | A 與 A′ 像同一故事講兩次，第二次更豐富 |
-| **E11** | **Motivic cells（主題細胞）**：1–3 個核心句；A／B 分配與交織；同 cell 上由簡到繁發展 | Skeleton 為主（Render 執行發展軸） | §2 第五／六層；§3.4 | 2 | pending | 哼得出核心句；後段仍是那句，只是更密／更滿／和聲更繞 |
-| **E3** | **張力曲線**當跨層修正（密度／不協和權重／decoration／力度） | Skeleton 目標 + Render 執行 | §3.3 | 2–7 | pending | 高潮／釋放可聽；非突然 dump 密集音 |
-| **E4** | **微人性化**：小幅 timing／velocity jitter（幅度之後接滑桿） | Render | §2 第三層 | 3／6 | pending | 少機械量化感；seed 仍可重現 |
-| **E5** | **風格表面再和聲**（借用／次屬等）；**不改**共享 chord grid 主幹 | Render | §2 第二／六層 | 2–3 | pending | 同 skeleton 和弦格仍對得上；風格聽感更繞／更直 |
-| **E6** | **Voicing 平滑進行**（LH／pads 選 inversion，最小化聲部跳躍） | Render | §2 第四層 | 2–3 | pending | 伴奏較少無意義大跳 |
+| **E11** | **Motivic cells（主題細胞）**：1–3 個核心句；A／B 分配與交織；同 cell 上由簡到繁發展 | Skeleton 為主（Render 執行發展軸） | §2 第五／六層；§3.4 | 2 | done | 哼得出核心句；後段仍是那句，只是更密／更滿／和聲更繞 |
+| **E3** | **張力曲線**當跨層修正（密度／不協和權重／decoration／力度） | Skeleton 目標 + Render 執行 | §3.3 | 2–7 | done | 高潮／釋放可聽；非突然 dump 密集音 |
+| **E4** | **微人性化**：小幅 timing／velocity jitter（幅度之後接滑桿） | Render | §2 第三層 | 3／6 | done | 少機械量化感；seed 仍可重現 |
+| **E5** | **風格表面再和聲**（借用／次屬等）；**不改**共享 chord grid 主幹 | Render | §2 第二／六層 | 2–3 | done | 同 skeleton 和弦格仍對得上；風格聽感更繞／更直 |
+| **E6** | **Voicing 平滑進行**（LH／pads 選 inversion，最小化聲部跳躍） | Render | §2 第四層 | 2–3 | done | 伴奏較少無意義大跳 |
 | **E7** | **配器角色分配**（誰扛節奏、誰對位；吉他／bandoneón 真接手） | Render + 前端音色 | §2 第七層 | 3 | pending | 開關編制時織體角色變，不是只多一層 pad |
 | **E8** | **分層鎖定重跑**（固定若干層 seed／輸出，只重抽其他層） | API + UI | §4 | 6 | pending | 「鎖和聲、換節奏」教學場景可用 |
 | **E9** | 錨點＋簡化雙向／插值填充（非完整搜尋） | Skeleton＋Render | §3.1–3.2 | 7 | deferred | 長曲敘事更穩；短曲可跳過 |
@@ -204,10 +204,9 @@ Tone.js 播放（鋼琴 soundfont + 暫代 synth 聲部）
 ### 建議推進順序（聽感優先）
 
 ```
-E1 終止式 → E2 A′闡述 → E11 Motivic cells
-    → E3 張力曲線
-    → E6 voice leading → E5 表面再和聲
-    → E4 人性化 → E0 曲式慣例
+E1 終止式 → E2 A′闡述 → E11 Motivic cells → E3 張力曲線
+    → E6 voice leading → E5 表面再和聲 → E4 人性化   [done]
+    → E0 曲式慣例
     → E7 配器角色（搭 Phase 3）
     → E8 分層鎖定（搭 Phase 6）
     → E9 / E10（Phase 7，可選）
@@ -241,10 +240,10 @@ E1 終止式 → E2 A′闡述 → E11 Motivic cells
 
 ## 4. 建議實作順序（近期）
 
-1. **現在：** **E1–E2 done** → 下一刀建議 **E11 Motivic cells**（再 **E3 張力曲線**）；每項 deploy 後工房聽感驗收  
-2. 穿插：同骨架 D'Arienzo vs Di Sarli 對照（產品驗收，不單獨佔 E-id）  
-3. Phase 4 Hint、Phase 5 Save／Share 仍依產品優先級；**不阻擋** 引擎保真度主線  
-4. Phase 6 滑桿／E8、Phase 3／E7 在保真度主線穩定後再加重
+1. **現在：** E1–E6、E11 done → 下一刀 **E0 曲式慣例** 或 **E7 配器角色**；每項 deploy 後工房聽感驗收  
+2. 穿插：同骨架 D'Arienzo vs Di Sarli 對照  
+3. Phase 4 Hint、Phase 5 Save／Share 仍依產品優先級  
+4. Phase 6 滑桿／E8 在保真度主線穩定後再加重
 
 ---
 

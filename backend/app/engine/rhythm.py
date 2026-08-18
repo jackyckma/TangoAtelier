@@ -32,12 +32,19 @@ def choose_rhythm_pattern(profile: dict) -> str:
     return choose_rhythm_pair(profile)[0]
 
 
-def _lh_tones(chord_pitches: list[int]) -> tuple[int, int, int, int]:
-    """Root / third / fifth in LH register + deep bass."""
+def _lh_tones(chord_pitches: list[int], prev_bass: int | None = None) -> tuple[int, int, int, int]:
+    """Root / third / fifth in LH register + deep bass.
+
+    When prev_bass is set, pick the bass octave that moves least (E6 voice leading).
+    """
     root = chord_pitches[0] - 12
     fifth = (chord_pitches[2] if len(chord_pitches) > 2 else root + 7) - 12
     third = (chord_pitches[1] if len(chord_pitches) > 1 else root + 3) - 12
     bass = root - 12 if root >= 48 else root
+    if prev_bass is not None:
+        candidates = [c for c in (bass, bass + 12, bass - 12, bass + 24) if 28 <= c <= 52]
+        if candidates:
+            bass = min(candidates, key=lambda c: abs(c - prev_bass))
     return bass, root, third, fifth
 
 
@@ -101,13 +108,14 @@ def left_hand_for_bar(
     voicing_style: str = "bright_staccato",
     power: bool = False,
     lh_upgrade: str | None = None,
+    prev_bass: int | None = None,
 ) -> list[NoteEvent]:
     """Generate LH piano notes for one bar. Patterns intentionally diverge by dance/orquesta.
 
     lh_upgrade (A′ elaboration): 'walking' | 'busier' — richer accompaniment without
     changing the skeleton chord symbol.
     """
-    bass, root, third, fifth = _lh_tones(chord_pitches)
+    bass, root, third, fifth = _lh_tones(chord_pitches, prev_bass=prev_bass)
 
     staccato = articulation.get("staccato_level", "medium")
     pause = articulation.get("pause_frequency", "low")

@@ -182,6 +182,25 @@ def _apply_vel(base: int, track_vol: float) -> int:
     return max(1, min(127, int(base * track_vol)))
 
 
+def _humanize(n: NoteEvent, rng: random.Random) -> None:
+    """E4: tiny deterministic timing/velocity jitter (same seed → same result)."""
+    n.start = max(0.0, n.start + rng.uniform(-0.011, 0.011))
+    n.velocity = max(1, min(127, int(n.velocity) + rng.randint(-3, 3)))
+
+
+def _surface_reharm_symbol(ch: dict, mode: str, tension: float) -> str | None:
+    """E5: render-only colour (does not change skeleton chord symbol)."""
+    sym = str(ch.get("symbol") or "")
+    if mode == "minor" and sym in ("V", "V7"):
+        if (
+            tension >= 0.62
+            or ch.get("cadence") in ("half", "approach")
+            or str(ch.get("drama") or "") in ("climax", "dense")
+        ):
+            return "V7b9"
+    return None
+
+
 def _phrase_end_ornament(
     rng: random.Random,
     pitch: int,
@@ -315,6 +334,8 @@ def _render_melody(
                         )
 
         orn_p = decoration + orn_boost
+        # E3: tension/energy raises cadential ornament chance
+        orn_p *= 0.55 + 0.8 * energy
         if drama == "climax" and phrase_end:
             orn_p = min(1.0, orn_p + 0.25)
         elif drama in ("anticipate", "rise"):
@@ -515,15 +536,19 @@ def render_skeleton(
             el = ch.get("elaboration")
             if isinstance(el, dict):
                 elaborations[int(ch["bar"])] = el
+        tension_curve = list(skeleton.get("tension_curve") or [])
+        prev_bass: int | None = None
 
         for ch in skeleton["chords"]:
             bar = int(ch["bar"])
             section = str(ch.get("section") or "A")
             drama_tag = str(ch.get("drama") or "normal")
             energy = float(ch.get("energy") or 0.5)
+            tension = float(tension_curve[bar]) if bar < len(tension_curve) else energy
             elab = elaborations.get(bar) or {}
             ch_tonic, ch_mode = _chord_tonality(ch, skeleton)
-            pitches = chord_pitches(ch_tonic, ch_mode, ch["symbol"])
+            surface = _surface_reharm_symbol(ch, ch_mode, tension)
+            pitches = chord_pitches(ch_tonic, ch_mode, surface or ch["symbol"])
             bar_start = bar * bar_len
             # Intro/bridge/coda: keep groove, but lighter so form edges read clearly
             pattern = _pattern_for_bar(
@@ -543,8 +568,13 @@ def render_skeleton(
                 voicing_style=voicing,
                 power=drama_tag in ("climax", "rise") or section == "B" or bool(elab),
                 lh_upgrade=str(elab["lh_upgrade"]) if elab.get("lh_upgrade") else None,
+                prev_bass=prev_bass,
             )
+            if lh:
+                prev_bass = min(n.pitch for n in lh)
             lh_scale = vols.get("piano_lh", 0.8)
+            # E3: tension lifts accompaniment weight into the peak
+            lh_scale *= 0.88 + 0.28 * tension
             if section in ("intro", "bridge"):
                 lh_scale *= 0.85
             elif section == "A":
@@ -640,6 +670,10 @@ def render_skeleton(
             notes.append(n)
 
     notes.sort(key=lambda n: (n.start, n.track, n.pitch))
+    for n in notes:
+        if n.track in ("piano_lh", "piano_rh"):
+            _humanize(n, rng)
+    notes.sort(key=lambda n: (n.start, n.track, n.pitch))
     rhythm_label = rhythm_primary
     if rhythm_secondary:
         rhythm_label = f"{rhythm_primary}+{rhythm_secondary}"
@@ -693,6 +727,9 @@ def render_skeleton(
         ],
         "harmony_plan": skeleton.get("harmony_plan"),
         "drama": skeleton.get("drama"),
+        "motivic_cells": skeleton.get("motivic_cells"),
+        "motivic_section_map": skeleton.get("motivic_section_map"),
+        "tension_curve": skeleton.get("tension_curve"),
         "notes": notes_payload(draft.notes),
     }
     if include_midi:

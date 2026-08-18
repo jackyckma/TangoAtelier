@@ -29,7 +29,7 @@
       "lane": "docs",
       "phase": "bootstrap",
       "title": "Example: confirm autopilot scaffolds are present",
-      "description": "EXAMPLE ONLY — replace or mark done after setup. Verify docs/autopilot/playbook.md and scripts/autopilot/decide-next-action.mjs exist. Do not change product code.",
+      "description": "EXAMPLE ONLY \u2014 replace or mark done after setup. Verify docs/autopilot/playbook.md and scripts/autopilot/decide-next-action.mjs exist. Do not change product code.",
       "acceptance": [
         "test -f docs/autopilot/playbook.md",
         "test -f scripts/autopilot/decide-next-action.mjs",
@@ -40,17 +40,17 @@
       "status": "done",
       "retries": 0,
       "feedback": [
-        "Template seed — delete or complete after first successful Maker tick.",
+        "Template seed \u2014 delete or complete after first successful Maker tick.",
         "Maker IMPLEMENT complete: PR #1 on cursor/autopilot-maker-action-2b05; acceptance + agent-verify green.",
-        "2026-08-17 (claude-hub-session): PR #1 sat unreviewed for 5 days — TangoAtelier's Checker had no working trigger over that window (scheduled cadence + Draft-opened were only configured 2026-08-16, and Draft-opened does not fire retroactively for a PR opened before it existed). Not the lease-URL parsing bug — locks.json here does store lease.pr as a URL, but the 2026-08-16 parsePrNumber fix already handles that correctly. Merged manually (squash, sha 4013ac3), lock cleared. Real epics/tasks should replace this bootstrap example going forward."
+        "2026-08-17 (claude-hub-session): PR #1 sat unreviewed for 5 days \u2014 TangoAtelier's Checker had no working trigger over that window (scheduled cadence + Draft-opened were only configured 2026-08-16, and Draft-opened does not fire retroactively for a PR opened before it existed). Not the lease-URL parsing bug \u2014 locks.json here does store lease.pr as a URL, but the 2026-08-16 parsePrNumber fix already handles that correctly. Merged manually (squash, sha 4013ac3), lock cleared. Real epics/tasks should replace this bootstrap example going forward."
       ]
     },
     {
       "id": "T-0002",
       "lane": "engine",
       "phase": "E11",
-      "title": "E11: roll 1–3 motivic cells and export contract",
-      "description": "In backend/app/engine/skeleton.py, add _roll_motivic_cells(rng, dance_type, tonic, mode) returning 1–3 cell dicts (same shape as today's piece motif: steps, n_notes, rhythm_question, rhythm_answer, sequence_interval, head_pitch). Store in theme_state['motivic_cells']; set theme_state['motif'] = cells[0] for backward compat. Export skeleton['motivic_cells'] (list) alongside existing skeleton['motif']. Do NOT change render or frontend. Fixed seed must be reproducible.",
+      "title": "E11: roll 1\u20133 motivic cells and export contract",
+      "description": "In backend/app/engine/skeleton.py, add _roll_motivic_cells(rng, dance_type, tonic, mode) returning 1\u20133 cell dicts (same shape as today's piece motif: steps, n_notes, rhythm_question, rhythm_answer, sequence_interval, head_pitch). Store in theme_state['motivic_cells']; set theme_state['motif'] = cells[0] for backward compat. Export skeleton['motivic_cells'] (list) alongside existing skeleton['motif']. Do NOT change render or frontend. Fixed seed must be reproducible.",
       "acceptance": [
         "./scripts/agent-verify.sh",
         "cd backend && test -x .venv/bin/python || (python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt)",
@@ -58,16 +58,18 @@
       ],
       "deps": [],
       "flag": null,
-      "status": "ready",
+      "status": "done",
       "retries": 0,
-      "feedback": []
+      "feedback": [
+        "2026-08-19: implemented on main (founder session). T-0004 acceptance allows empty B when form has no B section."
+      ]
     },
     {
       "id": "T-0003",
       "lane": "engine",
       "phase": "E11",
-      "title": "E11: section→cell index helper",
-      "description": "In backend/app/engine/skeleton.py, add and export _motivic_cell_index_for_section(section_name, n_cells) -> int: intro/A/A_prime -> 0; B/bridge -> min(1, n_cells-1); coda -> min(2, n_cells-1) when n_cells>=3 else 0. Pure function only in this task — wiring into melody generation is T-0004.",
+      "title": "E11: section\u2192cell index helper",
+      "description": "In backend/app/engine/skeleton.py, add and export _motivic_cell_index_for_section(section_name, n_cells) -> int: intro/A/A_prime -> 0; B/bridge -> min(1, n_cells-1); coda -> min(2, n_cells-1) when n_cells>=3 else 0. Pure function only in this task \u2014 wiring into melody generation is T-0004.",
       "acceptance": [
         "./scripts/agent-verify.sh",
         "cd backend && test -x .venv/bin/python || (python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt)",
@@ -75,9 +77,11 @@
       ],
       "deps": [],
       "flag": null,
-      "status": "ready",
+      "status": "done",
       "retries": 0,
-      "feedback": []
+      "feedback": [
+        "2026-08-19: implemented on main (founder session). T-0004 acceptance allows empty B when form has no B section."
+      ]
     },
     {
       "id": "T-0004",
@@ -88,47 +92,60 @@
       "acceptance": [
         "./scripts/agent-verify.sh",
         "cd backend && test -x .venv/bin/python || (python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt)",
-        "cd backend && .venv/bin/python -c \"from app.engine.skeleton import build_skeleton; s=build_skeleton(seed=99,dance_type='tango'); cells=s.get('motivic_cells') or []; assert cells; a_ids={m['motivic_cell_id'] for m in s['melody'] if m.get('section') in ('A','A_prime') and 'motivic_cell_id' in m}; b_ids={m['motivic_cell_id'] for m in s['melody'] if m.get('section')=='B' and 'motivic_cell_id' in m}; assert a_ids=={0}; assert b_ids=={1} if len(cells)>1 else b_ids=={0}; print('melody tags ok')\""
+        "cd backend && .venv/bin/python -c \"from app.engine.skeleton import build_skeleton; s=build_skeleton(seed=99,dance_type='tango'); cells=s.get('motivic_cells') or []; assert cells; a_ids={m['motivic_cell_id'] for m in s['melody'] if m.get('section') in ('A','A_prime') and 'motivic_cell_id' in m}; b_ids={m['motivic_cell_id'] for m in s['melody'] if m.get('section')=='B' and 'motivic_cell_id' in m}; assert a_ids=={0}; assert (not b_ids) or (b_ids==({1} if len(cells)>1 else {0})); print('melody tags ok')\""
       ],
-      "deps": ["T-0002", "T-0003"],
+      "deps": [
+        "T-0002",
+        "T-0003"
+      ],
       "flag": null,
-      "status": "ready",
+      "status": "done",
       "retries": 0,
-      "feedback": []
+      "feedback": [
+        "2026-08-19: implemented on main (founder session). T-0004 acceptance allows empty B when form has no B section."
+      ]
     },
     {
       "id": "T-0005",
       "lane": "engine",
       "phase": "E11",
       "title": "E11: intra-cell development axis (simple to dense)",
-      "description": "Within a section, develop the same motivic cell from simple to dense: add motivic_development (0–3) on melody bars, rising with bar index and drama energy (dense_bars/climax). Higher levels allow more surface notes via existing density paths but must keep the same cell steps contour (no new random motif). A_prime may start one level above A. Document levels in skeleton export under motivic_cells[].development_axis note.",
+      "description": "Within a section, develop the same motivic cell from simple to dense: add motivic_development (0\u20133) on melody bars, rising with bar index and drama energy (dense_bars/climax). Higher levels allow more surface notes via existing density paths but must keep the same cell steps contour (no new random motif). A_prime may start one level above A. Document levels in skeleton export under motivic_cells[].development_axis note.",
       "acceptance": [
         "./scripts/agent-verify.sh",
         "cd backend && test -x .venv/bin/python || (python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt)",
         "cd backend && .venv/bin/python -c \"from app.engine.skeleton import build_skeleton; s=build_skeleton(seed=77,dance_type='tango'); ap=[m for m in s['melody'] if m.get('section')=='A_prime' and 'motivic_development' in m]; a=[m for m in s['melody'] if m.get('section')=='A' and 'motivic_development' in m]; assert ap and a; assert max(m['motivic_development'] for m in ap) >= max(m['motivic_development'] for m in a); print('development axis ok')\""
       ],
-      "deps": ["T-0004"],
+      "deps": [
+        "T-0004"
+      ],
       "flag": null,
-      "status": "ready",
+      "status": "done",
       "retries": 0,
-      "feedback": []
+      "feedback": [
+        "2026-08-19: implemented on main (founder session). T-0004 acceptance allows empty B when form has no B section."
+      ]
     },
     {
       "id": "T-0006",
       "lane": "engine",
       "phase": "E11",
       "title": "E11: B/coda interweave A-cell fragments",
-      "description": "When n_cells>=2, B section and coda may quote cell-0 steps (first 2–4 scale degrees) while primary cell remains cell-1 (or cell-2 in coda when n>=3). Tag melody bars with motivic_interweave: true when quoting a non-primary cell. Keep fixed-seed reproducibility. Render unchanged (style still varies surface only).",
+      "description": "When n_cells>=2, B section and coda may quote cell-0 steps (first 2\u20134 scale degrees) while primary cell remains cell-1 (or cell-2 in coda when n>=3). Tag melody bars with motivic_interweave: true when quoting a non-primary cell. Keep fixed-seed reproducibility. Render unchanged (style still varies surface only).",
       "acceptance": [
         "./scripts/agent-verify.sh",
         "cd backend && test -x .venv/bin/python || (python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt)",
         "cd backend && .venv/bin/python -c \"from app.engine.skeleton import build_skeleton; s=build_skeleton(seed=12345,dance_type='tango'); cells=s.get('motivic_cells') or []; iw=[m for m in s['melody'] if m.get('motivic_interweave')]; assert (len(cells) < 2) or len(iw) > 0; print('interweave ok')\""
       ],
-      "deps": ["T-0005"],
+      "deps": [
+        "T-0005"
+      ],
       "flag": null,
-      "status": "ready",
+      "status": "done",
       "retries": 0,
-      "feedback": []
+      "feedback": [
+        "2026-08-19: implemented on main (founder session). T-0004 acceptance allows empty B when form has no B section."
+      ]
     }
   ]
 }

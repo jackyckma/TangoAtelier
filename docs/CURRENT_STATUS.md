@@ -1,25 +1,27 @@
 # Current status
 
-**Last updated:** 2026-08-11
+**Last updated:** 2026-08-19
 
 ## Summary
 
 **TangoAtelier** 主流程：**Skeleton → Style render**。線上：https://tangoatelier.zeabur.app/atelier  
 
-引擎保真度：**E1**、**E2** 已落地；**E11 Motivic cells** 已寫入 plan（尚未實作）。下一刀建議 **E11**（再 E3）。
+引擎保真度 **E1、E2、E11、E3、E4、E5、E6** 已落地。下一刀：**E0** 曲式慣例或 **E7** 配器角色。
 
 ## What works
 
 - Skeleton → simple／orquesta render；phrase cadence（E1）；A′ elaboration（E2）
-- violin／cello 分軌、drama 弧、單一 piece motif（E11 將擴充為 1–3 cells）
+- **Motivic cells（E11）**：1–3 cells、section map、development 0–3、B／bridge／coda 可交織
+- **Tension curve（E3）**、微人性化（E4）、V7→V7b9 表面再和聲（E5）、LH bass 平滑（E6）
+- violin／cello 分軌、drama 弧
 
 ## Known gaps
 
-- §3b **E11** Motivic cells；E3–E8（張力曲線、人性化、表面再和聲、voice leading、配器、分層鎖定）
-- Vals／Milonga 節奏骨架仍簡化；編制音色未到位
+- E0 曲式 8／16 慣例；E7 配器角色；E8 分層鎖定；E9–E10 deferred
+- Vals／Milonga 節奏仍簡化；真實 samples 未到位
 - Hint／Save／Share／參數滑桿未做
 
 ## Next steps
 
-1. **E11** Motivic cells（見 `PROJECT_PLAN.md` §3b）  
-2. 其餘依 §3b 順序
+1. 聽感驗收 E11＋E3–E6  
+2. E0 或 E7（見 `PROJECT_PLAN.md` §3b）
