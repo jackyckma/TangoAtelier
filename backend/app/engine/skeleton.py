@@ -28,9 +28,9 @@ Level = Literal["low", "medium", "high"]
 # Notes/bar targets — vals is ~180 quarter-BPM, so "high" must stay lyrical
 # (tango-style 16th/32nd figuration at that tempo reads as chaos).
 DENSITY_NOTES_PER_BAR = {
-    "tango": {"low": 3, "medium": 6, "high": 10},
-    "milonga": {"low": 4, "medium": 7, "high": 12},
-    "vals": {"low": 2, "medium": 3, "high": 4},
+    "tango": {"low": 3, "medium": 5, "high": 7},
+    "milonga": {"low": 3, "medium": 4, "high": 5},
+    "vals": {"low": 2, "medium": 3, "high": 3},
 }
 # Stronger spread so medium/high actually change contours & reuse behaviour
 VARIATION_STRENGTH = {"low": 0.25, "medium": 0.55, "high": 0.85}
@@ -402,26 +402,26 @@ def _roll_piece_motif(
 
     # Fixed rhythm cells — surface density expands around these anchors
     if dance_type == "vals":
+        # Land on waltz 1 and 3; beat 2 is the accompaniment pulse
         q_cells = (
+            [0.0, 2.0],
             [0.0, 1.0, 2.0],
-            [0.0, 0.5, 2.0],
-            [0.0, 1.0, 1.5, 2.0],
-            [0.0, 1.0, 2.0, 2.5],
+            [0.0, 2.0],
         )
         a_cells = (
-            [0.0, 1.0, 2.0],
-            [0.0, 1.5, 2.0],
+            [0.0, 2.0],
             [0.0, 1.0, 2.0],
         )
     elif dance_type == "milonga":
+        # Habanera / 3+3+2 accents only — never generic 16ths
         q_cells = (
-            [0.0, 0.75, 1.0, 1.5],
-            [0.0, 0.5, 1.0, 1.5],
             [0.0, 0.75, 1.5],
+            [0.0, 0.75, 1.0, 1.5],
+            [0.0, 1.5],
         )
         a_cells = (
             [0.0, 0.75, 1.5],
-            [0.0, 1.0, 1.5],
+            [0.0, 1.5],
         )
     else:
         q_cells = (
@@ -545,12 +545,24 @@ def _motivic_development_level(
 
 
 def _density_for_development(base: Level, development: int, *, dance_type: str) -> Level:
-    dens = base
-    if development >= 2:
-        dens = _LEVEL_UP[dens]
-    if development >= 3 and dance_type != "vals":
-        dens = _LEVEL_UP[dens]
-    return dens
+    # At most one step — A′ richness is LH/ornament, not a note-count dump
+    if dance_type == "vals":
+        return base
+    if development >= 3:
+        return _LEVEL_UP[base]
+    return base
+
+
+def _step_density(prev: Level, wanted: Level) -> Level:
+    """Adjacent phrases may move at most one density step."""
+    order: list[Level] = ["low", "medium", "high"]
+    pi = order.index(prev) if prev in order else 1
+    wi = order.index(wanted) if wanted in order else 1
+    if wi > pi + 1:
+        return order[pi + 1]
+    if wi < pi - 1:
+        return order[pi - 1]
+    return wanted
 
 
 def _stamp_motivic_meta(
@@ -716,9 +728,7 @@ def _build_drama_map(
 
     # Mid-piece colour bursts — away from the climax approach
     dense_bars: set[int] = set()
-    dense_budget = 1 + int(var * 2)
-    if dance_type == "vals":
-        dense_budget = max(0, dense_budget - 1)
+    dense_budget = 0 if dance_type in ("vals", "milonga") else 1 + int(var * 2)
     dense_pool = [
         i
         for i, s in enumerate(bar_sections)
@@ -803,13 +813,13 @@ def _density_for_drama(base: Level, tag: str, *, dance_type: str) -> Level:
     if tag == "rise":
         return base  # same note count, rising register/energy elsewhere
     if tag == "climax":
-        if dance_type == "vals":
+        if dance_type in ("vals", "milonga"):
             return base
         return order[min(2, idx + 1)]  # one step up only
     if tag == "release":
         return order[max(0, idx - 1)] if base == "high" else base
     if tag == "dense":
-        return order[min(2, idx + 1)]
+        return base  # energy/register only — extra attacks sound like a dump
     return base
 
 
@@ -853,29 +863,36 @@ def _pick_grid_placements(
     if count <= 0:
         return []
 
-    # Vals (~180 BPM): stay on waltz pulse — 1–2–3 and occasional 8ths, never 16th spray
+    # Vals (~180 BPM): land on 1 and 3; beat 2 is the bass–chord pulse
     if dance_type == "vals":
         if density == "low":
-            cells = [[0.0, 2.0], [0.0, 1.0], [0.0, 1.0, 2.0]]
-        elif density == "medium":
-            cells = [
-                [0.0, 1.0, 2.0],
-                [0.0, 0.5, 2.0],
-                [0.0, 1.0, 1.5, 2.0],
-                [0.0, 1.5, 2.0],
-            ]
+            cells = [[0.0, 2.0], [0.0], [0.0, 2.0]]
         else:
             cells = [
-                [0.0, 0.5, 1.0, 2.0],
-                [0.0, 1.0, 1.5, 2.0],
-                [0.0, 0.5, 1.5, 2.0],
-                [0.0, 1.0, 2.0, 2.5],
+                [0.0, 2.0],
+                [0.0, 1.0, 2.0],
+                [0.0, 2.0],
             ]
         base = list(rng.choice(cells))
         while len(base) < count:
-            # Fill with remaining on-beat / 8th waltz slots only
-            for cand in (0.0, 1.0, 2.0, 0.5, 1.5, 2.5):
-                if cand not in base and cand < beats_per_bar:
+            for cand in (0.0, 2.0, 1.0):
+                if cand not in base:
+                    base.append(cand)
+                if len(base) >= count:
+                    break
+            else:
+                break
+        return sorted(base[:count])
+
+    # Milonga: habanera / 3+3+2 only — generic 16ths fight the LH
+    if dance_type == "milonga":
+        habanera = [0.0, 0.75, 1.0, 1.5]
+        triple = [0.0, 0.75, 1.5]
+        cells = [habanera, triple, [0.0, 0.75, 1.5], [0.0, 1.0, 1.5]]
+        base = list(rng.choice(cells))
+        while len(base) < count:
+            for cand in habanera:
+                if cand not in base:
                     base.append(cand)
                 if len(base) >= count:
                     break
@@ -913,11 +930,6 @@ def _pick_grid_placements(
         if i not in ordered:
             ordered.append(i)
     placements = sorted(slots[i] for i in ordered[:count])
-
-    # Milonga: bias toward habanera / 3+3+2 accents when sparse enough to matter
-    if dance_type == "milonga" and density != "high" and count <= 4:
-        accent = [0.0, 0.75, 1.0, 1.5][:count]
-        return [min(a, beats_per_bar - 0.05) for a in accent]
     return placements
 
 
@@ -1006,13 +1018,18 @@ def _emit_bar_notes(
     # Slight role shaping without undoing density (old code capped tango at 2/bar)
     if density == "low" and role == "answer":
         target = max(2 if dance_type != "vals" else 1, target - 1)
-    if phrase_end and density == "high" and dance_type != "vals":
-        target = min(target + 1, beats_per_bar * 4)  # allow a little turn into the cadence
     if dance_type == "vals":
-        target = min(target, 4)  # hard cap — vals never machine-guns
+        target = min(target, 3)
+    elif dance_type == "milonga":
+        target = min(target, 5)
+    elif not phrase_end:
+        # Mid-phrase: keep the line sung; extra attacks belong at the cadence
+        target = min(target, 5)
     # Motif bars: densify only a little so interval DNA survives
     if fixed_placements is not None:
-        headroom = 0 if dance_type == "vals" else {"low": 0, "medium": 1, "high": 2}[density]
+        headroom = 0 if dance_type in ("vals", "milonga") else (
+            0 if not phrase_end else {"low": 0, "medium": 1, "high": 1}[density]
+        )
         target = min(target, max(len(pitches), len(pitches) + headroom))
 
     if len(pitches) > target:
@@ -1063,10 +1080,16 @@ def _emit_bar_notes(
             else beats_per_bar
         )
         gap = max(0.05, next_start - start_local)
-        # Dense levels: short articulations; low: more sustained
-        # Vals: keep notes long / cantabile even at "high" density
         if dance_type == "vals":
-            dur = min(beats_per_bar - start_local, max(gap * 0.92, 0.55 if density != "high" else 0.4))
+            dur = min(beats_per_bar - start_local, max(gap * 0.95, 0.85))
+        elif dance_type == "milonga":
+            # Match habanera lengths: long on 1, short on the 16th, 8ths after
+            if abs(start_local - 0.0) < 0.06:
+                dur = min(0.72, max(gap * 0.92, 0.55))
+            elif abs(start_local - 0.75) < 0.06:
+                dur = min(0.22, gap * 0.85)
+            else:
+                dur = min(gap * 0.9, 0.45)
         elif density == "high":
             dur = min(gap, 0.28 if not is_last else max(0.35, gap * 0.9))
         elif density == "medium":
@@ -1076,7 +1099,7 @@ def _emit_bar_notes(
         if is_last and phrase_end and density != "high":
             dur = max(dur, min(beats_per_bar - start_local, 0.75))
         if is_last and phrase_end and dance_type == "vals":
-            dur = max(dur, min(beats_per_bar - start_local, 1.0))
+            dur = max(dur, min(beats_per_bar - start_local, 1.4))
 
         note: dict[str, Any] = {
             "pitch": int(pitch),
@@ -1088,30 +1111,6 @@ def _emit_bar_notes(
         if is_last and phrase_end:
             note["phrase_end"] = True
         notes.append(note)
-
-        # Cadential neighbor only on the true phrase end — never mid-bar spray
-        if (
-            voice == "lead"
-            and phrase_end
-            and is_last
-            and dance_type != "vals"
-            and density == "high"
-            and rng.random() < (0.4 if variation == "high" else 0.22)
-        ):
-            nbr = _clamp_melody(int(pitch + rng.choice([-1, 1, 2, -2])))
-            if nbr != pitch:
-                notes.append(
-                    {
-                        "pitch": nbr,
-                        "start_beat": round(
-                            bar * beats_per_bar + start_local + min(0.125, max(0.06, gap * 0.35)),
-                            3,
-                        ),
-                        "duration_beats": 0.1,
-                        "phrase_role": "ornament",
-                        "voice": "ornament",
-                    }
-                )
 
     notes.sort(key=lambda n: n["start_beat"])
     return notes
@@ -1656,8 +1655,8 @@ def _melody_for_section(
         density
     ]
     var = VARIATION_STRENGTH[variation]
-    if var >= 0.5 and rng.random() < var * 0.4 and dance_type != "vals":
-        notes_per_bar = min(beats_per_bar * 4, notes_per_bar + 2)
+    if dance_type == "tango" and var >= 0.5 and rng.random() < var * 0.25:
+        notes_per_bar = min(beats_per_bar * 4, notes_per_bar + 1)
 
     motif: dict[str, Any] | None = primary_motif
     if motif is None:
@@ -1682,6 +1681,7 @@ def _melody_for_section(
         dance_type=dance_type,
     )
 
+    prev_dens: Level = density
     for local_start, plen in phrases:
         abs_start = start_bar + local_start
         tags = [_drama_tag_for_bar(abs_start + k, drama) for k in range(plen)]
@@ -1703,6 +1703,8 @@ def _melody_for_section(
             section_name=section_name,
         )
         local_density = _density_for_development(local_density, dev, dance_type=dance_type)
+        local_density = _step_density(prev_dens, local_density)
+        prev_dens = local_density
         reg = _register_for_drama(tag, phrase_i)
         if reg == 0:
             reg = _phrase_register_bias(

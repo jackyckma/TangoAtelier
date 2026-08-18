@@ -140,6 +140,11 @@ def _pattern_for_bar(
     if not colour:
         return primary
     slot = bar % 8
+    # Milonga: keep habanera as the home pulse; one colour bar per 8
+    if primary.startswith("milonga"):
+        if slot == 6:
+            return colour[(bar // 8) % len(colour)]
+        return primary
     if slot in (2, 6):
         return colour[(bar // 8 + (0 if slot == 2 else 1)) % len(colour)]
     return primary
@@ -208,31 +213,30 @@ def _phrase_end_ornament(
     dur: float,
     spb: float,
     vel: int,
-) -> list[NoteEvent]:
-    """Sparse tango-ish cadential ornaments (grace from below, or short turn)."""
-    kind = rng.choice(["grace_below", "grace_below", "turn"])
-    out: list[NoteEvent] = []
-    if kind == "grace_below":
-        grace = pitch - rng.choice([1, 2])
-        out.append(
-            NoteEvent(
-                grace,
-                max(0.0, start - spb * 0.1),
-                spb * 0.08,
-                max(48, vel - 20),
-                "piano_rh",
-            )
-        )
+    *,
+    dance_type: str = "tango",
+) -> list[NoteEvent] | None:
+    """Replace the cadence attack with an appoggiatura that occupies the same window.
+
+    Returns None when the landing is too short to steal time from.
+    """
+    if dur < spb * 0.55:
+        return None
+    if dance_type == "vals":
+        steal = min(spb * 0.42, dur * 0.28)
+        nb = pitch + rng.choice([-2, -1, 1])
+    elif dance_type == "milonga":
+        steal = min(spb * 0.22, dur * 0.22)
+        nb = pitch + rng.choice([-2, -1])
     else:
-        # Upper neighbor → return (keep short; no mid-note clutter)
-        upper = pitch + 1
-        out.append(
-            NoteEvent(upper, start + max(0.0, dur - spb * 0.22), spb * 0.08, vel - 12, "piano_rh")
-        )
-        out.append(
-            NoteEvent(pitch, start + max(0.0, dur - spb * 0.12), spb * 0.1, vel - 8, "piano_rh")
-        )
-    return out
+        steal = min(spb * 0.2, dur * 0.32)
+        nb = pitch + rng.choice([-2, -1, 1])
+    if steal < 0.045 or nb == pitch:
+        return None
+    return [
+        NoteEvent(nb, start, steal * 0.92, max(52, vel - 10), "piano_rh"),
+        NoteEvent(pitch, start + steal, max(0.06, dur - steal), vel, "piano_rh"),
+    ]
 
 
 def _rh_double_rate(voicing_style: str) -> float:
@@ -256,6 +260,7 @@ def _render_melody(
     voicing_style: str = "bright_staccato",
     beats_per_bar: int = 2,
     elaborations: dict[int, dict] | None = None,
+    dance_type: str = "tango",
 ) -> list[NoteEvent]:
     notes: list[NoteEvent] = []
     double_rate = _rh_double_rate(voicing_style)
@@ -265,6 +270,8 @@ def _render_melody(
         dur = float(m["duration_beats"]) * spb
         pitch = int(m["pitch"])
         voice = m.get("voice") or "lead"
+        if voice == "ornament":
+            continue
         drama = m.get("drama") or "normal"
         energy = float(m.get("energy") or 0.5)
         phrase_end = bool(m.get("phrase_end"))
@@ -297,59 +304,53 @@ def _render_melody(
             vel = max(48, vel - 6)
         if dyn_boost:
             vel = min(127, int(vel * (1.0 + dyn_boost) + 4))
-        notes.append(NoteEvent(pitch, start, max(0.05, dur), min(127, vel), "piano_rh"))
+        vel = min(127, vel)
+        dur = max(0.05, dur)
 
-        # Style voicing: doubles land on phrase ends / climax peaks — not every note
+        orn_p = min(0.42, decoration * 0.65 + orn_boost * 0.35)
+        if dance_type == "vals":
+            orn_p = min(0.18, orn_p * 0.45)
+        elif dance_type == "milonga":
+            orn_p = min(0.22, orn_p * 0.55)
+        if drama == "climax" and phrase_end:
+            orn_p = min(0.5, orn_p + 0.08)
+        elif drama in ("anticipate", "rise", "dense"):
+            orn_p *= 0.2
+        cadenza = (
+            voice == "lead"
+            and phrase_end
+            and m.get("phrase_role") in ("answer", "cadence")
+            and rng.random() < orn_p
+        )
+        blended = (
+            _phrase_end_ornament(rng, pitch, start, dur, spb, vel, dance_type=dance_type)
+            if cadenza
+            else None
+        )
+        if blended:
+            notes.extend(blended)
+            landing = blended[-1]
+            start, dur, vel = landing.start, landing.duration, landing.velocity
+        else:
+            notes.append(NoteEvent(pitch, start, dur, vel, "piano_rh"))
+
+        # Doubles on the held landing only — never on a tiny approach chirp
         p_double = double_rate
         if orn_boost:
-            p_double = min(1.0, p_double + orn_boost * 0.85)
-        if voice == "lead" and dur >= spb * 0.35:
+            p_double = min(0.7, p_double + orn_boost * 0.35)
+        if voice == "lead" and dur >= spb * 0.45 and not blended:
             if drama == "climax" and phrase_end:
-                p_double = min(1.0, p_double + 0.4)
-            elif drama == "rise" and phrase_end:
-                p_double = min(1.0, p_double + 0.15)
+                p_double = min(0.75, p_double + 0.2)
             elif phrase_end:
-                p_double = min(1.0, p_double + 0.2)
-            elif drama == "climax":
-                p_double *= 0.35  # avoid stacking octaves on every climax attack
+                p_double = min(0.55, p_double + 0.1)
             else:
-                p_double *= 0.55
+                p_double *= 0.45
             if rng.random() < p_double:
                 below = pitch - 12
                 if below >= 48:
                     notes.append(
                         NoteEvent(below, start, max(0.05, dur * 0.92), max(48, vel - 22), "piano_rh")
                     )
-                if voicing_style in ("dense_dramatic", "octave_unison_bass") and phrase_end:
-                    mid = pitch - rng.choice([3, 4, 5, 7])
-                    if mid >= 55:
-                        notes.append(
-                            NoteEvent(
-                                mid,
-                                start,
-                                max(0.05, dur * 0.7),
-                                max(44, vel - 30),
-                                "piano_rh",
-                            )
-                        )
-
-        orn_p = decoration + orn_boost
-        # E3: tension/energy raises cadential ornament chance
-        orn_p *= 0.55 + 0.8 * energy
-        if drama == "climax" and phrase_end:
-            orn_p = min(1.0, orn_p + 0.25)
-        elif drama in ("anticipate", "rise"):
-            orn_p *= 0.25  # keep the approach clean
-        elif drama == "dense":
-            orn_p *= 0.4
-        orn_p = min(1.0, orn_p)
-        if (
-            voice == "lead"
-            and m.get("phrase_end")
-            and m.get("phrase_role") in ("answer", "cadence")
-            and rng.random() < orn_p
-        ):
-            notes.extend(_phrase_end_ornament(rng, pitch, start, dur, spb, vel))
     return notes
 
 
@@ -493,9 +494,9 @@ def render_skeleton(
     if profile.get("id") == "simple":
         decoration = 0.12
     if dance_type == "milonga":
-        decoration *= 0.55  # milonga: fewer cadential frills
+        decoration *= 0.4
     elif dance_type == "vals":
-        decoration = min(0.85, decoration * 1.1)  # gentle phrase-end turns ok
+        decoration *= 0.35
 
     enabled = _default_instruments(profile)
     if instruments:
@@ -624,6 +625,7 @@ def render_skeleton(
             voicing_style=voicing,
             beats_per_bar=beats_per_bar,
             elaborations=elaborations,
+            dance_type=dance_type,
         )
         for n in rh:
             n.velocity = _apply_vel(n.velocity, vols.get("piano_rh", 1.0))
