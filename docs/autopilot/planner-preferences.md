@@ -13,4 +13,5 @@
 
 ## Learned patterns (append-only)
 
-- (none yet)
+- E11 Motivic cells: **extend** `theme_state` / `_roll_piece_motif` in `skeleton.py`; do not parallel-rewrite the melody engine. Keep `skeleton.motif` backward-compatible (cell 0).
+- Decompose engine epics: contract/export → section wiring → development axis → interweave/coda; each slice needs a fixed-seed Python assertion plus `./scripts/agent-verify.sh`.
