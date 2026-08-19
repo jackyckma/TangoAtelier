@@ -6,51 +6,46 @@
 
 **TangoAtelier** 主流程：**Skeleton → Style render**。線上：https://tangoatelier.zeabur.app/atelier  
 
-引擎保真度 **E1–E6、E9–E12** 已落地。
+引擎保真度 **E1–E6、E9–E12** 已落地。音樂模型主線改為 **M-task**（見 [`product/MUSICALITY_OVERHAUL.md`](product/MUSICALITY_OVERHAUL.md)）。
 
-**2026-08-19 方向調整：** 對 commit `920ddbb` 的實測診斷（60 seeds 統計）發現引擎有結構性的音樂模型問題，不是靠加 E-task 能解決的。主線改為 **M-task 系列**，規格見 [`product/MUSICALITY_OVERHAUL.md`](product/MUSICALITY_OVERHAUL.md)。**下一刀：M3（音樂性 critic）**。
+**已完成：** M3（critic）→ M1（和聲拼寫）→ M2（樂句和聲 + golden-age 曲式 + 相對調 + A→B V7 bridge）。
+
+**下一刀（二選一，可平行）：**
+
+1. **M10 — Pulse / Groove**（舞池脈搏；以 Render 為主）— 若痛點是「像探戈但不想跳」
+2. **M4 — 旋律三層重寫** — 若痛點是「不好哼、不像一句話」
 
 ## What works
 
-- Skeleton → simple／orquesta render；phrase cadence（E1）；A′ elaboration（E2）
-- **Motivic cells（E11）**：1–3 cells、多種 contour、對比 cell 獨立 roll（非單純倒影）
-- **E9** structural anchors＋張力插值；**E10** motif setup／payoff 早排程
-- **E12** section groove intent（intro 疏／A 立住／B 加深 colour／coda 收）
-- **選中進行會在 A／A′／B 循環**；intro／bridge／coda 才強制終止。Vals 樂句可長至 8–12 小節。
+- Skeleton → simple／orquesta render；phrase cadence；A′ elaboration
+- Motivic cells（E11）、結構錨點＋張力（E9）、setup／payoff（E10）、section groove intent（E12）
+- **M1：** 和弦詞彙表；`CHORD_SPELLING_INVALID` 歸零
+- **M2：** 樂句終止驅動和聲；`golden_age_short`（60 小節：含 bridge）；B 段相對大小調；`SECTION`／`PHRASE_NO_CADENCE`／`HARMONIC_RHYTHM_ORPHAN` 歸零
+- **M3：** hard rules + fingerprint + `musicality-report.py`
 
 ## Known gaps
 
-### 音樂模型（M-task 主線）
+### 音樂模型（剩餘 M-task）
 
-- **和弦拼寫 bug**：`harmony.py` 一律用和聲小調求根音 → A 小調的 `VII` = G#–C–Eb（應為 G–B–D）。`descending_fifths` 抽中率 1/3 → M1
-- **`iiø` 缺七音**：生成減三和弦 B–D–F，標籤與聲響不符 → M1
-- **和聲循環與段落長度不對齊**：8 小節循環 vs 12 小節 A 段 → 段落結束在非終止和弦 → M2
-- **旋律 contour-first**：音程 98% 為級進、每小節 1.84 音、無長音、無休止、同音重複被主動消滅 → M4
-- **和弦詞彙不足**：15 種符號，i/V7/I 佔 70%；無次屬、減七、bII、增六、半音低音線 → M5
-- **多樣性在音符層而非計劃層**：每個 seed 都是同一個 36 小節宏觀形狀 → M7
-- **配器只是換音量**：bandoneón 永遠 pad、弦樂永遠長音，無旋律交接、無 contracanto、無 variación 段 → M8
+- **舞池脈搏偏弱**：節奏「名字」對了，microtiming／beat-1 重量／雙層 arrastre 不足 → **M10**
+- **旋律仍偏 contour-first**：缺長音／休止／弱起姿態；`DENSITY_MISMATCH`／`RANGE_EXCEEDED` 仍多 → **M4**
+- **功能和聲語法**尚未取代固定 progression 池 → M5
+- **動機發展手法表**（可教學）→ M6
+- **Archetype 宏觀多樣性** → M7
+- **配器角色 + variación + bandoneón sample** → M8
+- **教學 IR／逐層剝開** → M9
 
 ### 產品面
 
-- Vals／Milonga 節奏仍簡化；真實 samples 未到位（bandoneón 尤其關鍵）
-- Hint／Save／Share／參數滑桿未做
+- Vals／Milonga 節奏仍簡化；真實 samples 未到位
+- Hint／Save／Share／參數滑桿未做（Phase 4–6）
 
-## E-task 與 M-task 的關係
+## Skeleton vs Render（Pulse 決策）
 
-已完成的 E-task 成果保留，在新架構中的對應位置：
-
-| E-task | 在 M-task 中的位置 |
-|---|---|
-| E2（A′ 闡述） | M6 的 `A_prime` 手法表 |
-| E9（結構錨點） | M7 的 tension shape |
-| E11（motivic cells） | M4 的 PitchCell／RhythmCell（拆成音高與節奏兩份） |
-
-未完成的 E-task 已被涵蓋：**E0 → M2**、**E7 → M8**、**E8 → M9**。
+Pulse／groove **主要在 Render**：同一 skeleton 換樂團＝換踩法（D'Arienzo 推著走 vs Di Sarli／Pugliese 心跳與戲劇）。Skeleton 只保留 drama／section_groove **意圖**與可數的拍號格子。詳見 overhaul **§M10**。
 
 ## Next steps
 
-1. **M3 — 音樂性 critic 與統計指紋**（先做；沒有測量工具，後續改動無法驗證）
-2. M1 — 和聲拼寫修正與和弦詞彙表
-3. M2 — 樂句驅動的和聲規劃
-
-完整順序與 DoD 見 [`product/MUSICALITY_OVERHAUL.md`](product/MUSICALITY_OVERHAUL.md) §3。
+1. Founder 選 **M10** 或 **M4**（或兩線平行）
+2. 完成後：`tests/musicality/` + `musicality-report.py` + 人耳驗收
+3. 再進 M5／M6／M7 → M8 → M9

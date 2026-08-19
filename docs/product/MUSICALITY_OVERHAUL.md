@@ -1,7 +1,8 @@
 # TangoAtelier — 音樂性改造實作規格（Musicality Overhaul）
 
-**版本：** 1.0
+**版本：** 1.1
 **建立日期：** 2026-08-19
+**最後更新：** 2026-08-19（加入 M10 Pulse／Groove；M1–M3 標為已完成）
 **目標讀者：** Cursor AI（實作）＋ founder（聽感驗收）
 **對應現有文件：** `docs/product/PROJECT_PLAN.md`（E-task 路線）、`docs/research/Tango_music_synthesis.md`
 
@@ -24,13 +25,18 @@
 ```
 M1 (和聲拼寫修正) ──┐
 M2 (樂句驅動和聲) ──┼──► M4 (旋律三層重寫) ──► M6 (動機發展手法)
-M3 (音樂性 critic) ─┘                          │
-                                                ▼
-M5 (功能和聲語法) ──────────────────────► M7 (Archetype 多樣性)
-                                                │
-                                                ▼
-                                    M8 (配器角色) ──► M9 (教學 IR + UI)
+M3 (音樂性 critic) ─┘         │                 │
+                              │                 ▼
+                              │          M5 (功能和聲) ──► M7 (Archetype)
+                              │                                │
+                              ▼                                ▼
+                    M10 (Pulse / Groove) ──────────────► M8 (配器) ──► M9 (教學 IR)
+                         ▲
+                         │ 可與 M4 平行；M2+M3 完成後即可插入
+                         │ （舞池感不依賴旋律重寫）
 ```
+
+**狀態（2026-08-19）：** M3 → M1 → M2 已落地（含相對調 + A→B V7 bridge）。下一刀可選 **M4**（旋律句子）或 **M10**（舞池脈搏）——兩者互補、互不阻塞。
 
 M1、M2、M3 可平行；M3 建議**最先做**，因為它是後續所有改動的驗收工具。
 
@@ -1023,6 +1029,154 @@ def generate_variacion(motif: PitchCell, chords: list[ChordSlot],
 
 ---
 
+### M10 — Pulse / Groove Rendering（舞池脈搏）
+
+**層級：** 以 **Render** 為主；Skeleton 只提供輕量 intent  
+**依賴：** M2、M3（已完成即可開工）；**不依賴 M4**  
+**可與：** M4／M5 平行  
+**預估：** 中  
+**對應 E-task：** 加深 E12；部分銜接 E7（節奏層由誰扛）但不取代 M8
+
+#### 動機
+
+Founder 驗收（2026-08-19）：生成結果「已經像探戈」，但**比較不像邀請人起舞**——缺「心跳跟拍」與「戲劇張力踩在身上」的感覺。
+
+根因不是「沒用 marcato／síncopa 這些名字」，而是**拍子被怎麼打出來（rendering）**：
+
+| 聽感 | 技術翻譯 |
+|------|----------|
+| 心跳同步 | 低音／beat-1 重量清晰、格子可預期、偶發空拍呼吸 |
+| 邀請起舞 | 重–輕曲線、home groove 穩定、切分只當調味 |
+| 戲劇張力 | 薄→厚、空→滿、微時值「咬一口」（不只音量推桿） |
+
+現況：`rhythm.py` 的 LH 格子 + 小幅 `_humanize`（±11ms）＋ drama 調 velocity；前端 Tone.js **原樣排程**，幾乎不塑造 groove。結果是「有節奏型」，但像量化鼓機多於「有人在踩地板」。
+
+#### 架構決策：Pulse 放 Skeleton 還是 Render？
+
+**結論：絕大多數放 Render；Skeleton 只標「意圖」，不寫死微時值。**
+
+這與 `PROJECT_PLAN.md` §0 過濾器一致，也保留產品核心：**同一首歌（skeleton）× 不同樂團（render）＝ 不同踩法**。
+
+| 放 Skeleton（跨樂團共用） | 放 Render（換樂團才變） |
+|---------------------------|-------------------------|
+| 拍號、預設 BPM 範圍、舞種 | LH pattern 家族內的具體踩法（en dos vs en cuatro） |
+| 樂句／8-count 邊界（已由 M2 phrase 提供） | **微時值**：bass 準拍、和弦層略晚（arrastre） |
+| `drama` tags + `energy`／`tension_curve`（何時該薄／厚／空） | beat-1 相對重量、staccato vs pesante 曲線 |
+| E12 `section_groove` intent（colour_slots、lh fullness） | 在哪些 bar 插入 síncopa／yumba（執行 intent） |
+| （可選）`pulse_plan`: `"drive"` \| `"heart"` \| `"dramatic"` 作為段落意圖標籤 | 該意圖在 D'Arienzo / Di Sarli / Pugliese profile 下的不同參數 |
+
+**為什麼不要把 pulse 寫進「基本音樂」音符格？**
+
+1. **對照教學會壞掉**：同一 skeleton 換 D'Arienzo ↔ Di Sarli 時，旋律／和聲應可對上；若微時值與重音已烤進 skeleton note events，style render 無法誠實「換踩法」。
+2. **性格軸在 Render**：推著走（D'Arienzo）vs 心跳／戲劇（Di Sarli／Pugliese）本來就是 **orquesta 差異**，不是「換了一首歌」。
+3. **Skeleton 仍要負責「身體可數的格子」**：若 phrase 邊界亂、沒有穩定 2/4 骨架，Render 再怎麼 microtiming 也救不了邀舞感——這部分 M2／E12 已在做，M10 只消費它們。
+
+**例外（仍屬 Skeleton）：** 若 M7 archetype 抽到 `modulation_plan` / `tension_shape`，那是宏觀敘事，不是 groove rendering。
+
+```
+Skeleton                          Render                         Playback
+────────                          ──────                         ────────
+form + phrases (M2)               rhythm.left_hand_for_bar       Tone.js
+drama / energy / tension   ──►    + microtiming layers    ──►    (faithful;
+section_groove intent             + accent curves                 optional
+(optional pulse_plan tag)         + style profile params          light lag)
+chords + melody pitches           + humanize (stronger)
+```
+
+#### 兩種「想跳舞」的性格（同一 skeleton，不同 render）
+
+| 軸 | D'Arienzo 系「推著走」 | Di Sarli／Pugliese 系「心跳與戲劇」 |
+|----|------------------------|-------------------------------------|
+| Home groove | marcato en cuatro、較短、較前緣 | marcato en dos／pesante、beat-1 更重 |
+| Microtiming | 接近準拍、略「on top」 | bass 準、chord 層 20–40ms late（arrastre） |
+| 空拍 | 少；持續推動 | 多；silence → 回來＝邀請換重心 |
+| Colour | 偶發 síncopa | climax 附近 yumba／arrastre；平時乾淨 |
+| Drama 執行 | energy↑ → 更密、更短、更響 | energy↑ → 先更薄（anticipate）再更重；極端動態 |
+
+M10 **不要**做成「全局一種 groove」；要做成 **profile 參數表**，讓 simple／六團走同一套 API、不同曲線。
+
+#### 檔案
+
+```
+backend/app/engine/rhythm.py          # 擴充：分層攻擊時間、accent curve
+backend/app/engine/groove.py          # 新增：pulse params、microtiming、section 執行
+backend/app/engine/render.py          # 接 groove；放大／分軌 humanize
+backend/data/style_profiles/*.json    # 新增 pulse 區塊（見下）
+frontend/src/audio/pianoPlayer.ts     # 可選：依 track 的輕量 lag（預設仍忠於 note-event）
+docs/musicality-baseline.md           # 補 groove 相關指紋（若有新 metric）
+```
+
+#### 10.1 Style profile 擴充（schema）
+
+```json
+"pulse": {
+  "feel": "drive" | "heart" | "dramatic",
+  "beat1_weight": 1.0,
+  "other_beat_weight": 0.72,
+  "bass_on_time": true,
+  "chord_lag_ms": 0,
+  "humanize_ms": 18,
+  "staccato_bias": 0.55,
+  "silence_bias": 0.12,
+  "colour_aggression": 0.25
+}
+```
+
+建議起點（可調）：
+
+| Profile | feel | chord_lag_ms | beat1_weight | silence_bias |
+|---------|------|-------------:|-------------:|-------------:|
+| simple / D'Arienzo | drive | 0–8 | 1.05 | 0.08 |
+| Di Sarli | heart | 18–28 | 1.20 | 0.16 |
+| Pugliese | dramatic | 28–45 | 1.25 | 0.22 |
+| Troilo | heart | 12–22 | 1.12 | 0.14 |
+
+#### 10.2 Render 實作要點
+
+1. **雙層 LH 時間**：`left_hand_for_bar` 產出的 bass／根音攻擊用 `start + 0`；block／chord 層加 `chord_lag_ms`（轉成 beats）。這是 arrastre 的最小可行版。
+2. **Accent curve**：每小節 beat 0 的 velocity × `beat1_weight`；其餘 × `other_beat_weight`；再乘既有 `tension`／drama 縮放。
+3. **Humanize**：piano 可到 ±`humanize_ms`（約 15–25ms）；**不要**對齊到 melodic grid 的整數 16th 再抹平。
+4. **執行 E12 intent**：`colour_slots` 為真時才允許 secondary pattern；climax／dense bars 提高 `colour_aggression`。
+5. **Pause／anticipate**：drama `pause` 與 `anticipate` 必須讓 LH **變稀疏**（已有雛形），M10 把對比拉大到人耳一聽就知道「要踩／要等」。
+6. **前端**：預設仍播放後端時間戳；僅在 profile 要求且 note-event 未帶 lag 時，才對 `piano_lh_chord` 類 track 做補償（避免雙重 lag）。
+
+#### 10.3 Critic／測量（輕量）
+
+不一定新 hard-rule；建議 fingerprint 或 report 加：
+
+- `onset_grid_dev_ms`：LH 攻擊相對理論格子的平均／p90 偏差（應 > 極小量化值）
+- `beat1_velocity_ratio`：beat-1 vel 中位 ÷ 其他拍 vel 中位（tango 目標約 1.15–1.35）
+- 既有 `rest_ratio`／drama 區段的 notes 密度差（anticipate vs climax）
+
+#### DoD
+
+- [ ] **同 skeleton、兩 profile 盲聽**：founder 能分辨「推著走」vs「心跳／戲劇」的踩法差異（旋律仍認得是同一首）
+- [ ] Di Sarli／Pugliese 路徑可測到 **chord 層平均落後 bass ≥ 15ms**（或等價的 beat 分數）
+- [ ] Tango `beat1_velocity_ratio` 落在目標帶；simple／D'Arienzo 不因 lag 變「拖泥帶水」
+- [ ] Drama `pause`／`anticipate` → `climax` 的 LH 密度與重量對比，盲聽可指出「哪一段比較想踩／想停」
+- [ ] Seed 可重現；不破壞 M1／M2 的 cadence／spelling 歸零
+- [ ] 更新 `docs/musicality-baseline.md` 與（若有）fingerprint 門檻
+
+#### 不要做的事
+
+- 不要把微時值寫進 skeleton 的 `melody[]`／和弦 onset（會鎖死風格對照）
+- 不要在 M10 重寫旋律引擎（那是 M4）或上真實 bandoneón sample（那是 M8）
+- 不要用全域 random jitter「假裝」groove；lag／accent 必須來自 profile + drama intent
+- 不要讓 secondary colour 蓋過 home groove（E12 約束仍在：colour 是調味）
+- 不要為了 DoD 把所有 profile 做成同一組參數
+
+#### 與 M4／M8 的分工
+
+| Task | 解決 |
+|------|------|
+| **M10** | 「想不想跳、心跳跟不跟得上」——拍怎麼被打 |
+| **M4** | 「好不好哼、像不像一句話」——旋律怎麼走 |
+| **M8** | 「像哪個樂團在演奏」——誰扛拍／誰對位＋音色 |
+
+先做 M10 或 M4 都可以；若 founder 當前痛點是舞池感，**優先 M10**。
+
+---
+
 ### M9 — 教學 IR 與逐層剝開 UI
 
 **層級：** 全棧
@@ -1122,14 +1276,15 @@ def explain_note(note: MelodyNote, ctx: Context) -> dict[str, str]:
 
 | 順序 | M-task | 理由 |
 |---|---|---|
-| 1 | **M3** | 沒有測量工具，後面所有改動都無法驗證 |
-| 2 | **M1** | 修 bug，範圍小，立即消除「違和感」 |
-| 3 | **M2** | 修結構性 bug，且是 M4 的前置 |
-| 4 | **M4** | 影響最大的單一改動 |
+| 1 | **M3** | 沒有測量工具，後面所有改動都無法驗證 ✅ |
+| 2 | **M1** | 修 bug，範圍小，立即消除「違和感」 ✅ |
+| 3 | **M2** | 修結構性 bug，且是 M4 的前置 ✅（含相對調、V7 bridge） |
+| 4a | **M10** | （可選優先）舞池脈搏；與 M4 平行，回應「像探戈但不想跳」 |
+| 4b | **M4** | 影響最大的旋律改動；與 M10 互補 |
 | 5 | **M5** | 和聲詞彙上線，多樣性第一波 |
 | 6 | **M6** | 動機發展，讓長曲有邏輯 |
 | 7 | **M7** | 多樣性第二波（宏觀） |
-| 8 | **M8** | 配器 + 音色，「像不像」的最後一哩 |
+| 8 | **M8** | 配器 + 音色，「像哪個團」的最後一哩 |
 | 9 | **M9** | 教學價值兌現 |
 
 **每個 M-task 之後的固定流程：**
