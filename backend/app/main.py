@@ -50,7 +50,7 @@ class SkeletonRequest(BaseModel):
     dance_type: Literal["tango", "milonga", "vals"] = "tango"
     key: str | None = None
     progression_id: str | None = "random"
-    form_id: str | None = "intro_aa_coda"
+    form_id: str | None = "golden_age_short"
     melody_density: MelodyLevel = "medium"
     melody_variation: MelodyLevel = "medium"
     seed: int | None = Field(default=None, ge=1, le=2_147_483_647)

@@ -1,0 +1,458 @@
+"""Phrase-driven form and harmony planning (M2)."""
+
+from __future__ import annotations
+
+import random
+from dataclasses import asdict, dataclass, field
+from typing import Any, Literal
+
+from app.engine.catalog import PROGRESSIONS_MAJOR, PROGRESSIONS_MINOR
+from app.engine.harmony import relative_key
+
+CadenceKind = Literal["half", "imperfect", "deceptive", "authentic", "open"]
+
+CADENCE_PLANS: dict[int, list[CadenceKind]] = {
+    2: ["half", "authentic"],
+    3: ["half", "deceptive", "authentic"],
+    4: ["half", "imperfect", "deceptive", "authentic"],
+}
+
+CADENCE_CHORDS: dict[str, dict[str, list[str]]] = {
+    "half": {"minor": ["V7"], "major": ["V7"]},
+    "imperfect": {"minor": ["V7", "i"], "major": ["V7", "I"]},
+    "deceptive": {"minor": ["V7", "VI"], "major": ["V7", "vi"]},
+    "authentic": {"minor": ["V7b9", "i"], "major": ["V7", "I"]},
+    "open": {"minor": ["iv"], "major": ["IV"]},
+}
+
+CADENCE_ROLE: dict[str, str] = {
+    "half": "half",
+    "imperfect": "authentic",
+    "deceptive": "deceptive",
+    "authentic": "authentic",
+    "open": "half",
+}
+
+# Sections that use phrase-driven fill (not bridge pedal)
+_PHRASE_SECTIONS = frozenset(
+    {"A", "B", "A_prime", "A2", "variacion", "estribillo", "intro", "coda"}
+)
+
+
+@dataclass
+class Phrase:
+    index: int
+    bar_from: int  # 1-based piece bar index
+    bars: int
+    cadence: str
+    role: str  # question | answer
+    anacrusis_beats: float = 0.0
+
+
+@dataclass
+class SectionPlan:
+    section: str
+    key: str
+    mode: str
+    tonic: int
+    progression_id: str
+    progression: list[str]
+    modulation: str | None = None
+    phrases: list[Phrase] = field(default_factory=list)
+    bar_from: int = 1
+    bar_to: int = 1
+    bars_per_chord: int = 1
+
+
+def _extend_plan(n: int) -> list[CadenceKind]:
+    pattern: list[CadenceKind] = ["half", "imperfect", "deceptive", "authentic"]
+    out: list[CadenceKind] = []
+    while len(out) < n:
+        out.extend(pattern)
+    if out and out[-1] != "authentic":
+        out[-1] = "authentic"
+    return out[:n]
+
+
+def _map_progression_symbols(symbols: list[str], target_mode: str) -> list[str]:
+    _TO_MINOR = {
+        "I": "i",
+        "ii": "iiø7",
+        "iii": "iii",
+        "IV": "iv",
+        "V": "V",
+        "V7": "V7",
+        "V7b9": "V7b9",
+        "vi": "VI",
+        "vii°": "vii°",
+        "vii°7": "vii°7",
+        "i": "i",
+        "iv": "iv",
+        "VI": "VI",
+        "III": "III",
+        "iiø7": "iiø7",
+        "bVII": "bVII",
+        "V7/IV": "V7/iv",
+        "V7/V": "V7/V",
+        "V7/ii": "V7/V",
+        "bII": "bII",
+    }
+    _TO_MAJOR = {
+        "i": "I",
+        "iiø7": "ii",
+        "iii": "iii",
+        "III": "iii",
+        "iv": "IV",
+        "IV": "IV",
+        "V": "V",
+        "V7": "V7",
+        "V7b9": "V7",
+        "vi": "vi",
+        "VI": "vi",
+        "bVII": "bVII",
+        "vii°": "vii°",
+        "V7/iv": "V7/IV",
+        "V7/V": "V7/V",
+        "I": "I",
+        "bII": "bII",
+    }
+    table = _TO_MINOR if target_mode == "minor" else _TO_MAJOR
+    return [table.get(s, s) for s in symbols]
+
+
+def pick_progression(
+    rng: random.Random, mode: str, progression_id: str | None
+) -> tuple[str, list[str]]:
+    table = PROGRESSIONS_MINOR if mode == "minor" else PROGRESSIONS_MAJOR
+    other = PROGRESSIONS_MAJOR if mode == "minor" else PROGRESSIONS_MINOR
+    if progression_id and progression_id != "random":
+        if progression_id in table:
+            return progression_id, list(table[progression_id])
+        if progression_id in other:
+            return progression_id, _map_progression_symbols(list(other[progression_id]), mode)
+    pid = rng.choice(list(table.keys()))
+    return pid, list(table[pid])
+
+
+def alternate_progression(
+    rng: random.Random, mode: str, current_id: str
+) -> tuple[str, list[str]]:
+    table = PROGRESSIONS_MINOR if mode == "minor" else PROGRESSIONS_MAJOR
+    choices = [k for k in table if k != current_id]
+    pid = rng.choice(choices or list(table.keys()))
+    return pid, list(table[pid])
+
+
+def harmonic_rhythm_for_bar(local_bar: int, phrase_bars: int) -> int:
+    """0 = hold previous chord; 1 = new chord slot."""
+    if local_bar >= phrase_bars - 1:
+        return 1
+    if local_bar >= phrase_bars - 2:
+        return 1
+    return 1 if local_bar % 2 == 1 else 0
+
+
+def plan_phrases(
+    *,
+    section_name: str,
+    bars: int,
+    dance_type: str,
+    bar_from_1based: int,
+    pause_bars: set[int],
+    rng: random.Random,
+) -> list[Phrase]:
+    phrase_len = 8 if dance_type == "vals" else 4
+    chunks: list[int] = []
+    local = 0
+    while local < bars:
+        abs_bar = bar_from_1based - 1 + local
+        if abs_bar in pause_bars:
+            local += 1
+            continue
+        remaining = bars - local
+        length = min(phrase_len, remaining)
+        if length <= 0:
+            break
+        if length == 1 and local + 1 < bars and (bar_from_1based + local) not in pause_bars:
+            length = 2
+        chunks.append(min(length, remaining))
+        local += chunks[-1]
+
+    n = len(chunks) or 1
+    if not chunks:
+        chunks = [bars]
+
+    cadences: list[CadenceKind]
+    if section_name == "intro":
+        cadences = ["open"] * n
+        cadences[-1] = "authentic"
+    elif section_name == "bridge":
+        cadences = ["half"] * n
+    elif section_name == "coda":
+        cadences = (["half"] * (n - 1) + ["authentic"]) if n > 1 else ["authentic"]
+    else:
+        cadences = list(CADENCE_PLANS.get(n) or _extend_plan(n))
+        if section_name in ("A_prime", "variacion") and n >= 3:
+            cadences[2] = "deceptive"
+
+    bar_cursor = bar_from_1based
+    phrases: list[Phrase] = []
+    for i, plen in enumerate(chunks):
+        cad = cadences[i] if i < len(cadences) else "authentic"
+        role = "question" if i % 2 == 0 else "answer"
+        phrases.append(
+            Phrase(
+                index=i,
+                bar_from=bar_cursor,
+                bars=plen,
+                cadence=cad,
+                role=role,
+                anacrusis_beats=0.0,
+            )
+        )
+        bar_cursor += plen
+    return phrases
+
+
+def fill_phrase_harmony(
+    phrase: Phrase,
+    *,
+    mode: str,
+    progression_template: list[str],
+) -> tuple[list[str], dict[int, str]]:
+    """Return local-bar symbols and cadence roles (local index → role)."""
+    symbols = [""] * phrase.bars
+    roles: dict[int, str] = {}
+    cadence_syms = CADENCE_CHORDS.get(phrase.cadence, {}).get(mode, ["i" if mode == "minor" else "I"])
+    start = max(0, phrase.bars - len(cadence_syms))
+    for offset, sym in enumerate(cadence_syms):
+        idx = start + offset
+        if idx < phrase.bars:
+            symbols[idx] = sym
+            roles[idx] = CADENCE_ROLE.get(phrase.cadence, "authentic")
+
+    prog_i = 0
+    prev = progression_template[0] if progression_template else ("i" if mode == "minor" else "I")
+    for local in range(phrase.bars):
+        if symbols[local]:
+            prev = symbols[local]
+            continue
+        if harmonic_rhythm_for_bar(local, phrase.bars) == 0 and local > 0:
+            symbols[local] = prev
+            continue
+        sym = progression_template[prog_i % len(progression_template)]
+        prog_i += 1
+        symbols[local] = sym
+        prev = sym
+
+    for local in range(phrase.bars):
+        if not symbols[local]:
+            symbols[local] = prev
+
+    return symbols, roles
+
+
+def fill_section_harmony(
+    *,
+    section_name: str,
+    bars: int,
+    mode: str,
+    progression_template: list[str],
+    phrases: list[Phrase],
+    bar_from_1based: int,
+    pause_bars: set[int],
+) -> tuple[list[str], dict[int, str]]:
+    """Build one chord symbol per bar for the section."""
+    if section_name == "bridge":
+        dominant = "V7"
+        tonic = "i" if mode == "minor" else "I"
+        bridge_prog = [dominant, dominant, tonic, dominant]
+        symbols = (bridge_prog * ((bars // len(bridge_prog)) + 1))[:bars]
+        roles = {bars - 2: "half", bars - 1: "half"}
+        return symbols, roles
+
+    if section_name == "intro":
+        tonic = "i" if mode == "minor" else "I"
+        symbols = [tonic] * bars
+        roles = {bars - 1: "authentic"} if bars else {}
+        return symbols, roles
+
+    out = [""] * bars
+    roles: dict[int, str] = {}
+    local_offset = 0
+    for phrase in phrases:
+        phrase_syms, phrase_roles = fill_phrase_harmony(
+            phrase, mode=mode, progression_template=progression_template
+        )
+        for i, sym in enumerate(phrase_syms):
+            global_local = local_offset + i
+            if global_local >= bars:
+                break
+            abs_bar = bar_from_1based - 1 + global_local
+            is_cadence_slot = i in phrase_roles
+            if abs_bar in pause_bars and not is_cadence_slot:
+                continue
+            out[global_local] = sym
+            if is_cadence_slot:
+                roles[global_local] = phrase_roles[i]
+        local_offset += phrase.bars
+
+    prev = progression_template[0] if progression_template else ("i" if mode == "minor" else "I")
+    for i in range(bars):
+        if not out[i]:
+            out[i] = prev
+        prev = out[i]
+
+    if section_name == "coda" and bars > 0:
+        out[-1] = "i" if mode == "minor" else "I"
+        roles[bars - 1] = "authentic"
+        if bars >= 2:
+            out[-2] = "V7"
+            roles[bars - 2] = "approach"
+
+    return out, roles
+
+
+def plan_section_harmony(
+    rng: random.Random,
+    *,
+    section_name: str,
+    home_key: str,
+    home_mode: str,
+    home_tonic: int,
+    home_prog_id: str,
+    home_progression: list[str],
+    user_locked_progression: bool,
+    piece_harmony: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Per-section key + progression pool (modulation for B)."""
+    piece_harmony = piece_harmony if piece_harmony is not None else {}
+    key_name, mode, tonic = home_key, home_mode, home_tonic
+    prog_id, progression = home_prog_id, list(home_progression)
+    modulation: str | None = None
+
+    if section_name in ("intro", "coda", "A", "A2", "variacion"):
+        return {
+            "section": section_name,
+            "key": key_name,
+            "mode": mode,
+            "tonic": tonic,
+            "progression_id": prog_id,
+            "progression": progression,
+            "modulation": None,
+        }
+
+    if section_name in ("A_prime",):
+        return {
+            "section": section_name,
+            "key": key_name,
+            "mode": mode,
+            "tonic": tonic,
+            "progression_id": prog_id,
+            "progression": progression,
+            "modulation": "recap",
+        }
+
+    if section_name == "bridge":
+        return {
+            "section": section_name,
+            "key": key_name,
+            "mode": mode,
+            "tonic": tonic,
+            "progression_id": "bridge_dominant",
+            "progression": ["V7", "V7", "i", "V7"] if mode == "minor" else ["V7", "V7", "I", "V7"],
+            "modulation": "bridge_dominant",
+        }
+
+    if section_name == "B":
+        cached = piece_harmony.get("contrast")
+        if cached is not None:
+            out = dict(cached)
+            out["section"] = "B"
+            return out
+
+        if user_locked_progression:
+            prog_id, progression = home_prog_id, list(home_progression)
+            modulation = None
+        else:
+            rel = relative_key(home_key, home_mode, home_tonic)
+            if rel is not None and rng.random() < 0.85:
+                key_name, mode, tonic = rel
+                modulation = "relative_major" if mode == "major" else "relative_minor"
+                prog_id, progression = pick_progression(rng, mode, "random")
+            else:
+                prog_id, progression = alternate_progression(rng, mode, home_prog_id)
+                modulation = "progression_change"
+
+        plan = {
+            "section": "B",
+            "key": key_name,
+            "mode": mode,
+            "tonic": tonic,
+            "progression_id": prog_id,
+            "progression": progression,
+            "modulation": modulation,
+        }
+        piece_harmony["contrast"] = {
+            k: plan[k]
+            for k in ("key", "mode", "tonic", "progression_id", "progression", "modulation")
+        }
+        return plan
+
+    if section_name == "estribillo":
+        return {
+            "section": section_name,
+            "key": key_name,
+            "mode": mode,
+            "tonic": tonic,
+            "progression_id": prog_id,
+            "progression": progression,
+            "modulation": "estribillo",
+        }
+
+    return {
+        "section": section_name,
+        "key": key_name,
+        "mode": mode,
+        "tonic": tonic,
+        "progression_id": prog_id,
+        "progression": progression,
+        "modulation": modulation,
+    }
+
+
+def phrase_to_dict(p: Phrase) -> dict[str, Any]:
+    d = asdict(p)
+    return d
+
+
+def build_section_harmony(
+    rng: random.Random,
+    *,
+    section_name: str,
+    section_bars: int,
+    section_start_bar: int,
+    dance_type: str,
+    sec: dict[str, Any],
+    pause_bars: set[int],
+) -> tuple[list[str], dict[int, str], list[Phrase]]:
+    """Phrase plan + per-bar chord symbols for one section."""
+    bar_from_1 = section_start_bar + 1
+    phrases = plan_phrases(
+        section_name=section_name,
+        bars=section_bars,
+        dance_type=dance_type,
+        bar_from_1based=bar_from_1,
+        pause_bars=pause_bars,
+        rng=rng,
+    )
+    symbols, roles = fill_section_harmony(
+        section_name=section_name,
+        bars=section_bars,
+        mode=str(sec["mode"]),
+        progression_template=list(sec["progression"]),
+        phrases=phrases,
+        bar_from_1based=bar_from_1,
+        pause_bars=pause_bars,
+    )
+    return symbols, roles, phrases

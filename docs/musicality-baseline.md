@@ -61,6 +61,23 @@ M3 establishes measurement baselines. Fingerprint test thresholds in `backend/te
 | DENSITY_MISMATCH | 100 | 50 | 10 |
 | HARMONIC_RHYTHM_ORPHAN | 200 | 100 | 100 |
 
+## M2 update (2026-08-19) — phrase-driven harmony
+
+**Form default:** `golden_age_short` (56 bars: intro4 + A16 + B16 + A′16 + coda4).  
+**Engine:** `backend/app/engine/form.py` — phrase cadence plans, per-bar harmony fill.  
+**Critic fix:** `section_bars = bar_to - (bar_from - 1)` for orphan check; per-bar `progression_template` skips orphan when len matches section.
+
+### M2 hard-rule totals (golden_age_short, post-M2)
+
+| rule_id | tango (100) | vals (50) | milonga (50) |
+|---------|------------:|----------:|-------------:|
+| CHORD_SPELLING_INVALID | 0 | 0 | 0 |
+| SECTION_NO_CADENCE | 0 | 0 | 0 |
+| PHRASE_NO_CADENCE | 0 | 0 | 0 |
+| HARMONIC_RHYTHM_ORPHAN | 0 | 0 | 0 |
+
+Remaining error-level failures in `test_no_error_violations` are **DENSITY_MISMATCH** and **RANGE_EXCEEDED** (M4+ scope).
+
 `LH_PARALLEL_FIFTHS` is zero under `SIMPLE_PROFILE` render (mostly broken LH). Rule fires on block-heavy profiles (e.g. Pugliese).
 
 ## §1 diagnostic coverage

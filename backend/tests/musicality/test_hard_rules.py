@@ -82,13 +82,53 @@ def test_iio7_has_seventh() -> None:
     assert pcs == frozenset({11, 2, 5, 9}), f"iiø7 PCs {pcs}"
 
 
-def test_critic_detects_harmonic_rhythm_orphan() -> None:
-    """§1 bug 3: 12-bar A section vs 8-bar harmonic cycle."""
-    sk = build_skeleton(dance_type="tango", seed=7, form_id="intro_aa_coda")
+def test_m2_phrase_harmony_cadence_rules_zero() -> None:
+    """M2 DoD: section/phrase cadence + harmonic rhythm orphan on golden_age forms."""
+    from collections import Counter
+
+    rules = ("SECTION_NO_CADENCE", "PHRASE_NO_CADENCE", "HARMONIC_RHYTHM_ORPHAN")
+    counts: Counter[str] = Counter()
+    for dance in ("tango", "vals", "milonga"):
+        n = 100 if dance == "tango" else 50
+        for seed in range(1, n + 1):
+            sk = build_skeleton(dance_type=dance, seed=seed, form_id="golden_age_short")
+            rendered = render_skeleton(
+                sk, SIMPLE_PROFILE, seed=sk["seed"], include_midi=False, include_musicxml=False
+            )
+            for v in check_hard_rules(sk, rendered):
+                if v.rule_id in rules:
+                    counts[v.rule_id] += 1
+    assert counts["SECTION_NO_CADENCE"] == 0
+    assert counts["PHRASE_NO_CADENCE"] == 0
+    assert counts["HARMONIC_RHYTHM_ORPHAN"] == 0
+
+
+def test_m2_harmonic_rhythm_orphan_skips_per_bar_template() -> None:
+    """Per-bar progression_template (len == section bars) must not trigger orphan."""
+    sk = build_skeleton(dance_type="tango", seed=7, form_id="golden_age_short")
     rendered = render_skeleton(
         sk, SIMPLE_PROFILE, seed=sk["seed"], include_midi=False, include_musicxml=False
     )
     orphans = [
         v for v in check_hard_rules(sk, rendered) if v.rule_id == "HARMONIC_RHYTHM_ORPHAN"
     ]
-    assert orphans, "A-section length mismatch should trigger HARMONIC_RHYTHM_ORPHAN"
+    assert not orphans, format_violations(orphans)
+
+
+def test_critic_detects_harmonic_rhythm_orphan_legacy_cycle() -> None:
+    """Legacy 2-bar/chord grid with section length not multiple of cycle."""
+    sk = build_skeleton(dance_type="tango", seed=7, form_id="abab")
+    for sec in sk["harmony_plan"]:
+        if sec.get("section") == "A":
+            sec["progression_template"] = []
+            sec["bars_per_chord"] = 2
+            # 15 bars vs 4-chord × 2 bpc = 8-bar cycle → orphan
+            sec["bar_to"] = int(sec["bar_from"]) + 14
+            break
+    rendered = render_skeleton(
+        sk, SIMPLE_PROFILE, seed=sk["seed"], include_midi=False, include_musicxml=False
+    )
+    orphans = [
+        v for v in check_hard_rules(sk, rendered) if v.rule_id == "HARMONIC_RHYTHM_ORPHAN"
+    ]
+    assert orphans, "15-bar section vs 8-bar cycle should trigger HARMONIC_RHYTHM_ORPHAN"
