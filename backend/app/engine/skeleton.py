@@ -12,12 +12,17 @@ from app.engine.catalog import (
     PROGRESSIONS_MAJOR,
     PROGRESSIONS_MINOR,
 )
+from app.engine.form import (
+    build_section_harmony,
+    phrase_to_dict,
+    pick_progression,
+    plan_section_harmony,
+)
 from app.engine.harmony import (
     HARMONIC_MINOR,
     MAJOR_SCALE,
     TONICS,
     chord_pitches,
-    relative_key,
 )
 
 Level = Literal["low", "medium", "high"]
@@ -59,73 +64,6 @@ def _parse_key(key_name: str) -> tuple[str, str, int]:
     return key_name if " " in key_name else f"{tonic_letter} {mode}", mode, tonic
 
 
-_TO_MAJOR = {
-    "i": "I",
-    "ii": "ii",
-    "iiø7": "ii",
-    "ii°": "ii",
-    "iii": "iii",
-    "III": "iii",
-    "iv": "IV",
-    "iv6": "IV",
-    "IV": "IV",
-    "v": "V",
-    "V": "V",
-    "V7": "V7",
-    "V7b9": "V7",
-    "vi": "vi",
-    "VI": "vi",
-    "bVII": "bVII",
-    "vii°": "vii°",
-    "vii°7": "vii°7",
-    "V7/iv": "V7/IV",
-    "V7/V": "V7/V",
-    "V7/VI": "V7/iii",
-    "V7/III": "V7/iii",
-    "bII": "bII",
-    "i6": "I",
-    "iM7": "I",
-    "i7": "I",
-    "I": "I",
-    "Ger+6": "Ger+6",
-    "It+6": "It+6",
-    "subV7": "subV7",
-}
-_TO_MINOR = {
-    "I": "i",
-    "ii": "iiø7",
-    "iii": "iii",
-    "IV": "iv",
-    "V": "V",
-    "V7": "V7",
-    "V7b9": "V7b9",
-    "vi": "VI",
-    "vii°": "vii°",
-    "vii°7": "vii°7",
-    "i": "i",
-    "iv": "iv",
-    "VI": "VI",
-    "III": "III",
-    "iiø7": "iiø7",
-    "bVII": "bVII",
-    "V7/IV": "V7/iv",
-    "V7/V": "V7/V",
-    "V7/ii": "V7/V",
-    "bII": "bII",
-    "i6": "i6",
-    "iM7": "iM7",
-    "i7": "i7",
-    "Ger+6": "Ger+6",
-    "It+6": "It+6",
-    "subV7": "subV7",
-}
-
-
-def _map_progression_symbols(symbols: list[str], target_mode: str) -> list[str]:
-    table = _TO_MINOR if target_mode == "minor" else _TO_MAJOR
-    return [table.get(s, s) for s in symbols]
-
-
 def _progression_mode_for_id(progression_id: str) -> str | None:
     in_min = progression_id in PROGRESSIONS_MINOR
     in_maj = progression_id in PROGRESSIONS_MAJOR
@@ -134,142 +72,6 @@ def _progression_mode_for_id(progression_id: str) -> str | None:
     if in_maj and not in_min:
         return "major"
     return None
-
-
-def _pick_progression(rng: random.Random, mode: str, progression_id: str | None) -> tuple[str, list[str]]:
-    table = PROGRESSIONS_MINOR if mode == "minor" else PROGRESSIONS_MAJOR
-    other = PROGRESSIONS_MAJOR if mode == "minor" else PROGRESSIONS_MINOR
-    if progression_id and progression_id != "random":
-        if progression_id in table:
-            return progression_id, list(table[progression_id])
-        if progression_id in other:
-            # UI lists both modes together; keep the chosen colour in the sounding key
-            return progression_id, _map_progression_symbols(list(other[progression_id]), mode)
-    pid = rng.choice(list(table.keys()))
-    return pid, list(table[pid])
-
-
-def _alternate_progression(
-    rng: random.Random,
-    mode: str,
-    current_id: str,
-) -> tuple[str, list[str]]:
-    table = PROGRESSIONS_MINOR if mode == "minor" else PROGRESSIONS_MAJOR
-    choices = [k for k in table if k != current_id]
-    pid = rng.choice(choices or list(table.keys()))
-    return pid, list(table[pid])
-
-
-def _plan_section_harmony(
-    rng: random.Random,
-    *,
-    section_name: str,
-    home_key: str,
-    home_mode: str,
-    home_tonic: int,
-    home_prog_id: str,
-    home_progression: list[str],
-    user_locked_progression: bool,
-    piece_harmony: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Per-section key + progression with piece-level family locks.
-
-    - A / intro / coda: home family
-    - B: one contrast family for the whole piece (relative key preferred)
-    - A_prime: recap home (theme return) — not a second random modulation
-    """
-    piece_harmony = piece_harmony if piece_harmony is not None else {}
-    key_name, mode, tonic = home_key, home_mode, home_tonic
-    prog_id, progression = home_prog_id, list(home_progression)
-    modulation: str | None = None
-
-    if section_name == "bridge":
-        # Dominant pivot — short cycle; rendered 1 bar/chord so it actually audibly moves
-        if home_mode == "minor":
-            progression = ["V7", "V7", "i", "V7"]
-            prog_id = "bridge_dominant_minor"
-        else:
-            progression = ["V7", "V7", "I", "V7"]
-            prog_id = "bridge_dominant_major"
-        return {
-            "section": section_name,
-            "key": key_name,
-            "mode": mode,
-            "tonic": tonic,
-            "progression_id": prog_id,
-            "progression": progression,
-            "modulation": "bridge_dominant",
-            "bars_per_chord": 1,
-        }
-
-    if section_name in ("intro", "coda", "A"):
-        return {
-            "section": section_name,
-            "key": key_name,
-            "mode": mode,
-            "tonic": tonic,
-            "progression_id": prog_id,
-            "progression": progression,
-            "modulation": None,
-        }
-
-    if section_name == "A_prime":
-        # Theme return — same harmonic family as A
-        return {
-            "section": section_name,
-            "key": key_name,
-            "mode": mode,
-            "tonic": tonic,
-            "progression_id": prog_id,
-            "progression": progression,
-            "modulation": "recap",
-        }
-
-    if section_name == "B":
-        cached = piece_harmony.get("contrast")
-        if cached is not None:
-            out = dict(cached)
-            out["section"] = "B"
-            return out
-
-        if user_locked_progression:
-            # Teaching lock: B keeps the chosen cycle; contrast is melodic, not a new grid
-            prog_id, progression = home_prog_id, list(home_progression)
-            modulation = None
-        else:
-            rel = relative_key(home_key, home_mode, home_tonic)
-            if rel is not None and rng.random() < 0.85:
-                key_name, mode, tonic = rel
-                modulation = "relative_major" if mode == "major" else "relative_minor"
-                prog_id, progression = _pick_progression(rng, mode, "random")
-            else:
-                prog_id, progression = _alternate_progression(rng, mode, home_prog_id)
-                modulation = "progression_change"
-
-        plan = {
-            "section": "B",
-            "key": key_name,
-            "mode": mode,
-            "tonic": tonic,
-            "progression_id": prog_id,
-            "progression": progression,
-            "modulation": modulation,
-        }
-        piece_harmony["contrast"] = {
-            k: plan[k]
-            for k in ("key", "mode", "tonic", "progression_id", "progression", "modulation")
-        }
-        return plan
-
-    return {
-        "section": section_name,
-        "key": key_name,
-        "mode": mode,
-        "tonic": tonic,
-        "progression_id": prog_id,
-        "progression": progression,
-        "modulation": modulation,
-    }
 
 
 # Real tango piano RH often spans ~2–3 octaves; we previously locked ~67–84 (~1 octave).
@@ -852,6 +654,7 @@ def _realize_motif(
     sequence_semitones: int = 0,
     n: int | None = None,
     dance_type: str = "tango",
+    key_offset: int = 0,
 ) -> list[int]:
     """Realize piece motif into chord-aware pitches without inventing a new contour.
 
@@ -873,7 +676,10 @@ def _realize_motif(
 
     if start_pitch is None:
         start = _clamp_melody(
-            int(motif.get("head_pitch", band_chord[0])) + register_bias + sequence_semitones
+            int(motif.get("head_pitch", band_chord[0]))
+            + register_bias
+            + sequence_semitones
+            + key_offset
         )
         start = _nearest(band_chord, start)
     else:
@@ -1590,95 +1396,6 @@ def _partition_phrases(
     return phrases
 
 
-def _tonic_symbol(mode: str) -> str:
-    return "i" if mode == "minor" else "I"
-
-
-def _pick_dominant(rng: random.Random, mode: str, *, spicy: bool) -> str:
-    """Phrase-boundary dominant — V7b9 is a teaching tango colour in minor."""
-    if mode == "minor":
-        if spicy and rng.random() < 0.55:
-            return "V7b9"
-        return "V7" if rng.random() < 0.8 else "V"
-    return "V7" if rng.random() < 0.7 else "V"
-
-
-def _is_tonic_symbol(symbol: str) -> bool:
-    return symbol in ("i", "I")
-
-
-def _is_dominant_symbol(symbol: str) -> bool:
-    return str(symbol).startswith("V")
-
-
-def _apply_phrase_cadences(
-    symbols: list[str],
-    phrases: list[tuple[int, int]],
-    *,
-    mode: str,
-    section_name: str,
-    rng: random.Random,
-    respect_progression: bool = False,
-) -> tuple[list[str], dict[int, str]]:
-    """Cadences at form edges; mid-section keeps the laid-out progression.
-
-    When the user picked a progression, A/B/A′ are left alone so the cycle
-    is audible. Unlocked pieces still get a light authentic landing at each
-    phrase end (not a V–V–i rewrite of the whole phrase).
-    """
-    out = list(symbols)
-    roles: dict[int, str] = {}
-    tonic = _tonic_symbol(mode)
-    n = len(out)
-    if n == 0:
-        return out, roles
-
-    if section_name == "intro":
-        if n >= 1:
-            out[0] = tonic
-        return out, roles
-
-    if section_name == "bridge":
-        spicy = rng.random() < 0.35
-        for i in range(max(0, n - 2), n):
-            out[i] = _pick_dominant(rng, mode, spicy=spicy)
-            roles[i] = "half"
-        return out, roles
-
-    if section_name == "coda":
-        if n >= 2:
-            out[-2] = _pick_dominant(rng, mode, spicy=False)
-            roles[n - 2] = "approach"
-        out[-1] = tonic
-        roles[n - 1] = "authentic"
-        return out, roles
-
-    if respect_progression:
-        return out, roles
-
-    spicy_section = section_name in ("B", "A_prime")
-    for local_start, plen in phrases:
-        if plen <= 0 or local_start >= n:
-            continue
-        end = min(local_start + plen, n)
-        last = end - 1
-        if last < 0:
-            continue
-        # One landing per phrase — keep interior chords from the cycle
-        if not _is_tonic_symbol(out[last]):
-            out[last] = tonic
-            roles[last] = "authentic"
-        else:
-            roles[last] = "authentic"
-        if plen >= 8 and not _is_dominant_symbol(out[local_start + plen // 2 - 1]):
-            mid = local_start + plen // 2 - 1
-            if mid != last and not _is_tonic_symbol(out[mid]):
-                out[mid] = _pick_dominant(rng, mode, spicy=spicy_section)
-                roles[mid] = "half"
-
-    return out, roles
-
-
 def _vals_onbeat_placements(
     rng: random.Random,
     count: int,
@@ -1718,6 +1435,7 @@ def _emit_vals_phrase(
     register_bias: int,
     sequence_semitones: int,
     start_pitch: int | None,
+    key_offset: int = 0,
 ) -> tuple[list[dict[str, Any]], int]:
     """One smooth cell per bar, on the waltz pulse, fitted to that bar's chord."""
     notes: list[dict[str, Any]] = []
@@ -1747,6 +1465,7 @@ def _emit_vals_phrase(
             sequence_semitones=sequence_semitones if j == 0 else 0,
             n=note_n,
             dance_type="vals",
+            key_offset=key_offset if last is None else 0,
         )
         slots = list(motif["rhythm_answer" if is_answer else "rhythm_question"])
         placements = _vals_onbeat_placements(
@@ -1794,6 +1513,7 @@ def _emit_phrase(
     register_bias: int,
     sequence_semitones: int,
     start_pitch: int | None,
+    key_offset: int = 0,
 ) -> tuple[list[dict[str, Any]], int]:
     """Write one 2–4 bar phrase as a single line; only the last note is phrase_end."""
     if dance_type == "vals":
@@ -1812,6 +1532,7 @@ def _emit_phrase(
             register_bias=register_bias,
             sequence_semitones=sequence_semitones,
             start_pitch=start_pitch,
+            key_offset=key_offset,
         )
     q_bars = (n_bars + 1) // 2
     a_bars = n_bars - q_bars
@@ -1831,6 +1552,7 @@ def _emit_phrase(
         sequence_semitones=sequence_semitones,
         n=int(motif["n_notes"]),
         dance_type=dance_type,
+        key_offset=key_offset,
     )
     # Spread question across q_bars — one emit per bar, phrase_end only if no answer
     for j in range(q_bars):
@@ -2209,6 +1931,8 @@ def _melody_for_section(
     interweave_bars: set[int] = set()
     setup_payoff: dict[str, Any] = dict(theme_state.get("setup_payoff") or {})
     home_motif: dict[str, Any] | None = cells[0] if cells else primary_motif
+    home_tonic = int(theme_state.get("home_tonic") or tonic)
+    key_offset = int(tonic) - home_tonic
 
     def _finish(raw: list[dict[str, Any]], extra_iw: set[int] | None = None) -> list[dict[str, Any]]:
         for n in raw:
@@ -2417,6 +2141,7 @@ def _melody_for_section(
             register_bias=reg,
             sequence_semitones=seq,
             start_pitch=last_pitch if phrase_i > 0 else None,
+            key_offset=key_offset,
         )
         if phrase_covers_payoff:
             for n in emitted:
@@ -2440,7 +2165,7 @@ def build_skeleton(
     dance_type: str = "tango",
     key: str | None = None,
     progression_id: str | None = "random",
-    form_id: str | None = "intro_aa_coda",
+    form_id: str | None = "golden_age_short",
     melody_density: Level = "medium",
     melody_variation: Level = "medium",
     seed: int | None = None,
@@ -2487,7 +2212,7 @@ def build_skeleton(
     user_locked_progression = bool(
         progression_id and progression_id not in (None, "", "random")
     )
-    home_prog_id, home_progression = _pick_progression(rng, mode, progression_id)
+    home_prog_id, home_progression = pick_progression(rng, mode, progression_id)
     bars_per_chord = int(dance["bars_per_chord"])
     # Extra harmonic-rhythm variation (tango often flips between 1–2 bars/chord)
     if (
@@ -2510,6 +2235,9 @@ def build_skeleton(
     cells = _roll_motivic_cells(rng, dance_type, tonic, mode)
     theme_state["motivic_cells"] = cells
     theme_state["motif"] = cells[0]
+    theme_state["home_tonic"] = tonic
+    theme_state["home_mode"] = mode
+    theme_state["home_key"] = key_name
     climax0 = int((drama.get("climax_bars") or [0])[0])
     setup_payoff = _plan_motif_setup_payoff(
         rng, sections, climax_bar=climax0, n_cells=len(cells)
@@ -2528,7 +2256,7 @@ def build_skeleton(
 
     for section_name, section_bars in sections:
         form_labels.append(section_name)
-        sec = _plan_section_harmony(
+        sec = plan_section_harmony(
             rng,
             section_name=section_name,
             home_key=key_name,
@@ -2541,39 +2269,20 @@ def build_skeleton(
         )
         harmony_plan.append(sec)
 
-        section_symbols: list[str] = []
-        prog = sec["progression"]
-        sec_bpc = int(sec.get("bars_per_chord") or bars_per_chord)
-        prog_i = 0
         section_start_bar = bar
-        for j in range(section_bars):
-            if j % sec_bpc == 0:
-                symbol = prog[prog_i % len(prog)]
-                prog_i += 1
-            else:
-                symbol = section_symbols[-1] if section_symbols else prog[0]
-            section_symbols.append(symbol)
-
-        # E1: phrase-level cadence hard rules (mid-phrase keeps progression colour)
         pause = set(drama.get("pause_bars") or [])
-        phrases = _partition_phrases(
-            bars=section_bars,
-            start_bar=section_start_bar,
-            chords_for_bars=section_symbols,
-            pause=pause,
-            dance_type=dance_type,
-        )
-        section_symbols, cadence_roles = _apply_phrase_cadences(
-            section_symbols,
-            phrases,
-            mode=str(sec["mode"]),
+        section_symbols, cadence_roles, phrase_objs = build_section_harmony(
+            rng,
             section_name=section_name,
-            rng=rng,
-            respect_progression=user_locked_progression,
+            section_bars=section_bars,
+            section_start_bar=section_start_bar,
+            dance_type=dance_type,
+            sec=sec,
+            pause_bars=pause,
         )
 
         elaboration: dict[str, Any] | None = None
-        if section_name == "A_prime":
+        if section_name in ("A_prime", "variacion"):
             elaboration = _roll_a_prime_elaboration(rng, melody_variation)
             sec["elaboration"] = elaboration
 
@@ -2603,24 +2312,16 @@ def build_skeleton(
             chords.append(entry)
             bar += 1
 
-        # What the listener actually hears (collapse held repeats) — not the unused template tail
-        realized: list[str] = []
-        for sym in section_symbols:
-            if not realized or realized[-1] != sym:
-                realized.append(sym)
-        sec["bar_from"] = section_start_bar + 1  # 1-based for UI
+        sec["bar_from"] = section_start_bar + 1
         sec["bar_to"] = bar
-        sec["progression_template"] = list(prog)
-        sec["progression"] = realized
-        sec["phrases"] = [
-            {"bar_from": section_start_bar + s + 1, "bars": plen}
-            for s, plen in phrases
-        ]
+        sec["progression_template"] = list(section_symbols)
+        sec["bars_per_chord"] = 1
+        sec["phrases"] = [phrase_to_dict(p) for p in phrase_objs]
 
         dens: Level = melody_density
         if section_name == "B" and melody_density == "high":
             dens = "medium"
-        elif section_name == "A_prime" and elaboration and elaboration.get("density_bump"):
+        elif section_name in ("A_prime", "variacion") and elaboration and elaboration.get("density_bump"):
             dens = _LEVEL_UP[melody_density]
 
         melody.extend(

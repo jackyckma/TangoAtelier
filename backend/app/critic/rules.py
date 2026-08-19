@@ -12,7 +12,7 @@ from app.engine.skeleton import DENSITY_NOTES_PER_BAR, MELODY_HI, MELODY_LO
 LH_LO = 28
 LH_HI = 60
 
-SECTION_CADENCE_NAMES = frozenset({"A", "B", "A_prime"})
+SECTION_CADENCE_NAMES = frozenset({"A", "B", "A_prime", "A2", "variacion", "estribillo"})
 AUTHENTIC_SYMBOLS = frozenset({"i", "I"})
 HALF_SYMBOLS = frozenset({"V", "V7", "V7b9"})
 VALID_SECTION_END = AUTHENTIC_SYMBOLS | HALF_SYMBOLS
@@ -75,18 +75,26 @@ def _section_chords(skeleton: dict[str, Any], section_name: str) -> list[dict[st
 
 def _check_section_no_cadence(skeleton: dict[str, Any]) -> list[Violation]:
     out: list[Violation] = []
-    for section in SECTION_CADENCE_NAMES:
-        chords = _section_chords(skeleton, section)
-        if not chords:
+    chord_by_bar = {int(c["bar"]): c for c in skeleton.get("chords") or []}
+
+    for sec in skeleton.get("harmony_plan") or []:
+        section = str(sec.get("section") or "")
+        if section not in SECTION_CADENCE_NAMES:
             continue
-        last = chords[-1]
-        sym = str(last["symbol"])
+        bar_to = int(sec.get("bar_to") or 0)
+        if bar_to <= 0:
+            continue
+        last_bar_0 = bar_to - 1
+        ch = chord_by_bar.get(last_bar_0)
+        if ch is None:
+            continue
+        sym = str(ch["symbol"])
         if sym not in VALID_SECTION_END:
             out.append(
                 Violation(
                     rule_id="SECTION_NO_CADENCE",
                     severity="error",
-                    bar=int(last["bar"]) + 1,
+                    bar=last_bar_0 + 1,
                     detail=f"Section {section} ends on {sym}, not i/I/V/V7",
                 )
             )
@@ -369,14 +377,20 @@ def _check_harmonic_rhythm_orphan(skeleton: dict[str, Any]) -> list[Violation]:
         section_name = str(sec.get("section") or "")
         if section_name in ("intro", "bridge", "coda"):
             continue
-        prog = sec.get("progression_template") or sec.get("progression") or []
-        if not prog:
-            continue
-        bpc = int(sec.get("bars_per_chord") or default_bpc)
-        cycle = len(prog) * bpc
+        template = sec.get("progression_template") or []
         bar_from = int(sec.get("bar_from") or 1)
         bar_to = int(sec.get("bar_to") or bar_from)
-        section_bars = bar_to - bar_from
+        section_bars = bar_to - (bar_from - 1)
+        if section_bars <= 0:
+            continue
+        # M2: one symbol per bar stored in progression_template
+        if len(template) == section_bars:
+            continue
+        bpc = int(sec.get("bars_per_chord") or default_bpc)
+        prog = sec.get("progression") or []
+        if not prog:
+            continue
+        cycle = len(prog) * bpc
         if cycle <= 0:
             continue
         if section_bars % cycle != 0:

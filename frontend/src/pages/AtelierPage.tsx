@@ -36,7 +36,7 @@ export function AtelierPage() {
   const [danceType, setDanceType] = useState<DanceType>('tango')
   const [key, setKey] = useState('random')
   const [progressionId, setProgressionId] = useState('random')
-  const [formId, setFormId] = useState('intro_aa_coda')
+  const [formId, setFormId] = useState('golden_age_short')
   const [melodyDensity, setMelodyDensity] = useState<MelodyLevel>('medium')
   const [melodyVariation, setMelodyVariation] = useState<MelodyLevel>('high')
   const [skeleton, setSkeleton] = useState<Skeleton | null>(null)

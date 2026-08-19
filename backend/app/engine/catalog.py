@@ -47,13 +47,24 @@ DANCE_TYPES = {
 # Real tangos usually announce groove (intro), state a theme (A),
 # pivot (bridge), contrast or return (B / A'), and cadence (coda).
 FORMS = {
-    "intro_aa_coda": {
-        "id": "intro_aa_coda",
+    "golden_age_standard": {
+        "id": "golden_age_standard",
         "sections": [
             ("intro", 4),
-            ("A", 12),
-            ("bridge", 4),
-            ("A_prime", 12),
+            ("A", 16),
+            ("B", 16),
+            ("A2", 16),
+            ("variacion", 16),
+            ("coda", 6),
+        ],
+    },
+    "golden_age_short": {
+        "id": "golden_age_short",
+        "sections": [
+            ("intro", 4),
+            ("A", 16),
+            ("B", 16),
+            ("A_prime", 16),
             ("coda", 4),
         ],
     },
@@ -61,12 +72,32 @@ FORMS = {
         "id": "aaba",
         "sections": [
             ("intro", 4),
-            ("A", 8),
-            ("A", 8),
-            ("bridge", 2),
-            ("B", 8),
-            ("bridge", 2),
-            ("A", 8),
+            ("A", 16),
+            ("A2", 16),
+            ("B", 16),
+            ("A_prime", 16),
+            ("coda", 4),
+        ],
+    },
+    "abab_vocal": {
+        "id": "abab_vocal",
+        "sections": [
+            ("intro", 4),
+            ("A", 16),
+            ("B", 16),
+            ("estribillo", 16),
+            ("A_prime", 16),
+            ("coda", 6),
+        ],
+    },
+    # Backward-compatible alias (12-bar A removed — maps to golden_age_short)
+    "intro_aa_coda": {
+        "id": "intro_aa_coda",
+        "sections": [
+            ("intro", 4),
+            ("A", 16),
+            ("B", 16),
+            ("A_prime", 16),
             ("coda", 4),
         ],
     },
