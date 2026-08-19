@@ -1,7 +1,7 @@
 # TangoAtelier — Multi-Phase Project Plan
 
 **Last updated:** 2026-08-19  
-**Status:** Phase 0–1 已落地；引擎 **E1–E6、E9–E12** done；下一刀 **E0／E7／E8**  
+**Status:** Phase 0–1 已落地；引擎 **E1–E6、E9–E12** done；M-task **M1–M3** done；下一刀 **M10（Pulse）或 M4（旋律）**（見 `MUSICALITY_OVERHAUL.md`）  
 **Canonical product spec:** [tango-learning-webapp-project-doc.md](./tango-learning-webapp-project-doc.md)  
 **引擎分層規格（研究）：** [../research/Tango_music_synthesis.md](../research/Tango_music_synthesis.md)
 
@@ -205,12 +205,14 @@ Tone.js 播放（鋼琴 soundfont + 暫代 synth 聲部）
 ### 建議推進順序（聽感優先）
 
 ```
-E1–E6、E9–E12 [done]
-    → E0 曲式慣例   ← 下一刀候選
-    → E7 配器角色（搭 Phase 3）
+E1–E6、E9–E12 [done]；M1–M3 [done]
+    → M10 Pulse／Groove 或 M4 旋律   ← 下一刀（可平行）
+    → M5–M7 …
+    → M8／E7 配器角色（搭 Phase 3）
     → E8 分層鎖定（搭 Phase 6）
 ```
 
+E0（曲式 8／16）多數已由 M2 golden-age 模板覆蓋；剩餘宏觀多樣性見 M7。
 ### E12 說明 — 段落內 groove 變奏
 
 **觀察：** 現況 `_pattern_for_bar` 多半整首鎖同一個 primary（vals 甚至沒有 secondary），只按 8 小節窗插 colour。真曲則是**同一套節奏家族**，intro 較淡、A 立住踩法、B 換深淺或切分密度、coda 收束——變化在範圍內，不是換一首。
@@ -245,8 +247,8 @@ E1–E6、E9–E12 [done]
 
 ## 4. 建議實作順序（近期）
 
-1. **現在：** E1–E6、E9–E12 done → 聽感下一刀建議 **E0 曲式慣例**（或 E7）  
-2. 穿插：同骨架 D'Arienzo vs Di Sarli 對照；多 seed 聽旋律模子是否拉開  
+1. **現在：** E1–E6、E9–E12 done；M1–M3 done → 下一刀 **M10（Pulse／Groove）** 或 **M4（旋律）**  
+2. 穿插：同骨架 D'Arienzo vs Di Sarli 對照（M10 後應更能聽出踩法差）；多 seed 聽旋律模子是否拉開  
 3. Phase 4 Hint、Phase 5 Save／Share 仍依產品優先級  
 4. Phase 6 滑桿／E8 在保真度主線穩定後再加重
 
