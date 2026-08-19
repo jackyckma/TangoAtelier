@@ -374,31 +374,90 @@ def _phrase_contour(
     return pitches
 
 
+def _roll_contour_steps(
+    rng: random.Random,
+    n_notes: int,
+    *,
+    contour: str | None = None,
+) -> tuple[str, list[int]]:
+    """Interval DNA for one cell — several sung shapes, not one arch template."""
+    name = contour or rng.choice(
+        [
+            "arch",
+            "arch",
+            "rise",
+            "fall",
+            "wave",
+            "neighbor",
+            "leap_settle",
+        ]
+    )
+    steps: list[int] = []
+    used_skip = False
+
+    def pick_step(*, allow_skip: bool = True) -> int:
+        nonlocal used_skip
+        pool = [1, 1, 2, 2, -1, -1, -2]
+        if allow_skip and not used_skip:
+            pool.extend([3, -3, 4, -4])
+        s = rng.choice(pool)
+        if abs(s) >= 3:
+            used_skip = True
+        return s
+
+    if name == "rise":
+        for _ in range(n_notes - 1):
+            s = pick_step()
+            if s < 0 and rng.random() < 0.7:
+                s = abs(s)
+            steps.append(s)
+    elif name == "fall":
+        for _ in range(n_notes - 1):
+            s = pick_step()
+            if s > 0 and rng.random() < 0.7:
+                s = -abs(s)
+            steps.append(s)
+    elif name == "wave":
+        sign = rng.choice([1, -1])
+        for i in range(n_notes - 1):
+            s = abs(pick_step(allow_skip=(i == 0))) * sign
+            steps.append(s)
+            if i % 2 == 0:
+                sign = -sign
+    elif name == "neighbor":
+        for i in range(n_notes - 1):
+            if i < n_notes - 2:
+                steps.append(rng.choice([1, -1, 1, -1, 2, -2]))
+            else:
+                steps.append(rng.choice([3, -3, 4, -4, 2, -2]))
+    elif name == "leap_settle":
+        steps.append(rng.choice([3, -3, 4, -4, 5, -5]))
+        used_skip = True
+        for _ in range(n_notes - 2):
+            steps.append(rng.choice([1, -1, 2, -2, 1, -1]))
+    else:  # arch — early bias one way, later may turn
+        direction = rng.choice([1, 1, -1])
+        for i in range(n_notes - 1):
+            s = pick_step()
+            if i < 2 and s * direction < 0 and rng.random() < 0.55:
+                s = abs(s) * direction
+            if i >= max(2, (n_notes - 1) // 2) and rng.random() < 0.45:
+                s = -abs(s) * direction
+            steps.append(s)
+    return name, steps
+
+
 def _roll_piece_motif(
     rng: random.Random,
     *,
     dance_type: str,
     tonic: int,
     mode: str,
+    contour: str | None = None,
 ) -> dict[str, Any]:
     """Piece identity: interval steps + rhythm cell, rolled once for the whole song."""
-    n_notes = rng.choice([4, 4, 5, 5, 6])
-    # Mostly stepwise; at most one expressive skip
-    step_choices = [1, 1, 2, 2, -1, -1, -2, 3, -3]
-    steps: list[int] = []
-    used_skip = False
-    direction = rng.choice([1, 1, -1])
-    for i in range(n_notes - 1):
-        s = rng.choice(step_choices)
-        if abs(s) >= 3:
-            if used_skip:
-                s = rng.choice([1, 2, -1, -2])
-            else:
-                used_skip = True
-        # Bias early motion in one direction (sung gesture)
-        if i < 2 and s * direction < 0 and rng.random() < 0.55:
-            s = abs(s) * direction
-        steps.append(s)
+    n_notes = rng.choice([3, 4, 4, 5, 5, 6])
+    contour_name, steps = _roll_contour_steps(rng, n_notes, contour=contour)
 
     # Fixed rhythm cells — surface density expands around these anchors
     if dance_type == "vals":
@@ -407,10 +466,13 @@ def _roll_piece_motif(
             [0.0, 2.0],
             [0.0, 1.0, 2.0],
             [0.0, 2.0],
+            [0.0, 1.0],
+            [1.0, 2.0],
         )
         a_cells = (
             [0.0, 2.0],
             [0.0, 1.0, 2.0],
+            [0.0, 2.0, 2.5],
         )
     elif dance_type == "milonga":
         # Habanera / 3+3+2 accents only — never generic 16ths
@@ -418,10 +480,14 @@ def _roll_piece_motif(
             [0.0, 0.75, 1.5],
             [0.0, 0.75, 1.0, 1.5],
             [0.0, 1.5],
+            [0.0, 0.75],
+            [0.75, 1.5],
+            [0.0, 1.0, 1.5],
         )
         a_cells = (
             [0.0, 0.75, 1.5],
             [0.0, 1.5],
+            [0.0, 0.75, 1.75],
         )
     else:
         q_cells = (
@@ -429,11 +495,17 @@ def _roll_piece_motif(
             [0.0, 1.0, 1.5],
             [0.0, 0.5, 1.5],
             [0.0, 0.75, 1.0, 1.75],
+            [0.0, 1.0],
+            [0.5, 1.0, 1.5],
+            [0.0, 0.5, 1.0],
+            [0.0, 1.5],
         )
         a_cells = (
             [0.0, 1.0, 1.5],
             [0.0, 0.5, 1.5],
             [0.0, 1.0],
+            [0.0, 0.75, 1.5],
+            [0.5, 1.5],
         )
 
     rhythm_q = list(rng.choice(q_cells))
@@ -456,16 +528,17 @@ def _roll_piece_motif(
                 out.append(e)
         return sorted(out[:n])
 
-    start_degree = rng.choice([0, 0, 2, 4])  # scale degree bias for motif head
+    start_degree = rng.choice([0, 0, 2, 4, 1, 3])  # scale degree bias for motif head
     scale = _scale_pool(tonic, mode)
     head = scale[min(start_degree, len(scale) - 1)]
 
     return {
         "steps": steps,
         "n_notes": n_notes,
+        "contour": contour_name,
         "rhythm_question": fit(rhythm_q, n_notes),
         "rhythm_answer": fit(rhythm_a, max(3, n_notes - 1)),
-        "sequence_interval": rng.choice([0, 2, 2, 3, 5]),
+        "sequence_interval": rng.choice([0, 0, 2, 2, 3, 5, 7]),
         "head_pitch": int(head),
         "dance_type": dance_type,
     }
@@ -475,6 +548,7 @@ def _export_motivic_cell(cell: dict[str, Any]) -> dict[str, Any]:
     return {
         "steps": list(cell.get("steps") or []),
         "n_notes": cell.get("n_notes"),
+        "contour": cell.get("contour"),
         "sequence_interval": cell.get("sequence_interval"),
         "rhythm_question": list(cell.get("rhythm_question") or []),
         "rhythm_answer": list(cell.get("rhythm_answer") or []),
@@ -486,27 +560,65 @@ def _export_motivic_cell(cell: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_CONTRAST_PREF = {
+    "arch": ("wave", "fall", "leap_settle", "neighbor"),
+    "rise": ("fall", "wave", "neighbor", "arch"),
+    "fall": ("rise", "wave", "leap_settle", "arch"),
+    "wave": ("arch", "neighbor", "leap_settle", "rise"),
+    "neighbor": ("leap_settle", "rise", "fall", "arch"),
+    "leap_settle": ("neighbor", "wave", "arch", "fall"),
+}
+
+
+def _steps_too_similar(a: list[int], b: list[int]) -> bool:
+    if not a or not b:
+        return False
+    n = min(len(a), len(b))
+    same = sum(1 for i in range(n) if a[i] == b[i])
+    inv = sum(1 for i in range(n) if a[i] == -b[i])
+    return same >= n - 1 or inv >= n - 1
+
+
 def _roll_motivic_cells(
     rng: random.Random,
     dance_type: str,
     tonic: int,
     mode: str,
 ) -> list[dict[str, Any]]:
-    """1–3 identifiable cells; cell 0 is the home theme (legacy motif)."""
+    """1–3 identifiable cells; cell 0 is the home theme (legacy motif).
+
+    Contrast cells keep their own contour/rhythm — not a mere invert of home
+    (that made every B sound like the same mold flipped).
+    """
     n = rng.choice([2, 2, 2, 3, 3, 1])
     home = _roll_piece_motif(rng, dance_type=dance_type, tonic=tonic, mode=mode)
     cells: list[dict[str, Any]] = [home]
     if n >= 2:
-        contrast = _roll_piece_motif(rng, dance_type=dance_type, tonic=tonic, mode=mode)
-        contrast["steps"] = [-s for s in home["steps"]]
-        contrast["n_notes"] = home["n_notes"]
+        prefs = _CONTRAST_PREF.get(str(home.get("contour") or "arch"), ("wave", "fall", "rise"))
+        contrast = None
+        for _ in range(4):
+            want = rng.choice(prefs)
+            candidate = _roll_piece_motif(
+                rng, dance_type=dance_type, tonic=tonic, mode=mode, contour=want
+            )
+            if not _steps_too_similar(list(home["steps"]), list(candidate["steps"])):
+                contrast = candidate
+                break
+            contrast = candidate
+        assert contrast is not None
         cells.append(contrast)
     if n >= 3:
-        coda_cell = dict(home)
+        # Tag / coda cell: home head + flipped tail (recallable fragment, not a new song)
+        coda_cell = _roll_piece_motif(
+            rng, dance_type=dance_type, tonic=tonic, mode=mode, contour=str(home.get("contour"))
+        )
         coda_cell["steps"] = list(home["steps"])
         if len(coda_cell["steps"]) > 2:
             coda_cell["steps"] = coda_cell["steps"][:2] + [-s for s in coda_cell["steps"][2:]]
+        coda_cell["n_notes"] = home["n_notes"]
+        coda_cell["rhythm_question"] = list(home["rhythm_question"])
         coda_cell["sequence_interval"] = int(home.get("sequence_interval") or 2)
+        coda_cell["contour"] = f"tag_{home.get('contour') or 'arch'}"
         cells.append(coda_cell)
     return cells
 
@@ -661,6 +773,141 @@ def _realize_motif(
     return pitches[:want]
 
 
+def _section_spans(sections: list[tuple[str, int]]) -> dict[str, list[tuple[int, int]]]:
+    """Map section name → list of (start_bar, end_bar_exclusive) 0-based spans."""
+    spans: dict[str, list[tuple[int, int]]] = {}
+    bar = 0
+    for name, n in sections:
+        spans.setdefault(name, []).append((bar, bar + n))
+        bar += n
+    return spans
+
+
+def _build_structural_anchors(
+    sections: list[tuple[str, int]],
+    *,
+    climax_bar: int,
+) -> dict[str, Any]:
+    """E9: explicit narrative targets (climax / A′ entry / final cadence / A suspense)."""
+    spans = _section_spans(sections)
+    total = sum(n for _, n in sections)
+    a_spans = spans.get("A") or []
+    a_prime = spans.get("A_prime") or []
+    coda = spans.get("coda") or []
+    a_end = (a_spans[0][1] - 1) if a_spans else max(0, climax_bar - 4)
+    a_prime_entry = a_prime[0][0] if a_prime else climax_bar
+    final_cadence = (coda[-1][1] - 1) if coda else total - 1
+    return {
+        "climax_bar": int(climax_bar),
+        "a_prime_entry": int(a_prime_entry),
+        "final_cadence": int(final_cadence),
+        "a_end_suspense": int(a_end),
+    }
+
+
+def _lerp_between_anchors(total: int, targets: list[tuple[int, float]]) -> dict[int, float]:
+    """Simplified bidirectional infill: linear interpolation between ordered anchors."""
+    pts = sorted({0: 0.22, total - 1: 0.28, **{b: v for b, v in targets}}.items())
+    energy: dict[int, float] = {}
+    for i in range(total):
+        if i <= pts[0][0]:
+            energy[i] = pts[0][1]
+            continue
+        if i >= pts[-1][0]:
+            energy[i] = pts[-1][1]
+            continue
+        lo_b, lo_v = pts[0]
+        hi_b, hi_v = pts[-1]
+        for k in range(len(pts) - 1):
+            if pts[k][0] <= i <= pts[k + 1][0]:
+                lo_b, lo_v = pts[k]
+                hi_b, hi_v = pts[k + 1]
+                break
+        if hi_b == lo_b:
+            energy[i] = lo_v
+        else:
+            t = (i - lo_b) / (hi_b - lo_b)
+            energy[i] = lo_v + (hi_v - lo_v) * t
+    return energy
+
+
+def _roll_section_groove(rng: random.Random, dance_type: str) -> dict[str, dict[str, Any]]:
+    """E12: same base rhythm family; section only changes colour depth / LH fullness."""
+    # colour_slots: which positions in an 8-bar window may leave the home groove
+    if dance_type == "vals":
+        return {
+            "intro": {"colour_slots": (), "lh": "sparse", "force_primary": True},
+            "A": {"colour_slots": (), "lh": "steady", "force_primary": True},
+            "B": {"colour_slots": (4,), "lh": "busy", "force_primary": False},
+            "A_prime": {"colour_slots": (6,), "lh": "full", "force_primary": True},
+            "bridge": {"colour_slots": (), "lh": "sparse", "force_primary": True},
+            "coda": {"colour_slots": (), "lh": "cadence", "force_primary": True},
+        }
+    if dance_type == "milonga":
+        return {
+            "intro": {"colour_slots": (), "lh": "sparse", "force_primary": True},
+            "A": {"colour_slots": (6,), "lh": "steady", "force_primary": False},
+            "B": {"colour_slots": (2, 6), "lh": "busy", "force_primary": False},
+            "A_prime": {"colour_slots": (6,), "lh": "full", "force_primary": False},
+            "bridge": {"colour_slots": (), "lh": "sparse", "force_primary": True},
+            "coda": {"colour_slots": (), "lh": "cadence", "force_primary": True},
+        }
+    # tango — B digs into sincopa colour more often; intro stays on home pulse
+    b_slots = (2, 6) if rng.random() < 0.65 else (2, 4, 6)
+    return {
+        "intro": {"colour_slots": (), "lh": "sparse", "force_primary": True},
+        "A": {"colour_slots": (6,), "lh": "steady", "force_primary": False},
+        "B": {"colour_slots": b_slots, "lh": "busy", "force_primary": False},
+        "A_prime": {"colour_slots": (2, 6), "lh": "full", "force_primary": False},
+        "bridge": {"colour_slots": (), "lh": "sparse", "force_primary": True},
+        "coda": {"colour_slots": (), "lh": "cadence", "force_primary": True},
+    }
+
+
+def _plan_motif_setup_payoff(
+    rng: random.Random,
+    sections: list[tuple[str, int]],
+    *,
+    climax_bar: int,
+    n_cells: int,
+) -> dict[str, Any]:
+    """E10: schedule a short home-cell head early; recycle at climax or coda."""
+    spans = _section_spans(sections)
+    intro = spans.get("intro") or []
+    a_spans = spans.get("A") or []
+    coda = spans.get("coda") or []
+    if intro:
+        setup_bar = intro[0][1] - 1  # last intro bar — anacrusis into theme
+        setup_section = "intro"
+    elif a_spans:
+        setup_bar = a_spans[0][0]
+        setup_section = "A"
+    else:
+        setup_bar = 0
+        setup_section = sections[0][0] if sections else "A"
+
+    if rng.random() < 0.7:
+        payoff_bar = int(climax_bar)
+        payoff_section = "A_prime"
+    elif coda:
+        payoff_bar = coda[0][0]
+        payoff_section = "coda"
+    else:
+        payoff_bar = int(climax_bar)
+        payoff_section = "A_prime"
+
+    return {
+        "cell_id": 0,
+        "setup_bar": int(setup_bar),
+        "setup_section": setup_section,
+        "payoff_bar": int(payoff_bar),
+        "payoff_section": payoff_section,
+        "setup_transform": "head",
+        "payoff_transform": rng.choice(["prime", "prime", "sequence"]),
+        "n_cells": int(n_cells),
+    }
+
+
 def _build_drama_map(
     rng: random.Random,
     sections: list[tuple[str, int]],
@@ -688,6 +935,8 @@ def _build_drama_map(
     climax_bars = {climax_bar}
     if var >= 0.5 and climax_bar + 1 < total and bar_sections[climax_bar + 1] == bar_sections[climax_bar]:
         climax_bars.add(climax_bar + 1)
+
+    anchors = _build_structural_anchors(sections, climax_bar=climax_bar)
 
     # Approach window (bars before peak)
     rise_len = 3 if dance_type == "vals" else 4
@@ -741,35 +990,35 @@ def _build_drama_map(
     for i in dense_pool[:dense_budget]:
         dense_bars.add(i)
 
-    # Smooth energy: ramp through rise → hold breath on anticipate → peak → settle
-    energy: dict[int, float] = {}
-    for i, s in enumerate(bar_sections):
+    # E9: interpolate between structural anchors, then stamp local drama modifiers
+    energy = _lerp_between_anchors(
+        total,
+        [
+            (anchors["a_end_suspense"], 0.62),
+            (anchors["a_prime_entry"], 0.55),
+            (climax_bar, 1.0),
+            (anchors["final_cadence"], 0.28),
+        ],
+    )
+    for i in range(total):
+        e = float(energy.get(i, 0.5))
+        s = bar_sections[i]
         if s == "intro":
-            e = 0.22
+            e = min(e, 0.28)
         elif s == "bridge":
-            e = 0.5
-        elif s == "coda":
-            e = 0.32
-        elif s == "B":
-            e = 0.58
-        elif s == "A_prime":
-            e = 0.55
-        else:
-            e = 0.4 + 0.12 * (i / max(1, total - 1))
-
+            e = 0.45 + 0.1 * (e - 0.5)
         if i in rise_bars:
-            # 0.55 → ~0.85 across the rise window
             order = sorted(rise_bars)
             idx = order.index(i) if i in order else 0
-            e = 0.55 + 0.3 * ((idx + 1) / max(1, len(order)))
+            e = max(e, 0.55 + 0.3 * ((idx + 1) / max(1, len(order))))
         if i in anticipate_bars:
-            e = 0.78  # charged but not exploded
+            e = 0.78
         if i in climax_bars:
             e = 1.0
         if i in release_bars:
             order = sorted(release_bars)
             idx = order.index(i) if i in order else 0
-            e = 0.85 - 0.2 * ((idx + 1) / max(1, len(order)))
+            e = min(e, 0.85 - 0.2 * ((idx + 1) / max(1, len(order))))
         if i in dense_bars:
             e = min(0.9, e + 0.1)
         if i in pause_bars:
@@ -784,6 +1033,7 @@ def _build_drama_map(
         "anticipate_bars": sorted(anticipate_bars),
         "release_bars": sorted(release_bars),
         "energy": energy,
+        "anchors": anchors,
     }
 
 
@@ -1379,19 +1629,69 @@ def _intro_melody(
     mode: str,
     chords_for_bars: list[str],
     dance_type: str,
+    motif: dict[str, Any] | None = None,
+    setup_payoff: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """Groove only + tiny pickup — theme has not entered yet."""
+    """Groove only + tiny pickup — theme has not entered yet.
+
+    E10: when setup lands in intro, plant the home-cell head as anacrusis.
+    """
     notes: list[dict[str, Any]] = []
+    setup_bar = int((setup_payoff or {}).get("setup_bar", -1))
+    plant_setup = (
+        motif is not None
+        and setup_payoff is not None
+        and (setup_payoff.get("setup_section") == "intro")
+        and start_bar <= setup_bar < start_bar + bars
+    )
     # Last 1–2 bars: short anacrusis into the theme
     for j in range(max(0, bars - 2), bars):
+        abs_bar = start_bar + j
         symbol = chords_for_bars[j]
+        if plant_setup and abs_bar == setup_bar and motif is not None:
+            head_n = min(3, max(2, int(motif["n_notes"]) // 2 + 1))
+            pitches = _realize_motif(
+                rng,
+                motif,
+                tonic=tonic,
+                mode=mode,
+                symbol=symbol,
+                start_pitch=None,
+                transform="prime",
+                n=head_n,
+            )
+            start_local = beats_per_bar * 0.25 if dance_type != "vals" else 1.0
+            slots = list(motif.get("rhythm_question") or [0.0])[: len(pitches)]
+            if len(slots) < len(pitches):
+                step = (beats_per_bar - start_local) / max(1, len(pitches))
+                slots = [start_local + i * step for i in range(len(pitches))]
+            else:
+                slots = [start_local + (s - slots[0]) for s in slots]
+            for i, pitch in enumerate(pitches):
+                dur = (
+                    (slots[i + 1] - slots[i])
+                    if i + 1 < len(slots)
+                    else max(0.25, beats_per_bar - slots[i])
+                )
+                notes.append(
+                    {
+                        "pitch": int(pitch),
+                        "start_beat": round(abs_bar * beats_per_bar + slots[i], 3),
+                        "duration_beats": round(max(0.2, dur), 3),
+                        "phrase_role": "pickup",
+                        "voice": "lead",
+                        "motif_role": "setup",
+                        "motivic_cell_id": int(setup_payoff.get("cell_id", 0)),
+                    }
+                )
+            continue
         chord = _chord_pool(tonic, mode, symbol)
         pitch = rng.choice(chord[1:] or chord)
         start_local = beats_per_bar * 0.5 if dance_type != "vals" else 2.0
         notes.append(
             {
                 "pitch": int(pitch),
-                "start_beat": round((start_bar + j) * beats_per_bar + start_local, 3),
+                "start_beat": round(abs_bar * beats_per_bar + start_local, 3),
                 "duration_beats": round(beats_per_bar - start_local, 3),
                 "phrase_role": "pickup",
                 "voice": "fill",
@@ -1579,6 +1879,8 @@ def _melody_for_section(
     primary_motif: dict[str, Any] | None = cells[cell_id] if cells else theme_state.get("motif")
     quote_motif = cells[0] if n_cells >= 2 and cell_id != 0 else None
     interweave_bars: set[int] = set()
+    setup_payoff: dict[str, Any] = dict(theme_state.get("setup_payoff") or {})
+    home_motif: dict[str, Any] | None = cells[0] if cells else primary_motif
 
     def _finish(raw: list[dict[str, Any]], extra_iw: set[int] | None = None) -> list[dict[str, Any]]:
         for n in raw:
@@ -1605,6 +1907,8 @@ def _melody_for_section(
             mode=mode,
             chords_for_bars=chords_for_bars,
             dance_type=dance_type,
+            motif=home_motif,
+            setup_payoff=setup_payoff or None,
         )
         return _finish(notes)
     if section_name == "bridge":
@@ -1646,9 +1950,15 @@ def _melody_for_section(
             chords_for_bars=chords_for_bars,
             theme_cells=theme_state.get("cells"),
             dance_type=dance_type,
-            motif=primary_motif,
+            motif=primary_motif if setup_payoff.get("payoff_section") != "coda" else home_motif,
             quote_motif=quote_motif,
         )
+        payoff_bar = int(setup_payoff.get("payoff_bar", -1))
+        if setup_payoff.get("payoff_section") == "coda":
+            for n in notes:
+                bar = int(float(n["start_beat"]) // max(beats_per_bar, 1))
+                if bar == payoff_bar:
+                    n["motif_role"] = "payoff"
         return _finish(notes, coda_iw)
 
     notes_per_bar = DENSITY_NOTES_PER_BAR.get(dance_type, DENSITY_NOTES_PER_BAR["tango"])[
@@ -1716,20 +2026,39 @@ def _melody_for_section(
             )
 
         phrase_motif = motif
-        if (
+        seq = 0
+        transform_q: Literal["prime", "invert", "answer", "sequence"] = "prime"
+        payoff_bar = int(setup_payoff.get("payoff_bar", -1))
+        setup_bar = int(setup_payoff.get("setup_bar", -1))
+        phrase_covers_payoff = abs_start <= payoff_bar < abs_start + plen
+        phrase_covers_setup = (
+            section_name == "A"
+            and setup_payoff.get("setup_section") == "A"
+            and abs_start <= setup_bar < abs_start + plen
+        )
+
+        if phrase_covers_payoff and home_motif is not None:
+            # E10: scheduled recall — clear home cell at the planned anchor
+            phrase_motif = home_motif
+            pt = str(setup_payoff.get("payoff_transform") or "prime")
+            transform_q = "sequence" if pt == "sequence" else "prime"
+            seq = seq_unit if transform_q == "sequence" else 0
+            if reg == 0:
+                reg = 12 if section_name == "A_prime" else 7
+            for k in range(plen):
+                interweave_bars.add(abs_start + k)
+        elif (
             quote_motif is not None
             and section_name == "B"
             and phrase_i % 2 == 1
         ):
             phrase_motif = quote_motif
+            transform_q = "prime"
             for k in range(plen):
                 interweave_bars.add(abs_start + k)
-
-        if section_name == "B":
+        elif section_name == "B":
             seq = seq_unit * (1 + phrase_i // 2)
-            transform_q: Literal["prime", "invert", "answer", "sequence"] = (
-                "invert" if phrase_i % 2 else "sequence"
-            )
+            transform_q = "invert" if phrase_i % 2 else "sequence"
         elif section_name == "A_prime":
             seq = seq_unit if phrase_i >= 2 else 0
             transform_q = "prime"
@@ -1760,6 +2089,12 @@ def _melody_for_section(
             sequence_semitones=seq,
             start_pitch=last_pitch if phrase_i > 0 else None,
         )
+        if phrase_covers_payoff:
+            for n in emitted:
+                n["motif_role"] = "payoff"
+        elif phrase_covers_setup:
+            for n in emitted:
+                n["motif_role"] = "setup"
         notes.extend(emitted)
         if section_name == "A" and phrase_i == 0:
             # Snapshot first phrase contour for coda fallback
@@ -1836,6 +2171,20 @@ def build_skeleton(
     cells = _roll_motivic_cells(rng, dance_type, tonic, mode)
     theme_state["motivic_cells"] = cells
     theme_state["motif"] = cells[0]
+    climax0 = int((drama.get("climax_bars") or [0])[0])
+    setup_payoff = _plan_motif_setup_payoff(
+        rng, sections, climax_bar=climax0, n_cells=len(cells)
+    )
+    theme_state["setup_payoff"] = setup_payoff
+    section_groove = _roll_section_groove(rng, dance_type)
+    # JSON-friendly (tuples → lists)
+    section_groove = {
+        name: {
+            **intent,
+            "colour_slots": list(intent.get("colour_slots") or ()),
+        }
+        for name, intent in section_groove.items()
+    }
     bar = 0
 
     for section_name, section_bars in sections:
@@ -1903,6 +2252,8 @@ def build_skeleton(
                 "section": section_name,
                 "drama": tag,
                 "energy": energy,
+                "groove": section_groove.get(section_name)
+                or {"colour_slots": (), "lh": "steady", "force_primary": False},
             }
             role = cadence_roles.get(j)
             if role:
@@ -1973,6 +2324,16 @@ def build_skeleton(
             "anticipate_bars": [b + 1 for b in drama.get("anticipate_bars", [])],
             "release_bars": [b + 1 for b in drama.get("release_bars", [])],
         },
+        "structural_anchors": {
+            k: int(v) + 1
+            for k, v in (drama.get("anchors") or {}).items()
+        },
+        "motif_setup_payoff": {
+            **{k: v for k, v in setup_payoff.items() if k not in ("setup_bar", "payoff_bar")},
+            "setup_bar": int(setup_payoff["setup_bar"]) + 1,
+            "payoff_bar": int(setup_payoff["payoff_bar"]) + 1,
+        },
+        "section_groove": section_groove,
         "melody_density": melody_density,
         "melody_variation": melody_variation,
         "bars": total_bars,

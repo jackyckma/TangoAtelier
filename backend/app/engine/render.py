@@ -130,24 +130,34 @@ def _pattern_for_bar(
     bar: int,
     *,
     extras: list[str] | None = None,
+    groove: dict[str, Any] | None = None,
 ) -> str:
     """Rotate groove colour without abandoning the home pulse.
 
-    Layout in 8-bar windows: home → home → colour → home → home → home → colour2 → home
-    so the ear gets variety but still locks to the primary marcato/habanera feel.
+    E12: section groove intent controls which slots in an 8-bar window may
+    leave the home pattern (intro/coda stay home; B digs into colour more).
     """
     colour = [p for p in ((secondary,) if secondary else ()) + tuple(extras or ()) if p and p != primary]
-    if not colour:
+    intent = groove or {}
+    if intent.get("force_primary") or not colour:
         return primary
+    slots = tuple(intent.get("colour_slots") or ())
+    if not slots:
+        # Legacy fallback: mild colour in an 8-bar window
+        slots = (2, 6) if not primary.startswith("milonga") else (6,)
     slot = bar % 8
-    # Milonga: keep habanera as the home pulse; one colour bar per 8
-    if primary.startswith("milonga"):
-        if slot == 6:
-            return colour[(bar // 8) % len(colour)]
+    if slot not in slots:
         return primary
-    if slot in (2, 6):
-        return colour[(bar // 8 + (0 if slot == 2 else 1)) % len(colour)]
-    return primary
+    return colour[(bar // 8 + slots.index(slot)) % len(colour)]
+
+
+def _lh_power_for_groove(section: str, drama_tag: str, groove: dict[str, Any], elab: dict) -> bool:
+    lh = str(groove.get("lh") or "steady")
+    if lh in ("busy", "full"):
+        return True
+    if lh in ("sparse", "cadence"):
+        return False
+    return drama_tag in ("climax", "rise") or section == "B" or bool(elab)
 
 
 def _articulation_for_dance(profile: dict, dance_type: str) -> dict:
@@ -551,13 +561,18 @@ def render_skeleton(
             surface = _surface_reharm_symbol(ch, ch_mode, tension)
             pitches = chord_pitches(ch_tonic, ch_mode, surface or ch["symbol"])
             bar_start = bar * bar_len
-            # Intro/bridge/coda: keep groove, but lighter so form edges read clearly
-            pattern = _pattern_for_bar(
-                rhythm_primary, rhythm_secondary, bar, extras=rhythm_extras
+            # E12: section groove intent — same base family, different depth by form
+            groove = ch.get("groove") if isinstance(ch.get("groove"), dict) else (
+                (skeleton.get("section_groove") or {}).get(section) or {}
             )
-            if section in ("intro", "bridge"):
-                # Intro: stay on home groove but LH pitch cells still rotate by bar
-                pattern = rhythm_primary
+            pattern = _pattern_for_bar(
+                rhythm_primary,
+                rhythm_secondary,
+                bar,
+                extras=rhythm_extras,
+                groove=groove,
+            )
+            lh_kind = str(groove.get("lh") or "steady")
             lh = left_hand_for_bar(
                 pattern,
                 bar,
@@ -567,8 +582,10 @@ def render_skeleton(
                 articulation,
                 beats_per_bar=beats_per_bar,
                 voicing_style=voicing,
-                power=drama_tag in ("climax", "rise") or section == "B" or bool(elab),
-                lh_upgrade=str(elab["lh_upgrade"]) if elab.get("lh_upgrade") else None,
+                power=_lh_power_for_groove(section, drama_tag, groove, elab),
+                lh_upgrade=str(elab["lh_upgrade"]) if elab.get("lh_upgrade") else (
+                    "busier" if lh_kind == "full" and section == "A_prime" and not elab else None
+                ),
                 prev_bass=prev_bass,
             )
             if lh:
@@ -576,11 +593,17 @@ def render_skeleton(
             lh_scale = vols.get("piano_lh", 0.8)
             # E3: tension lifts accompaniment weight into the peak
             lh_scale *= 0.88 + 0.28 * tension
-            if section in ("intro", "bridge"):
-                lh_scale *= 0.85
-            elif section == "A":
+            if lh_kind == "sparse" or section in ("intro", "bridge"):
+                lh_scale *= 0.78
+                lh = lh[: max(1, (len(lh) + 1) // 2)] if lh and lh_kind == "sparse" else lh
+            elif lh_kind == "cadence" or section == "coda":
+                lh_scale *= 0.8
+                lh = lh[: max(1, len(lh) // 2 + 1)] if lh else lh
+            elif section == "A" and lh_kind == "steady":
                 lh_scale *= 0.82  # make room for the theme
-            elif section == "A_prime":
+            elif lh_kind == "busy":
+                lh_scale *= 0.95
+            elif section == "A_prime" or lh_kind == "full":
                 # Recap: fuller LH (elaboration) while still leaving the lead audible
                 lh_scale *= 0.92 + 0.15 * float(elab.get("dynamics_boost") or 0)
             if drama_tag == "pause":

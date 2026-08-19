@@ -1,7 +1,7 @@
 # TangoAtelier — Multi-Phase Project Plan
 
 **Last updated:** 2026-08-19  
-**Status:** Phase 0–1 已落地；引擎 **E1、E2、E11、E3、E4、E5、E6** done；下一刀 **E0／E7／E8**（E9–E10 deferred）  
+**Status:** Phase 0–1 已落地；引擎 **E1–E6、E9–E12** done；下一刀 **E0／E7／E8**  
 **Canonical product spec:** [tango-learning-webapp-project-doc.md](./tango-learning-webapp-project-doc.md)  
 **引擎分層規格（研究）：** [../research/Tango_music_synthesis.md](../research/Tango_music_synthesis.md)
 
@@ -166,8 +166,8 @@ Tone.js 播放（鋼琴 soundfont + 暫代 synth 聲部）
 
 對應研究文件第 3 節；短曲收益有限，長曲／複雜曲式較有感。
 
-- [ ] 結構錨點雙向填充（簡化版插值即可）→ **E9**
-- [ ] 動機 setup／payoff 早排程 → **E10**
+- [x] 結構錨點雙向填充（簡化版插值即可）→ **E9**
+- [x] 動機 setup／payoff 早排程 → **E10**
 - [ ] 內部統計調整機率權重；可解釋模型（如 Markov）評估
 - [ ] 與其他探戈工具鏈整合可能性
 
@@ -197,20 +197,18 @@ Tone.js 播放（鋼琴 soundfont + 暫代 synth 聲部）
 | **E5** | **風格表面再和聲**（借用／次屬等）；**不改**共享 chord grid 主幹 | Render | §2 第二／六層 | 2–3 | done | 同 skeleton 和弦格仍對得上；風格聽感更繞／更直 |
 | **E6** | **Voicing 平滑進行**（LH／pads 選 inversion，最小化聲部跳躍） | Render | §2 第四層 | 2–3 | done | 伴奏較少無意義大跳 |
 | **E7** | **配器角色分配**（誰扛節奏、誰對位；吉他／bandoneón 真接手） | Render + 前端音色 | §2 第七層 | 3 | pending | 開關編制時織體角色變，不是只多一層 pad |
-| **E12** | **段落內 groove 變奏**：同一 base rhythm，intro／A／B／coda 用範圍內不同處理（不是整首複製、也不是換一套節奏） | 偏 Render（可在 Skeleton 標 section groove intent） | §2 第三層 | 2–3 | pending | 同是 marcato／habanera，A 與 B／intro 聽得出踩法深淺，但仍是同一首歌 |
+| **E12** | **段落內 groove 變奏**：同一 base rhythm，intro／A／B／coda 用範圍內不同處理（不是整首複製、也不是換一套節奏） | 偏 Render（可在 Skeleton 標 section groove intent） | §2 第三層 | 2–3 | done | 同是 marcato／habanera，A 與 B／intro 聽得出踩法深淺，但仍是同一首歌 |
 | **E8** | **分層鎖定重跑**（固定若干層 seed／輸出，只重抽其他層） | API + UI | §4 | 6 | pending | 「鎖和聲、換節奏」教學場景可用 |
-| **E9** | 錨點＋簡化雙向／插值填充（非完整搜尋） | Skeleton＋Render | §3.1–3.2 | 7 | deferred | 長曲敘事更穩；短曲可跳過 |
-| **E10** | 動機 setup／payoff 早排程（伏筆→錨點回收） | Skeleton | §3.4 | 7 | deferred | 再現／coda 聽得出「回收」 |
+| **E9** | 錨點＋簡化雙向／插值填充（非完整搜尋） | Skeleton＋Render | §3.1–3.2 | 7 | done | 長曲敘事更穩；短曲可跳過 |
+| **E10** | 動機 setup／payoff 早排程（伏筆→錨點回收） | Skeleton | §3.4 | 7 | done | 再現／coda 聽得出「回收」 |
 
 ### 建議推進順序（聽感優先）
 
 ```
-E1–E6、E11 [done]
-    → E12 段落內 groove 變奏   ← 聽感下一刀候選
-    → E0 曲式慣例
+E1–E6、E9–E12 [done]
+    → E0 曲式慣例   ← 下一刀候選
     → E7 配器角色（搭 Phase 3）
     → E8 分層鎖定（搭 Phase 6）
-    → E9 / E10（Phase 7，可選）
 ```
 
 ### E12 說明 — 段落內 groove 變奏
@@ -247,8 +245,8 @@ E1–E6、E11 [done]
 
 ## 4. 建議實作順序（近期）
 
-1. **現在：** E1–E6、E11 done → 聽感下一刀建議 **E12 段落 groove 變奏**（或 E0／E7，見下表）  
-2. 穿插：同骨架 D'Arienzo vs Di Sarli 對照  
+1. **現在：** E1–E6、E9–E12 done → 聽感下一刀建議 **E0 曲式慣例**（或 E7）  
+2. 穿插：同骨架 D'Arienzo vs Di Sarli 對照；多 seed 聽旋律模子是否拉開  
 3. Phase 4 Hint、Phase 5 Save／Share 仍依產品優先級  
 4. Phase 6 滑桿／E8 在保真度主線穩定後再加重
 
@@ -262,8 +260,9 @@ E1–E6、E11 [done]
 | Save／Share 是否要帳號 | Phase 5 預設先無帳號輕量方案 |
 | 風格再和聲（E5）會否破壞「同骨架對照」 | 必須只動表面層；chord 教學格以 skeleton 為準 |
 | Soundfont／弦樂／bandoneón 真 samples | 編制聽感未到位前，規則層與音色層分開評 |
-| E9／E10 是否值得做 | 等長曲／複雜 form 有痛點再啟動 |
-| E11 vs 現有單一 motif | E11 應**擴充** motif，勿平行重寫一套旋律引擎；與 E2／E5／E6 互補 |
+| E9／E10 | done（錨點插值張力＋setup／payoff 排程）；聽感驗收敘事感 |
+| 旋律模子過同 | 已拉開 contour／節奏細胞／對比 cell 獨立 roll；多 seed 再聽 |
+| E11 vs 現有單一 motif | E11 已擴充 motif cells；勿平行重寫一套旋律引擎 |
 
 ---
 
