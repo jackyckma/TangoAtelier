@@ -18,6 +18,9 @@ class ChordEvent:
     symbol: str
     start: float
     duration: float
+    mode: str = "minor"
+    tonic: int = 57
+    key_name: str = ""
 
 
 @dataclass
