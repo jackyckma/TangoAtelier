@@ -52,6 +52,7 @@ FORMS = {
         "sections": [
             ("intro", 4),
             ("A", 16),
+            ("bridge", 4),  # V7 pedal into relative B
             ("B", 16),
             ("A2", 16),
             ("variacion", 16),
@@ -63,6 +64,7 @@ FORMS = {
         "sections": [
             ("intro", 4),
             ("A", 16),
+            ("bridge", 4),  # V7 pedal into relative B
             ("B", 16),
             ("A_prime", 16),
             ("coda", 4),
@@ -74,6 +76,7 @@ FORMS = {
             ("intro", 4),
             ("A", 16),
             ("A2", 16),
+            ("bridge", 4),
             ("B", 16),
             ("A_prime", 16),
             ("coda", 4),
@@ -84,6 +87,7 @@ FORMS = {
         "sections": [
             ("intro", 4),
             ("A", 16),
+            ("bridge", 4),
             ("B", 16),
             ("estribillo", 16),
             ("A_prime", 16),
@@ -96,6 +100,7 @@ FORMS = {
         "sections": [
             ("intro", 4),
             ("A", 16),
+            ("bridge", 4),
             ("B", 16),
             ("A_prime", 16),
             ("coda", 4),
