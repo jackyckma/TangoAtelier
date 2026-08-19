@@ -28,6 +28,27 @@ Run `scripts/setup-cloud-agent-env.sh` if present, then `scripts/agent-verify.sh
 
 See `docs/AGENT_ENV.md` for local vs cloud capability matrix.
 
+## Cursor Cloud specific instructions
+
+Env deps are refreshed automatically by the startup update script (backend `.venv`
+via `pip install -r backend/requirements.txt`, frontend via `pnpm install`). System
+package `python3.12-venv` is required to create the backend venv and is baked into the
+environment snapshot. Standard dev/lint/build commands live in `README.md`,
+`frontend/package.json`, and `backend/README.md`; `scripts/agent-verify.sh` runs L0
+(frontend `tsc`) + L1 (backend style-profile load).
+
+Two local dev servers are needed for end-to-end work:
+
+- Backend (FastAPI): from `backend/`, run `PYTHONPATH=. .venv/bin/uvicorn app.main:app --reload --port 8000`.
+- Frontend (Vite): from `frontend/`, run `pnpm dev` (port 5173); it proxies `/api` and `/health` to the backend on 8000.
+
+Non-obvious gotchas:
+
+- The Vite dev server binds to IPv6 `::1` only. Reach it at `http://localhost:5173`; `http://127.0.0.1:5173` will refuse the connection.
+- Start the backend before (or alongside) the frontend, otherwise `/api` proxy calls 500 until uvicorn is up.
+- Tone.js playback needs a user gesture; a browser AudioContext autoplay warning on first click is expected and non-fatal.
+- No database, auth, or music-API keys are needed for local dev; style profiles are static JSON in `backend/data/style_profiles/`.
+
 ## Learned User Preferences
 
 - Visual direction: simple / minimal with a light artistic and Latin feel; avoid overly fancy UI.
