@@ -528,12 +528,16 @@ def render_skeleton(
 
     for ch in skeleton["chords"]:
         bar = int(ch["bar"])
+        ch_tonic, ch_mode = _chord_tonality(ch, skeleton)
         chord_events.append(
             ChordEvent(
                 bar=bar,
-                symbol=ch["symbol"],
+                symbol=str(ch["symbol"]),
                 start=bar * bar_len,
                 duration=bar_len,
+                mode=ch_mode,
+                tonic=ch_tonic,
+                key_name=str(ch.get("key") or skeleton.get("key") or ""),
             )
         )
 

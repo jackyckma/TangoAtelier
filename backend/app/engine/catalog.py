@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.engine.harmony import PROGRESSIONS_MAJOR, PROGRESSIONS_MINOR
+
 # Dance fingerprints used by skeleton + simple render (teaching caricatures).
 # - tango: 2/4, walking marcato feel, slower harmonic rhythm
 # - milonga: 2/4, faster, habanera / 3+3+2 pulse, earthy & playful
@@ -81,18 +83,6 @@ FORMS = {
             ("coda", 4),
         ],
     },
-}
-
-PROGRESSIONS_MINOR = {
-    "i-iv-V7-i": ["i", "iv", "V7", "i"],
-    "i-VI-III-V7": ["i", "VI", "III", "V7"],
-    "descending_fifths": ["i", "iv", "VII", "III", "VI", "iiø", "V7", "i"],
-}
-
-PROGRESSIONS_MAJOR = {
-    "I-IV-V-I": ["I", "IV", "V", "I"],
-    "I-vi-IV-V": ["I", "vi", "IV", "V"],
-    "descending_fifths": ["I", "IV", "vii°", "iii", "vi", "ii", "V7", "I"],
 }
 
 KEYS = [
