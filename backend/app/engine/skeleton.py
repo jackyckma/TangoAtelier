@@ -229,6 +229,54 @@ def _nearest(pool: list[int], target: int) -> int:
     return min(pool, key=lambda p: abs(p - target))
 
 
+def _pc(p: int) -> int:
+    return int(p) % 12
+
+
+def _fit_pitches_to_harmony(
+    rng: random.Random,
+    pitches: list[int],
+    tonic: int,
+    mode: str,
+    symbol: str,
+    *,
+    start_pitch: int | None,
+    cadence: bool,
+    dance_type: str = "tango",
+) -> list[int]:
+    """Keep contour, snap to this bar's chord (edges) and scale (interior)."""
+    if not pitches:
+        return []
+    chord = _chord_pool(tonic, mode, symbol)
+    scale = _scale_pool(tonic, mode)
+    out: list[int] = []
+    for i, sketch in enumerate(pitches):
+        prev = out[-1] if out else (start_pitch if start_pitch is not None else sketch)
+        last = i == len(pitches) - 1
+        must_chord = i == 0 or last or cadence
+        walked = _step_toward(
+            rng,
+            prev,
+            sketch,
+            chord,
+            scale,
+            must_chord=must_chord,
+            allow_unison=i == 0,
+        )
+        out.append(walked)
+    out[0] = _nearest(chord, out[0])
+    if cadence:
+        roots = [p for p in chord if _pc(p) == _pc(chord[0])]
+        out[-1] = _nearest(roots or chord, out[-1])
+    else:
+        out[-1] = _nearest(chord, out[-1])
+    if dance_type == "vals":
+        # Waltz singing line: almost all chord/scale; no leftover chromatic
+        for i in range(1, len(out) - 1):
+            out[i] = _nearest(scale, out[i])
+    return out
+
+
 def _step_toward(
     rng: random.Random,
     prev: int,
@@ -456,23 +504,25 @@ def _roll_piece_motif(
     contour: str | None = None,
 ) -> dict[str, Any]:
     """Piece identity: interval steps + rhythm cell, rolled once for the whole song."""
-    n_notes = rng.choice([3, 4, 4, 5, 5, 6])
+    n_notes = rng.choice([2, 2, 3, 3]) if dance_type == "vals" else rng.choice([3, 4, 4, 5, 5, 6])
     contour_name, steps = _roll_contour_steps(rng, n_notes, contour=contour)
 
     # Fixed rhythm cells — surface density expands around these anchors
     if dance_type == "vals":
-        # Land on waltz 1 and 3; beat 2 is the accompaniment pulse
+        # Smooth quarters on 1–2–3; some cells enter after beat 1 (pickup)
         q_cells = (
-            [0.0, 2.0],
+            [0.0, 1.0, 2.0],
             [0.0, 1.0, 2.0],
             [0.0, 2.0],
             [0.0, 1.0],
             [1.0, 2.0],
+            [2.0],
         )
         a_cells = (
-            [0.0, 2.0],
             [0.0, 1.0, 2.0],
-            [0.0, 2.0, 2.5],
+            [0.0, 2.0],
+            [0.0, 1.0],
+            [1.0, 2.0],
         )
     elif dance_type == "milonga":
         # Habanera / 3+3+2 accents only — never generic 16ths
@@ -515,7 +565,7 @@ def _roll_piece_motif(
         if len(slots) >= n:
             return slots[:n]
         if dance_type == "vals":
-            extras = [0.5, 1.5, 2.5, 1.0, 2.0, 0.0]
+            extras = [0.0, 1.0, 2.0]
         elif dance_type == "milonga":
             extras = [0.75, 1.5, 0.5, 1.0, 1.75]
         else:
@@ -722,8 +772,13 @@ def _realize_motif(
     register_bias: int = 0,
     sequence_semitones: int = 0,
     n: int | None = None,
+    dance_type: str = "tango",
 ) -> list[int]:
-    """Realize piece motif into chord-aware pitches without inventing a new contour."""
+    """Realize piece motif into chord-aware pitches without inventing a new contour.
+
+    Interval DNA is a *direction sketch*; notes walk the scale toward it.
+    Strong ends lock to chord tones so the line sits on the harmony.
+    """
     steps = list(motif["steps"])
     if transform in ("invert", "answer"):
         steps = [-s for s in steps]
@@ -745,20 +800,40 @@ def _realize_motif(
     else:
         start = _nearest(band_chord, start_pitch + sequence_semitones)
 
-    # Exact interval DNA (chromatic steps OK in tango); only endpoints lock to harmony
+    allow_chromatic = dance_type == "tango"
     pitches = [start]
-    for s in steps:
-        pitches.append(_clamp_melody(pitches[-1] + s))
+    for i, s in enumerate(steps):
+        last_step = i == len(steps) - 1
+        target = pitches[-1] + s
+        if (
+            allow_chromatic
+            and not last_step
+            and abs(s) == 1
+            and rng.random() < 0.18
+        ):
+            pitches.append(_clamp_melody(target))
+            continue
+        pitches.append(
+            _step_toward(
+                rng,
+                pitches[-1],
+                target,
+                chord,
+                scale,
+                must_chord=last_step,
+                allow_unison=False,
+            )
+        )
 
+    pitches[-1] = _nearest(chord, pitches[-1])
     if transform == "answer":
-        # Keep shape, pull cadence into chord root without flattening the cell
-        pitches[-1] = _nearest(chord, pitches[-1])
-        if abs(pitches[-1] - chord[0]) <= 5:
-            pitches[-1] = chord[0]
-    else:
-        pitches[-1] = _nearest(chord + scale, pitches[-1])
+        roots = [p for p in chord if _pc(p) == _pc(chord[0])]
+        if roots and abs(pitches[-1] - roots[0]) <= 8:
+            pitches[-1] = _nearest(roots, pitches[-1])
 
     want = n if n is not None else int(motif["n_notes"])
+    if dance_type == "vals":
+        want = min(want, 3)
     if len(pitches) > want:
         # Keep head, tail, and evenly spaced interior
         idxs = [0]
@@ -770,6 +845,8 @@ def _realize_motif(
         prev = pitches[-1]
         step = [p for p in scale if 0 < abs(p - prev) <= 2]
         pitches.append(rng.choice(step) if step else _clamp_melody(prev + 2))
+    pitches[0] = _nearest(chord, pitches[0])
+    pitches[-1] = _nearest(chord, pitches[-1])
     return pitches[:want]
 
 
@@ -1113,26 +1190,27 @@ def _pick_grid_placements(
     if count <= 0:
         return []
 
-    # Vals (~180 BPM): land on 1 and 3; beat 2 is the bass–chord pulse
+    # Vals (~180 BPM): smooth quarters on 1–2–3; pickup cells skip beat 1
     if dance_type == "vals":
         if density == "low":
-            cells = [[0.0, 2.0], [0.0], [0.0, 2.0]]
+            cells = [[0.0, 2.0], [0.0], [0.0, 1.0], [1.0, 2.0], [2.0]]
         else:
             cells = [
-                [0.0, 2.0],
                 [0.0, 1.0, 2.0],
                 [0.0, 2.0],
+                [0.0, 1.0],
+                [1.0, 2.0],
             ]
         base = list(rng.choice(cells))
         while len(base) < count:
-            for cand in (0.0, 2.0, 1.0):
+            for cand in (0.0, 1.0, 2.0):
                 if cand not in base:
                     base.append(cand)
                 if len(base) >= count:
                     break
             else:
                 break
-        return sorted(base[:count])
+        return sorted(base[: min(count, 3)])
 
     # Milonga: habanera / 3+3+2 only — generic 16ths fight the LH
     if dance_type == "milonga":
@@ -1190,6 +1268,8 @@ def _expand_pitches_to_count(
     tonic: int,
     mode: str,
     symbol: str,
+    *,
+    dance_type: str = "tango",
 ) -> list[int]:
     """Interpolate a short contour onto `count` scale steps (directed, few unisons/leaps)."""
     if count <= 0:
@@ -1226,7 +1306,7 @@ def _expand_pitches_to_count(
         pool = directed or candidates
         choice = min(pool, key=lambda p: (abs(p - target), abs(p - prev), rng.random()))
         # Rare neighbor tone for figuration colour (not a random leap)
-        if i > 0 and i < count - 1 and rng.random() < 0.12:
+        if dance_type == "tango" and i > 0 and i < count - 1 and rng.random() < 0.12:
             nbr = [p for p in scale if abs(p - choice) == 1]
             if nbr:
                 choice = rng.choice(nbr)
@@ -1270,6 +1350,7 @@ def _emit_bar_notes(
         target = max(2 if dance_type != "vals" else 1, target - 1)
     if dance_type == "vals":
         target = min(target, 3)
+        pitches = pitches[:target]
     elif dance_type == "milonga":
         target = min(target, 5)
     elif not phrase_end:
@@ -1286,7 +1367,9 @@ def _emit_bar_notes(
         pitches = pitches[:target]
     elif len(pitches) < target:
         if tonic is not None and mode is not None and symbol is not None:
-            pitches = _expand_pitches_to_count(rng, pitches, target, tonic, mode, symbol)
+            pitches = _expand_pitches_to_count(
+                rng, pitches, target, tonic, mode, symbol, dance_type=dance_type
+            )
         else:
             while len(pitches) < target:
                 pitches.append(pitches[-1])
@@ -1295,6 +1378,8 @@ def _emit_bar_notes(
     if fixed_placements:
         # Keep motif rhythm identity; fill extras from dance grid if density needs more
         base = [p for p in fixed_placements if 0 <= p < beats_per_bar]
+        if dance_type == "vals":
+            base = [p for p in base if p in (0.0, 1.0, 2.0)]
         if len(base) >= len(pitches):
             placements = sorted(base[: len(pitches)])
         else:
@@ -1310,8 +1395,20 @@ def _emit_bar_notes(
                 if e not in merged:
                     merged.append(e)
             while len(merged) < len(pitches):
-                merged.append(min(beats_per_bar - 0.05, merged[-1] + 0.25))
+                if dance_type == "vals":
+                    filled = False
+                    for cand in (0.0, 1.0, 2.0):
+                        if cand not in merged:
+                            merged.append(cand)
+                            filled = True
+                            break
+                    if not filled:
+                        break
+                else:
+                    merged.append(min(beats_per_bar - 0.05, merged[-1] + 0.25))
             placements = sorted(merged[: len(pitches)])
+            if dance_type == "vals" and len(placements) < len(pitches):
+                pitches = pitches[: len(placements)]
     else:
         placements = _pick_grid_placements(
             rng,
@@ -1331,7 +1428,8 @@ def _emit_bar_notes(
         )
         gap = max(0.05, next_start - start_local)
         if dance_type == "vals":
-            dur = min(beats_per_bar - start_local, max(gap * 0.95, 0.85))
+            # Legato: fill to the next attack so the line rides the 1–2–3 pulse
+            dur = min(beats_per_bar - start_local, max(gap * 0.98, 0.92))
         elif dance_type == "milonga":
             # Match habanera lengths: long on 1, short on the 16th, 8ths after
             if abs(start_local - 0.0) < 0.06:
@@ -1497,6 +1595,103 @@ def _apply_phrase_cadences(
     return out, roles
 
 
+def _vals_onbeat_placements(
+    rng: random.Random,
+    count: int,
+    *,
+    preferred: list[float] | None,
+    pickup: bool,
+) -> list[float]:
+    """Waltz melody lives on beats 1–2–3; pickup skips the downbeat."""
+    count = max(1, min(3, count))
+    legal = (0.0, 1.0, 2.0)
+    pref = [p for p in (preferred or []) if p in legal]
+    if pickup:
+        if count <= 1:
+            return [2.0]
+        return [1.0, 2.0][:count]
+    if len(pref) >= count:
+        return sorted(pref[:count])
+    defaults = {1: [0.0], 2: [0.0, 2.0], 3: [0.0, 1.0, 2.0]}
+    if rng.random() < 0.25 and count == 2:
+        return list(rng.choice(([0.0, 1.0], [0.0, 2.0], [1.0, 2.0])))
+    return list(defaults[count])
+
+
+def _emit_vals_phrase(
+    rng: random.Random,
+    *,
+    start_bar: int,
+    n_bars: int,
+    beats_per_bar: int,
+    chords_for_bars: list[str],
+    motif: dict[str, Any],
+    density: Level,
+    variation: Level,
+    tonic: int,
+    mode: str,
+    transform_q: Literal["prime", "invert", "answer", "sequence"],
+    register_bias: int,
+    sequence_semitones: int,
+    start_pitch: int | None,
+) -> tuple[list[dict[str, Any]], int]:
+    """One smooth cell per bar, on the waltz pulse, fitted to that bar's chord."""
+    notes: list[dict[str, Any]] = []
+    last = start_pitch
+    q_bars = (n_bars + 1) // 2
+    pickup = rng.random() < 0.32
+    n = min(3, max(2, int(motif.get("n_notes") or 3)))
+    for j in range(n_bars):
+        is_answer = j >= q_bars
+        is_end = j == n_bars - 1
+        symbol = chords_for_bars[min(j, len(chords_for_bars) - 1)]
+        transform: Literal["prime", "invert", "answer", "sequence"] = (
+            "answer" if is_answer else transform_q
+        )
+        use_pickup = pickup and j == 0 and not is_answer
+        note_n = 2 if use_pickup else n
+        pitches = _realize_motif(
+            rng,
+            motif,
+            tonic=tonic,
+            mode=mode,
+            symbol=symbol,
+            start_pitch=last,
+            transform=transform,
+            register_bias=register_bias if j == 0 else max(0, register_bias - 2),
+            sequence_semitones=sequence_semitones if j == 0 else 0,
+            n=note_n,
+            dance_type="vals",
+        )
+        slots = list(motif["rhythm_answer" if is_answer else "rhythm_question"])
+        placements = _vals_onbeat_placements(
+            rng, len(pitches), preferred=slots, pickup=use_pickup
+        )
+        if len(placements) < len(pitches):
+            pitches = pitches[: len(placements)]
+        emitted = _emit_bar_notes(
+            rng,
+            bar=start_bar + j,
+            beats_per_bar=beats_per_bar,
+            pitches=pitches,
+            density="low" if not is_end else density,
+            variation=variation,
+            phrase_end=is_end,
+            role="answer" if is_answer or is_end else "question",
+            dance_type="vals",
+            voice="lead",
+            tonic=tonic,
+            mode=mode,
+            symbol=symbol,
+            fixed_placements=placements,
+        )
+        notes.extend(emitted)
+        last = pitches[-1]
+    for nte in notes:
+        nte["phrase_bars"] = n_bars
+    return notes, int(last if last is not None else 72)
+
+
 def _emit_phrase(
     rng: random.Random,
     *,
@@ -1516,6 +1711,23 @@ def _emit_phrase(
     start_pitch: int | None,
 ) -> tuple[list[dict[str, Any]], int]:
     """Write one 2–4 bar phrase as a single line; only the last note is phrase_end."""
+    if dance_type == "vals":
+        return _emit_vals_phrase(
+            rng,
+            start_bar=start_bar,
+            n_bars=n_bars,
+            beats_per_bar=beats_per_bar,
+            chords_for_bars=chords_for_bars,
+            motif=motif,
+            density=density,
+            variation=variation,
+            tonic=tonic,
+            mode=mode,
+            transform_q=transform_q,
+            register_bias=register_bias,
+            sequence_semitones=sequence_semitones,
+            start_pitch=start_pitch,
+        )
     q_bars = (n_bars + 1) // 2
     a_bars = n_bars - q_bars
     notes: list[dict[str, Any]] = []
@@ -1533,10 +1745,12 @@ def _emit_phrase(
         register_bias=register_bias,
         sequence_semitones=sequence_semitones,
         n=int(motif["n_notes"]),
+        dance_type=dance_type,
     )
     # Spread question across q_bars — one emit per bar, phrase_end only if no answer
     for j in range(q_bars):
         bar = start_bar + j
+        symbol = chords_for_bars[min(j, len(chords_for_bars) - 1)]
         # Slice pitches across bars so the line continues
         if q_bars == 1:
             slice_p = q_pitches
@@ -1545,6 +1759,17 @@ def _emit_phrase(
             prev = max(0, len(q_pitches) * j // q_bars)
             slice_p = q_pitches[prev:cut] or q_pitches[-2:]
         is_phrase_end = a_bars == 0 and j == q_bars - 1
+        prev_pitch = notes[-1]["pitch"] if notes else start_pitch
+        slice_p = _fit_pitches_to_harmony(
+            rng,
+            slice_p,
+            tonic,
+            mode,
+            symbol,
+            start_pitch=prev_pitch,
+            cadence=is_phrase_end,
+            dance_type=dance_type,
+        )
         # Mid-phrase bars: never phrase_end; keep density at structural level
         bar_density: Level = density if j == q_bars - 1 or a_bars == 0 else (
             "low" if density == "medium" else density if density == "low" else "medium"
@@ -1562,11 +1787,11 @@ def _emit_phrase(
             voice="lead",
             tonic=tonic,
             mode=mode,
-            symbol=chords_for_bars[min(j, len(chords_for_bars) - 1)],
+            symbol=symbol,
             fixed_placements=list(motif["rhythm_question"]),
         )
         notes.extend(emitted)
-    last = q_pitches[-1]
+    last = notes[-1]["pitch"] if notes else (q_pitches[-1] if q_pitches else 72)
 
     # Answer half
     if a_bars > 0:
@@ -1582,9 +1807,11 @@ def _emit_phrase(
             register_bias=max(0, register_bias - 2),
             sequence_semitones=0,
             n=max(3, int(motif["n_notes"]) - 1),
+            dance_type=dance_type,
         )
         for j in range(a_bars):
             bar = start_bar + q_bars + j
+            symbol = chords_for_bars[min(q_bars + j, len(chords_for_bars) - 1)]
             if a_bars == 1:
                 slice_p = a_pitches
             else:
@@ -1592,6 +1819,17 @@ def _emit_phrase(
                 prev = max(0, len(a_pitches) * j // a_bars)
                 slice_p = a_pitches[prev:cut] or a_pitches[-2:]
             is_phrase_end = j == a_bars - 1
+            prev_pitch = notes[-1]["pitch"] if notes else last
+            slice_p = _fit_pitches_to_harmony(
+                rng,
+                slice_p,
+                tonic,
+                mode,
+                symbol,
+                start_pitch=prev_pitch,
+                cadence=is_phrase_end,
+                dance_type=dance_type,
+            )
             bar_density = density if is_phrase_end else (
                 "low" if density != "low" else "low"
             )
@@ -1608,15 +1846,15 @@ def _emit_phrase(
                 voice="lead",
                 tonic=tonic,
                 mode=mode,
-                symbol=chords_for_bars[min(q_bars + j, len(chords_for_bars) - 1)],
+                symbol=symbol,
                 fixed_placements=list(motif["rhythm_answer"]),
             )
             notes.extend(emitted)
-        last = a_pitches[-1]
+        last = notes[-1]["pitch"] if notes else a_pitches[-1]
 
     for n in notes:
         n["phrase_bars"] = n_bars
-    return notes, last
+    return notes, int(last)
 
 
 def _intro_melody(
@@ -1649,7 +1887,7 @@ def _intro_melody(
         abs_bar = start_bar + j
         symbol = chords_for_bars[j]
         if plant_setup and abs_bar == setup_bar and motif is not None:
-            head_n = min(3, max(2, int(motif["n_notes"]) // 2 + 1))
+            head_n = 2 if dance_type == "vals" else min(3, max(2, int(motif["n_notes"]) // 2 + 1))
             pitches = _realize_motif(
                 rng,
                 motif,
@@ -1659,14 +1897,18 @@ def _intro_melody(
                 start_pitch=None,
                 transform="prime",
                 n=head_n,
+                dance_type=dance_type,
             )
-            start_local = beats_per_bar * 0.25 if dance_type != "vals" else 1.0
-            slots = list(motif.get("rhythm_question") or [0.0])[: len(pitches)]
-            if len(slots) < len(pitches):
-                step = (beats_per_bar - start_local) / max(1, len(pitches))
-                slots = [start_local + i * step for i in range(len(pitches))]
+            if dance_type == "vals":
+                slots = [1.0, 2.0][: len(pitches)] if len(pitches) > 1 else [2.0]
             else:
-                slots = [start_local + (s - slots[0]) for s in slots]
+                start_local = beats_per_bar * 0.25
+                slots = list(motif.get("rhythm_question") or [0.0])[: len(pitches)]
+                if len(slots) < len(pitches):
+                    step = (beats_per_bar - start_local) / max(1, len(pitches))
+                    slots = [start_local + i * step for i in range(len(pitches))]
+                else:
+                    slots = [start_local + (s - slots[0]) for s in slots]
             for i, pitch in enumerate(pitches):
                 dur = (
                     (slots[i + 1] - slots[i])
@@ -1766,6 +2008,7 @@ def _coda_melody(
                 start_pitch=None,
                 transform="prime" if j == 0 else "answer",
                 n=min(3, int(use["n_notes"])),
+                dance_type=dance_type,
             )
             notes.extend(
                 _emit_bar_notes(
@@ -1935,6 +2178,7 @@ def _melody_for_section(
                     start_pitch=None,
                     transform="prime",
                     n=min(3, int(quote_motif["n_notes"])),
+                    dance_type=dance_type,
                 )
                 if quoted:
                     notes[-1]["pitch"] = int(quoted[0])

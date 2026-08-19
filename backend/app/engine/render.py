@@ -319,7 +319,7 @@ def _render_melody(
 
         orn_p = min(0.42, decoration * 0.65 + orn_boost * 0.35)
         if dance_type == "vals":
-            orn_p = min(0.18, orn_p * 0.45)
+            orn_p = 0.0
         elif dance_type == "milonga":
             orn_p = min(0.22, orn_p * 0.55)
         if drama == "climax" and phrase_end:

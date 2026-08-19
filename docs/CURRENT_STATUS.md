@@ -14,7 +14,7 @@
 - **Motivic cells（E11）**：1–3 cells、多種 contour、對比 cell 獨立 roll（非單純倒影）
 - **E9** structural anchors＋張力插值；**E10** motif setup／payoff 早排程
 - **E12** section groove intent（intro 疏／A 立住／B 加深 colour／coda 收）
-- Tension／humanize／表面再和聲／LH bass 平滑（E3–E6）
+- **旋律貼和聲**：強拍和弦音、經過音走音階（非半音硬跳）；vals 在 1–2–3 上連音，可從第 2／3 拍進入
 
 ## Known gaps
 
