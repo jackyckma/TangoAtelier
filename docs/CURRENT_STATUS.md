@@ -14,7 +14,7 @@
 - **Motivic cells（E11）**：1–3 cells、多種 contour、對比 cell 獨立 roll（非單純倒影）
 - **E9** structural anchors＋張力插值；**E10** motif setup／payoff 早排程
 - **E12** section groove intent（intro 疏／A 立住／B 加深 colour／coda 收）
-- **旋律貼和聲**：強拍和弦音、經過音走音階（非半音硬跳）；vals 在 1–2–3 上連音，可從第 2／3 拍進入
+- **選中進行會在 A／A′／B 循環**；intro／bridge／coda 才強制終止。Vals 樂句可長至 8–12 小節。
 
 ## Known gaps
 

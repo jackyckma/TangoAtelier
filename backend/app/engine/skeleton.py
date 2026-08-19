@@ -59,10 +59,66 @@ def _parse_key(key_name: str) -> tuple[str, str, int]:
     return key_name if " " in key_name else f"{tonic_letter} {mode}", mode, tonic
 
 
+_TO_MAJOR = {
+    "i": "I",
+    "ii": "ii",
+    "iiø": "ii",
+    "iii": "iii",
+    "III": "iii",
+    "iv": "IV",
+    "v": "V",
+    "V": "V",
+    "V7": "V7",
+    "V7b9": "V7",
+    "vi": "vi",
+    "VI": "vi",
+    "VII": "vii°",
+    "vii°": "vii°",
+    "I": "I",
+    "IV": "IV",
+}
+_TO_MINOR = {
+    "I": "i",
+    "ii": "iiø",
+    "iii": "III",
+    "IV": "iv",
+    "V": "V",
+    "V7": "V7",
+    "V7b9": "V7b9",
+    "vi": "VI",
+    "vii°": "VII",
+    "i": "i",
+    "iv": "iv",
+    "VI": "VI",
+    "III": "III",
+    "iiø": "iiø",
+}
+
+
+def _map_progression_symbols(symbols: list[str], target_mode: str) -> list[str]:
+    table = _TO_MINOR if target_mode == "minor" else _TO_MAJOR
+    return [table.get(s, s) for s in symbols]
+
+
+def _progression_mode_for_id(progression_id: str) -> str | None:
+    in_min = progression_id in PROGRESSIONS_MINOR
+    in_maj = progression_id in PROGRESSIONS_MAJOR
+    if in_min and not in_maj:
+        return "minor"
+    if in_maj and not in_min:
+        return "major"
+    return None
+
+
 def _pick_progression(rng: random.Random, mode: str, progression_id: str | None) -> tuple[str, list[str]]:
     table = PROGRESSIONS_MINOR if mode == "minor" else PROGRESSIONS_MAJOR
-    if progression_id and progression_id != "random" and progression_id in table:
-        return progression_id, list(table[progression_id])
+    other = PROGRESSIONS_MAJOR if mode == "minor" else PROGRESSIONS_MINOR
+    if progression_id and progression_id != "random":
+        if progression_id in table:
+            return progression_id, list(table[progression_id])
+        if progression_id in other:
+            # UI lists both modes together; keep the chosen colour in the sounding key
+            return progression_id, _map_progression_symbols(list(other[progression_id]), mode)
     pid = rng.choice(list(table.keys()))
     return pid, list(table[pid])
 
@@ -150,19 +206,16 @@ def _plan_section_harmony(
             out["section"] = "B"
             return out
 
-        rel = relative_key(home_key, home_mode, home_tonic)
-        if rel is not None and rng.random() < 0.85:
-            key_name, mode, tonic = rel
-            modulation = "relative_major" if mode == "major" else "relative_minor"
-            if user_locked_progression:
-                # Keep contour of home progression degrees if possible; else pick in new mode
-                prog_id, progression = _pick_progression(rng, mode, "random")
-            else:
-                prog_id, progression = _pick_progression(rng, mode, "random")
+        if user_locked_progression:
+            # Teaching lock: B keeps the chosen cycle; contrast is melodic, not a new grid
+            prog_id, progression = home_prog_id, list(home_progression)
+            modulation = None
         else:
-            if user_locked_progression:
-                prog_id, progression = home_prog_id, list(home_progression)
-                modulation = None
+            rel = relative_key(home_key, home_mode, home_tonic)
+            if rel is not None and rng.random() < 0.85:
+                key_name, mode, tonic = rel
+                modulation = "relative_major" if mode == "major" else "relative_minor"
+                prog_id, progression = _pick_progression(rng, mode, "random")
             else:
                 prog_id, progression = _alternate_progression(rng, mode, home_prog_id)
                 modulation = "progression_change"
@@ -1037,7 +1090,9 @@ def _build_drama_map(
     # Phrase-end air — never inside the approach/peak window (that kills anticipation)
     protected = rise_bars | anticipate_bars | climax_bars | release_bars
     pause_bars: set[int] = set()
-    pause_budget = (2 if dance_type == "tango" else 1) + int(var * 2)
+    pause_budget = 0 if dance_type == "vals" else (
+        (2 if dance_type == "tango" else 1) + int(var * 2)
+    )
     pause_pool = [
         i
         for i, s in enumerate(bar_sections)
@@ -1472,7 +1527,10 @@ def _partition_phrases(
     pause: set[int],
     dance_type: str,
 ) -> list[tuple[int, int]]:
-    """Split a section into 2–4 bar phrases (chord-aware), never across pauses."""
+    """Split a section into phrases (chord-aware), never across pauses.
+
+    Tango/milonga: 2–4 bars. Vals: prefer one long spinning line (8–12).
+    """
     phrases: list[tuple[int, int]] = []
     i = 0
     while i < bars:
@@ -1481,13 +1539,16 @@ def _partition_phrases(
             i += 1
             continue
 
-        # Prefer 4-bar lines on tango/vals when aligned; milonga stays punchier at 2
-        prefer_four = dance_type in ("tango", "vals") and i % 4 == 0 and i + 4 <= bars
-        target = 4 if prefer_four else 2
-        if dance_type == "vals" and i + 3 <= bars and not prefer_four:
-            # Occasional 3-bar vals gesture when chords allow
-            if i + 2 < bars and chords_for_bars[i] == chords_for_bars[i + 1]:
-                target = 3
+        remaining = bars - i
+        if dance_type == "vals":
+            if remaining >= 8:
+                target = remaining if remaining <= 12 else 8
+            else:
+                target = remaining
+        else:
+            # Prefer 4-bar lines on tango when aligned; milonga stays punchier at 2
+            prefer_four = dance_type == "tango" and i % 4 == 0 and i + 4 <= bars
+            target = 4 if prefer_four else 2
 
         length = 1
         for k in range(1, target):
@@ -1516,6 +1577,14 @@ def _pick_dominant(rng: random.Random, mode: str, *, spicy: bool) -> str:
     return "V7" if rng.random() < 0.7 else "V"
 
 
+def _is_tonic_symbol(symbol: str) -> bool:
+    return symbol in ("i", "I")
+
+
+def _is_dominant_symbol(symbol: str) -> bool:
+    return str(symbol).startswith("V")
+
+
 def _apply_phrase_cadences(
     symbols: list[str],
     phrases: list[tuple[int, int]],
@@ -1523,11 +1592,13 @@ def _apply_phrase_cadences(
     mode: str,
     section_name: str,
     rng: random.Random,
+    respect_progression: bool = False,
 ) -> tuple[list[str], dict[int, str]]:
-    """Force phrase-level cadences; leave mid-phrase chords from the progression.
+    """Cadences at form edges; mid-section keeps the laid-out progression.
 
-    Question half → half cadence (dominant). Answer / phrase end → tonic.
-    When the answer is ≥2 bars, penultimate bar is dominant approach.
+    When the user picked a progression, A/B/A′ are left alone so the cycle
+    is audible. Unlocked pieces still get a light authentic landing at each
+    phrase end (not a V–V–i rewrite of the whole phrase).
     """
     out = list(symbols)
     roles: dict[int, str] = {}
@@ -1537,13 +1608,11 @@ def _apply_phrase_cadences(
         return out, roles
 
     if section_name == "intro":
-        # Establish tonic; optional soft open on last bar only if short
         if n >= 1:
             out[0] = tonic
         return out, roles
 
     if section_name == "bridge":
-        # Pivot hangs on dominant so the next section can resolve
         spicy = rng.random() < 0.35
         for i in range(max(0, n - 2), n):
             out[i] = _pick_dominant(rng, mode, spicy=spicy)
@@ -1558,39 +1627,28 @@ def _apply_phrase_cadences(
         roles[n - 1] = "authentic"
         return out, roles
 
+    if respect_progression:
+        return out, roles
+
     spicy_section = section_name in ("B", "A_prime")
     for local_start, plen in phrases:
         if plen <= 0 or local_start >= n:
             continue
         end = min(local_start + plen, n)
-        plen = end - local_start
-        if plen <= 0:
+        last = end - 1
+        if last < 0:
             continue
-
-        q_bars = (plen + 1) // 2
-        a_bars = plen - q_bars
-
-        if a_bars == 0:
-            # Rare short phrase: still land tonic; dominant approach if possible
-            last = local_start + plen - 1
+        # One landing per phrase — keep interior chords from the cycle
+        if not _is_tonic_symbol(out[last]):
             out[last] = tonic
             roles[last] = "authentic"
-            if plen >= 2:
-                prev = last - 1
-                out[prev] = _pick_dominant(rng, mode, spicy=spicy_section)
-                roles[prev] = "approach"
-            continue
-
-        q_end = local_start + q_bars - 1
-        a_end = local_start + plen - 1
-        out[q_end] = _pick_dominant(rng, mode, spicy=spicy_section)
-        roles[q_end] = "half"
-        out[a_end] = tonic
-        roles[a_end] = "authentic"
-        if a_bars >= 2:
-            prev = a_end - 1
-            out[prev] = _pick_dominant(rng, mode, spicy=False)
-            roles[prev] = "approach"
+        else:
+            roles[last] = "authentic"
+        if plen >= 8 and not _is_dominant_symbol(out[local_start + plen // 2 - 1]):
+            mid = local_start + plen // 2 - 1
+            if mid != last and not _is_tonic_symbol(out[mid]):
+                out[mid] = _pick_dominant(rng, mode, spicy=spicy_section)
+                roles[mid] = "half"
 
     return out, roles
 
@@ -1638,11 +1696,12 @@ def _emit_vals_phrase(
     """One smooth cell per bar, on the waltz pulse, fitted to that bar's chord."""
     notes: list[dict[str, Any]] = []
     last = start_pitch
-    q_bars = (n_bars + 1) // 2
+    # Resolve only in the last few bars so an 8–12 bar vals line stays one sentence
+    answer_from = max(0, n_bars - 3) if n_bars >= 6 else (n_bars + 1) // 2
     pickup = rng.random() < 0.32
     n = min(3, max(2, int(motif.get("n_notes") or 3)))
     for j in range(n_bars):
-        is_answer = j >= q_bars
+        is_answer = j >= answer_from
         is_end = j == n_bars - 1
         symbol = chords_for_bars[min(j, len(chords_for_bars) - 1)]
         transform: Literal["prime", "invert", "answer", "sequence"] = (
@@ -2374,13 +2433,19 @@ def build_skeleton(
     beats_per_bar = dance["time_signature"][0]
 
     if key in (None, "", "random"):
-        bias = dance.get("key_bias", "minor")
-        if bias == "major":
-            pool = KEYS_MAJOR * 3 + KEYS_MINOR  # prefer major for milonga/vals
-        elif bias == "minor":
-            pool = KEYS_MINOR * 3 + KEYS_MAJOR
+        prog_mode = _progression_mode_for_id(str(progression_id or ""))
+        if prog_mode == "major":
+            pool = KEYS_MAJOR
+        elif prog_mode == "minor":
+            pool = KEYS_MINOR
         else:
-            pool = KEYS
+            bias = dance.get("key_bias", "minor")
+            if bias == "major":
+                pool = KEYS_MAJOR * 3 + KEYS_MINOR  # prefer major for milonga/vals
+            elif bias == "minor":
+                pool = KEYS_MINOR * 3 + KEYS_MAJOR
+            else:
+                pool = KEYS
         key_name, mode, tonic = _parse_key(rng.choice(pool))
     else:
         key_name, mode, tonic = _parse_key(key)
@@ -2399,7 +2464,11 @@ def build_skeleton(
     home_prog_id, home_progression = _pick_progression(rng, mode, progression_id)
     bars_per_chord = int(dance["bars_per_chord"])
     # Extra harmonic-rhythm variation (tango often flips between 1–2 bars/chord)
-    if dance_type == "tango" and rng.random() < VARIATION_STRENGTH[melody_variation] * 0.45:
+    if (
+        dance_type == "tango"
+        and not user_locked_progression
+        and rng.random() < VARIATION_STRENGTH[melody_variation] * 0.45
+    ):
         bars_per_chord = 1 if bars_per_chord == 2 else 2
 
     drama = _build_drama_map(
@@ -2474,6 +2543,7 @@ def build_skeleton(
             mode=str(sec["mode"]),
             section_name=section_name,
             rng=rng,
+            respect_progression=user_locked_progression,
         )
 
         elaboration: dict[str, Any] | None = None

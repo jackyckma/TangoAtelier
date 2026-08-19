@@ -106,7 +106,7 @@ const resources = {
         decoration: '句尾裝飾機率',
         chordProgression: '和弦進行（播放同步）',
         chordProgressionLead:
-          '上方係各段「實際用到」嘅和弦（連小節範圍）；下方格仔逐小節對照。若段落短過成條進行，只會用到模板前段。',
+          '選咗嘅進行會喺 A／A′／B 按小節循環（主調）。上方係各段實際和弦；下方格仔逐小節對照。Intro／過場／coda 仍用終止；若段落短過成條進行，只會用到循環前段。',
         chordsUsed: '實際和弦',
         progressionTemplate: '進行模板（未必全部用完）',
         barsRange: '第 {{from}}–{{to}} 小節',
@@ -271,7 +271,7 @@ const resources = {
         decoration: 'Cadence ornament chance',
         chordProgression: 'Chord progression (playback sync)',
         chordProgressionLead:
-          'Above: chords actually used in each section (with bar ranges). Below: bar-by-bar grid. Short sections only use the start of a longer progression template.',
+          'A chosen progression cycles through A / A′ / B. Above: chords used in each section. Below: bar-by-bar grid. Intro / bridge / coda still cadence; short sections only use the start of a longer cycle.',
         chordsUsed: 'Chords used',
         progressionTemplate: 'Progression template (may not all be used)',
         barsRange: 'Bars {{from}}–{{to}}',
