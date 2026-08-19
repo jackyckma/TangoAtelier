@@ -272,11 +272,10 @@ def fill_section_harmony(
 ) -> tuple[list[str], dict[int, str]]:
     """Build one chord symbol per bar for the section."""
     if section_name == "bridge":
+        # Pure V7 pedal — audible pivot before relative major/minor B
         dominant = "V7"
-        tonic = "i" if mode == "minor" else "I"
-        bridge_prog = [dominant, dominant, tonic, dominant]
-        symbols = (bridge_prog * ((bars // len(bridge_prog)) + 1))[:bars]
-        roles = {bars - 2: "half", bars - 1: "half"}
+        symbols = [dominant] * bars
+        roles = {i: "half" for i in range(max(0, bars - 2), bars)}
         return symbols, roles
 
     if section_name == "intro":
@@ -423,7 +422,7 @@ def plan_section_harmony(
             "mode": mode,
             "tonic": tonic,
             "progression_id": "bridge_dominant",
-            "progression": ["V7", "V7", "i", "V7"] if mode == "minor" else ["V7", "V7", "I", "V7"],
+            "progression": ["V7"],
             "modulation": "bridge_dominant",
         }
 

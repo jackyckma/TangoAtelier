@@ -63,9 +63,10 @@ M3 establishes measurement baselines. Fingerprint test thresholds in `backend/te
 
 ## M2 update (2026-08-19) — phrase-driven harmony
 
-**Form default:** `golden_age_short` (56 bars: intro4 + A16 + B16 + A′16 + coda4).  
+**Form default:** `golden_age_short` (60 bars: intro4 + A16 + bridge4 + B16 + A′16 + coda4).  
 **Engine:** `backend/app/engine/form.py` — phrase cadence plans, per-bar harmony fill.  
 **Critic fix:** `section_bars = bar_to - (bar_from - 1)` for orphan check; per-bar `progression_template` skips orphan when len matches section.
+**Relative modulation:** B (and A2 continuation) prefer relative major/minor; 4-bar V7 pedal bridge pivots A→B.
 
 ### M2 hard-rule totals (golden_age_short, post-M2)
 

@@ -117,6 +117,22 @@ def test_b_section_relative_modulation_when_progression_locked() -> None:
     assert str(b.get("modulation") or "").startswith("relative")
 
 
+def test_golden_age_short_has_v7_bridge_before_b() -> None:
+    """A → 4-bar V7 pedal bridge → relative B."""
+    sk = build_skeleton(dance_type="tango", seed=1, form_id="golden_age_short")
+    names = [s["section"] for s in sk["harmony_plan"]]
+    assert names == ["intro", "A", "bridge", "B", "A_prime", "coda"]
+    assert sk["bars"] == 60
+    bridge = next(s for s in sk["harmony_plan"] if s["section"] == "bridge")
+    assert bridge["bar_to"] - (bridge["bar_from"] - 1) == 4
+    bridge_chords = [
+        c for c in sk["chords"] if bridge["bar_from"] - 1 <= c["bar"] < bridge["bar_to"]
+    ]
+    assert all(c["symbol"] == "V7" for c in bridge_chords)
+    b = next(s for s in sk["harmony_plan"] if s["section"] == "B")
+    assert b["bar_from"] == bridge["bar_to"] + 1
+
+
 def test_m2_harmonic_rhythm_orphan_skips_per_bar_template() -> None:
     """Per-bar progression_template (len == section bars) must not trigger orphan."""
     sk = build_skeleton(dance_type="tango", seed=7, form_id="golden_age_short")
