@@ -120,6 +120,14 @@ def _map_progression_symbols(symbols: list[str], target_mode: str) -> list[str]:
     return [table.get(s, s) for s in symbols]
 
 
+def _progression_for_mode(prog_id: str, mode: str, fallback: list[str]) -> list[str]:
+    """Same progression_id in the sounding key when catalog has a parallel entry."""
+    table = PROGRESSIONS_MINOR if mode == "minor" else PROGRESSIONS_MAJOR
+    if prog_id in table:
+        return list(table[prog_id])
+    return _map_progression_symbols(fallback, mode)
+
+
 def pick_progression(
     rng: random.Random, mode: str, progression_id: str | None
 ) -> tuple[str, list[str]]:
@@ -313,6 +321,39 @@ def fill_section_harmony(
     return out, roles
 
 
+def _apply_relative_modulation(
+    rng: random.Random,
+    *,
+    home_key: str,
+    home_mode: str,
+    home_tonic: int,
+    home_prog_id: str,
+    home_progression: list[str],
+    user_locked_progression: bool,
+) -> tuple[str, str, int, str, list[str], str | None]:
+    """Prefer relative major/minor; keep locked progression symbols mapped to target mode."""
+    rel = relative_key(home_key, home_mode, home_tonic)
+    if rel is None:
+        if user_locked_progression:
+            return home_key, home_mode, home_tonic, home_prog_id, list(home_progression), None
+        prog_id, progression = alternate_progression(rng, home_mode, home_prog_id)
+        return home_key, home_mode, home_tonic, prog_id, progression, "progression_change"
+
+    key_name, mode, tonic = rel
+    modulation = "relative_major" if mode == "major" else "relative_minor"
+    if user_locked_progression:
+        return (
+            key_name,
+            mode,
+            tonic,
+            home_prog_id,
+            _progression_for_mode(home_prog_id, mode, home_progression),
+            modulation,
+        )
+    prog_id, progression = pick_progression(rng, mode, "random")
+    return key_name, mode, tonic, prog_id, progression, modulation
+
+
 def plan_section_harmony(
     rng: random.Random,
     *,
@@ -331,7 +372,29 @@ def plan_section_harmony(
     prog_id, progression = home_prog_id, list(home_progression)
     modulation: str | None = None
 
-    if section_name in ("intro", "coda", "A", "A2", "variacion"):
+    if section_name in ("intro", "coda", "A", "variacion"):
+        return {
+            "section": section_name,
+            "key": key_name,
+            "mode": mode,
+            "tonic": tonic,
+            "progression_id": prog_id,
+            "progression": progression,
+            "modulation": None,
+        }
+
+    if section_name == "A2":
+        contrast = piece_harmony.get("contrast")
+        if contrast and str(contrast.get("modulation") or "").startswith("relative"):
+            return {
+                "section": "A2",
+                "key": str(contrast["key"]),
+                "mode": str(contrast["mode"]),
+                "tonic": int(contrast["tonic"]),
+                "progression_id": str(contrast["progression_id"]),
+                "progression": list(contrast["progression"]),
+                "modulation": "relative_continuation",
+            }
         return {
             "section": section_name,
             "key": key_name,
@@ -371,18 +434,22 @@ def plan_section_harmony(
             out["section"] = "B"
             return out
 
-        if user_locked_progression:
-            prog_id, progression = home_prog_id, list(home_progression)
-            modulation = None
-        else:
-            rel = relative_key(home_key, home_mode, home_tonic)
-            if rel is not None and rng.random() < 0.85:
-                key_name, mode, tonic = rel
-                modulation = "relative_major" if mode == "major" else "relative_minor"
-                prog_id, progression = pick_progression(rng, mode, "random")
-            else:
-                prog_id, progression = alternate_progression(rng, mode, home_prog_id)
-                modulation = "progression_change"
+        (
+            key_name,
+            mode,
+            tonic,
+            prog_id,
+            progression,
+            modulation,
+        ) = _apply_relative_modulation(
+            rng,
+            home_key=home_key,
+            home_mode=home_mode,
+            home_tonic=home_tonic,
+            home_prog_id=home_prog_id,
+            home_progression=home_progression,
+            user_locked_progression=user_locked_progression,
+        )
 
         plan = {
             "section": "B",

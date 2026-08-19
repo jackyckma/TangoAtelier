@@ -103,6 +103,20 @@ def test_m2_phrase_harmony_cadence_rules_zero() -> None:
     assert counts["HARMONIC_RHYTHM_ORPHAN"] == 0
 
 
+def test_b_section_relative_modulation_when_progression_locked() -> None:
+    """B moves to relative major/minor even when the user picked a progression."""
+    sk = build_skeleton(
+        dance_type="tango",
+        seed=1,
+        progression_id="descending_fifths",
+        form_id="golden_age_short",
+    )
+    home = (sk["key"], sk["mode"], sk["tonic"])
+    b = next(s for s in sk["harmony_plan"] if s["section"] == "B")
+    assert (b["key"], b["mode"], b["tonic"]) != home
+    assert str(b.get("modulation") or "").startswith("relative")
+
+
 def test_m2_harmonic_rhythm_orphan_skips_per_bar_template() -> None:
     """Per-bar progression_template (len == section bars) must not trigger orphan."""
     sk = build_skeleton(dance_type="tango", seed=7, form_id="golden_age_short")

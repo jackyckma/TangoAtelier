@@ -654,6 +654,7 @@ def _realize_motif(
     sequence_semitones: int = 0,
     n: int | None = None,
     dance_type: str = "tango",
+    key_offset: int = 0,
 ) -> list[int]:
     """Realize piece motif into chord-aware pitches without inventing a new contour.
 
@@ -675,7 +676,10 @@ def _realize_motif(
 
     if start_pitch is None:
         start = _clamp_melody(
-            int(motif.get("head_pitch", band_chord[0])) + register_bias + sequence_semitones
+            int(motif.get("head_pitch", band_chord[0]))
+            + register_bias
+            + sequence_semitones
+            + key_offset
         )
         start = _nearest(band_chord, start)
     else:
@@ -1431,6 +1435,7 @@ def _emit_vals_phrase(
     register_bias: int,
     sequence_semitones: int,
     start_pitch: int | None,
+    key_offset: int = 0,
 ) -> tuple[list[dict[str, Any]], int]:
     """One smooth cell per bar, on the waltz pulse, fitted to that bar's chord."""
     notes: list[dict[str, Any]] = []
@@ -1460,6 +1465,7 @@ def _emit_vals_phrase(
             sequence_semitones=sequence_semitones if j == 0 else 0,
             n=note_n,
             dance_type="vals",
+            key_offset=key_offset if last is None else 0,
         )
         slots = list(motif["rhythm_answer" if is_answer else "rhythm_question"])
         placements = _vals_onbeat_placements(
@@ -1507,6 +1513,7 @@ def _emit_phrase(
     register_bias: int,
     sequence_semitones: int,
     start_pitch: int | None,
+    key_offset: int = 0,
 ) -> tuple[list[dict[str, Any]], int]:
     """Write one 2–4 bar phrase as a single line; only the last note is phrase_end."""
     if dance_type == "vals":
@@ -1525,6 +1532,7 @@ def _emit_phrase(
             register_bias=register_bias,
             sequence_semitones=sequence_semitones,
             start_pitch=start_pitch,
+            key_offset=key_offset,
         )
     q_bars = (n_bars + 1) // 2
     a_bars = n_bars - q_bars
@@ -1544,6 +1552,7 @@ def _emit_phrase(
         sequence_semitones=sequence_semitones,
         n=int(motif["n_notes"]),
         dance_type=dance_type,
+        key_offset=key_offset,
     )
     # Spread question across q_bars — one emit per bar, phrase_end only if no answer
     for j in range(q_bars):
@@ -1922,6 +1931,8 @@ def _melody_for_section(
     interweave_bars: set[int] = set()
     setup_payoff: dict[str, Any] = dict(theme_state.get("setup_payoff") or {})
     home_motif: dict[str, Any] | None = cells[0] if cells else primary_motif
+    home_tonic = int(theme_state.get("home_tonic") or tonic)
+    key_offset = int(tonic) - home_tonic
 
     def _finish(raw: list[dict[str, Any]], extra_iw: set[int] | None = None) -> list[dict[str, Any]]:
         for n in raw:
@@ -2130,6 +2141,7 @@ def _melody_for_section(
             register_bias=reg,
             sequence_semitones=seq,
             start_pitch=last_pitch if phrase_i > 0 else None,
+            key_offset=key_offset,
         )
         if phrase_covers_payoff:
             for n in emitted:
@@ -2223,6 +2235,9 @@ def build_skeleton(
     cells = _roll_motivic_cells(rng, dance_type, tonic, mode)
     theme_state["motivic_cells"] = cells
     theme_state["motif"] = cells[0]
+    theme_state["home_tonic"] = tonic
+    theme_state["home_mode"] = mode
+    theme_state["home_key"] = key_name
     climax0 = int((drama.get("climax_bars") or [0])[0])
     setup_payoff = _plan_motif_setup_payoff(
         rng, sections, climax_bar=climax0, n_cells=len(cells)
