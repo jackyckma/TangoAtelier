@@ -1,7 +1,8 @@
 # TangoAtelier — Multi-Phase Project Plan
 
-**Last updated:** 2026-08-19  
-**Status:** Phase 0–1 已落地；引擎 **E1–E6、E9–E12** done；M-task **M1–M3、M10** done（M10 待 founder 人耳）；下一刀 **M4（旋律）**（見 `MUSICALITY_OVERHAUL.md`）  
+**Last updated:** 2026-08-20  
+**Status:** Phase 0–1 已落地；引擎 **E1–E6、E9–E12** done；M-task **M1–M4、M10** done（人耳 pending）；下一刀 **M5**（見 `MUSICALITY_OVERHAUL.md`）  
+
 **Canonical product spec:** [tango-learning-webapp-project-doc.md](./tango-learning-webapp-project-doc.md)  
 **引擎分層規格（研究）：** [../research/Tango_music_synthesis.md](../research/Tango_music_synthesis.md)
 
@@ -205,8 +206,8 @@ Tone.js 播放（鋼琴 soundfont + 暫代 synth 聲部）
 ### 建議推進順序（聽感優先）
 
 ```
-E1–E6、E9–E12 [done]；M1–M3 [done]
-    → M10 Pulse／Groove（done，待人耳）→ M4 旋律   ← 下一刀
+E1–E6、E9–E12 [done]；M1–M4、M10 [done, ear pending]
+    → M5 功能和聲   ← 下一刀
     → M5–M7 …
     → M8／E7 配器角色（搭 Phase 3）
     → E8 分層鎖定（搭 Phase 6）
@@ -247,8 +248,9 @@ E0（曲式 8／16）多數已由 M2 golden-age 模板覆蓋；剩餘宏觀多�
 
 ## 4. 建議實作順序（近期）
 
-1. **現在：** E1–E6、E9–E12 done；M1–M3、M10 done（待人耳）→ 下一刀 **M4（旋律）**  
-2. 穿插：同骨架 D'Arienzo vs Di Sarli 對照（M10 後應更能聽出踩法差）；多 seed 聽旋律模子是否拉開  
+1. **現在：** E1–E6、E9–E12 done；M1–M4、M10 done（人耳 pending）→ 下一刀 **M5（功能和聲）**  
+2. 穿插：同骨架 D'Arienzo vs Di Sarli 對照；多 seed 聽 M4 旋律是否可哼  
+
 3. Phase 4 Hint、Phase 5 Save／Share 仍依產品優先級  
 4. Phase 6 滑桿／E8 在保真度主線穩定後再加重
 

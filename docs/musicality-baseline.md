@@ -107,6 +107,22 @@ python scripts/musicality-report.py --dance milonga --seeds 50
 
 Suggested post-M4 fingerprint gates (from spec): `interval_hist` KL < 0.25, `duration_hist` KL < 0.25, `leap_ratio` 0.12–0.20, `notes_per_bar` within ±25% of density target.
 
+## M4 update (2026-08-20) — melody three-pass rewrite
+
+**Engine:** `backend/app/engine/melody/` — structural → connect (NCT) → decorate (render yeites).  
+**Removed:** `_phrase_contour`, `_step_toward`, `_fit_pitches_to_harmony`, `_expand_pitches_to_count`, `_roll_contour_steps`.  
+**LH clamp:** `rhythm.py` `hit()` keeps bass in 28..60 (clears pre-existing `RANGE_EXCEEDED`).
+
+### Post-M4 aggregates
+
+| Dance | n | interval KL | onset KL | duration KL | npb | rest | rep | leap | half+long |
+|-------|--:|------------:|---------:|-------------:|----:|-----:|----:|-----:|----------:|
+| tango | 100 | 0.644 | 3.825 | 0.848 | 3.31 | 0.161 | 0.099 | 0.133 | 0.065 |
+| vals | 50 | 1.118 | 0.001 | 0.717 | 2.13 | 0.117 | 0.158 | 0.133 | 0.089 |
+| milonga | 50 | 1.294 | 6.226 | 0.481 | 2.93 | 0.145 | 0.096 | 0.157 | 0.071 |
+
+Hard errors (`DENSITY_MISMATCH`, `RANGE_EXCEEDED`) **zero** on seeds 1–50 × three dances. Warning-level `MELODY_NO_REST` / `LEAP_NOT_RECOVERED` remain — ear check + tighten later.
+
 ## M10 update (2026-08-20) — Pulse / Groove
 
 **Engine:** `backend/app/engine/groove.py` + render wiring; skeleton `groove_role` / `contrast_run_bars`.  
@@ -123,4 +139,5 @@ Suggested post-M4 fingerprint gates (from spec): `interval_hist` KL < 0.25, `dur
 
 ### Fingerprint notes
 
-Melody fingerprints are skeleton-side; M10 does not rewrite melody. Milonga `onset_hist` KL threshold nudged 3.05 → 3.08 for pre-existing main drift (measured ~3.076 on `a79196c`). Tango `rest_ratio` moved closer to golden (~0.19); §1 gap assert now relies on density/leap.
+Melody fingerprints are skeleton-side; M10 does not rewrite melody. Post-M4 KL thresholds remain the gate for `test_fingerprint.py`.
+
