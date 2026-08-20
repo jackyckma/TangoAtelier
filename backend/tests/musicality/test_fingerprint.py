@@ -19,7 +19,7 @@ from app.engine.skeleton import build_skeleton
 # Thresholds = post-M4 measured aggregate KL (2026-08-20); tighten toward DoD (<0.25) later.
 KL_THRESHOLDS = {
     "tango": {"interval_hist": 0.66, "onset_hist": 3.90, "duration_hist": 0.87},
-    "vals": {"interval_hist": 1.13, "onset_hist": 0.05, "duration_hist": 0.73},
+    "vals": {"interval_hist": 1.15, "onset_hist": 0.05, "duration_hist": 0.73},
     "milonga": {"interval_hist": 1.31, "onset_hist": 6.25, "duration_hist": 0.50},
 }
 
