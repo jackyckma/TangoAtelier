@@ -41,11 +41,11 @@ _PULSE_BY_ID: dict[str, PulseParams] = {
         silence_bias=0.08, humanize_ms=18.0, staccato_bias=0.55, colour_aggression=0.15,
     ),
     "d_arienzo": PulseParams(
-        feel="drive", chord_lag_ms=4.0, beat1_weight=1.05, other_beat_weight=0.90,
+        feel="drive", chord_lag_ms=4.0, beat1_weight=1.10, other_beat_weight=0.88,
         silence_bias=0.08, humanize_ms=18.0, staccato_bias=0.55, colour_aggression=0.30,
     ),
     "di_sarli": PulseParams(
-        feel="heart", chord_lag_ms=22.0, beat1_weight=1.20, other_beat_weight=0.95,
+        feel="heart", chord_lag_ms=22.0, beat1_weight=1.22, other_beat_weight=0.92,
         silence_bias=0.16, humanize_ms=20.0, staccato_bias=0.35, colour_aggression=0.20,
     ),
     "pugliese": PulseParams(
@@ -53,15 +53,15 @@ _PULSE_BY_ID: dict[str, PulseParams] = {
         silence_bias=0.22, humanize_ms=22.0, staccato_bias=0.45, colour_aggression=0.40,
     ),
     "troilo": PulseParams(
-        feel="heart", chord_lag_ms=16.0, beat1_weight=1.12, other_beat_weight=0.93,
+        feel="heart", chord_lag_ms=16.0, beat1_weight=1.15, other_beat_weight=0.90,
         silence_bias=0.14, humanize_ms=20.0, staccato_bias=0.40, colour_aggression=0.22,
     ),
     "canaro": PulseParams(
-        feel="drive", chord_lag_ms=8.0, beat1_weight=1.08, other_beat_weight=0.92,
+        feel="drive", chord_lag_ms=8.0, beat1_weight=1.10, other_beat_weight=0.88,
         silence_bias=0.10, humanize_ms=18.0, staccato_bias=0.50, colour_aggression=0.22,
     ),
     "biagi": PulseParams(
-        feel="drive", chord_lag_ms=6.0, beat1_weight=1.10, other_beat_weight=0.90,
+        feel="drive", chord_lag_ms=6.0, beat1_weight=1.12, other_beat_weight=0.88,
         silence_bias=0.18, humanize_ms=18.0, staccato_bias=0.60, colour_aggression=0.35,
     ),
 }

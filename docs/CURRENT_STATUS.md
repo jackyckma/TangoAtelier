@@ -1,6 +1,6 @@
 # Current status
 
-**Last updated:** 2026-08-19
+**Last updated:** 2026-08-20
 
 ## Summary
 
@@ -8,12 +8,9 @@
 
 引擎保真度 **E1–E6、E9–E12** 已落地。音樂模型主線改為 **M-task**（見 [`product/MUSICALITY_OVERHAUL.md`](product/MUSICALITY_OVERHAUL.md)）。
 
-**已完成：** M3（critic）→ M1（和聲拼寫）→ M2（樂句和聲 + golden-age 曲式 + 相對調 + A→B V7 bridge）。
+**已完成：** M3（critic）→ M1（和聲拼寫）→ M2（樂句和聲 + golden-age 曲式 + 相對調 + A→B V7 bridge）→ **M10（Pulse / Groove；待 founder 人耳驗收）**。
 
-**下一刀（二選一，可平行）：**
-
-1. **M10 — Pulse / Groove**（舞池脈搏；以 Render 為主）— 若痛點是「像探戈但不想跳」
-2. **M4 — 旋律三層重寫** — 若痛點是「不好哼、不像一句話」
+**下一刀：** **M4 — 旋律三層重寫**（可與 M10 人耳驗收平行）。
 
 ## What works
 
@@ -27,7 +24,7 @@
 
 ### 音樂模型（剩餘 M-task）
 
-- **舞池脈搏偏弱**：節奏「名字」對了，microtiming／beat-1 重量不足；且 pattern 切換仍偏 E12「單小節調味」，缺曲式驅動的區塊用法（A=marcato，B=連續 332／sincopa-run）→ **M10**（見 overhaul §10.4）
+- **M10 已落地（待 founder 人耳）**：`pulse` profile、groove_role 連續 run、chord lag、beat-1 accent、更強 humanize／silence；盲聽驗收仍欠
 - **旋律仍偏 contour-first**：缺長音／休止／弱起姿態；`DENSITY_MISMATCH`／`RANGE_EXCEEDED` 仍多 → **M4**
 - **功能和聲語法**尚未取代固定 progression 池 → M5
 - **動機發展手法表**（可教學）→ M6
@@ -46,6 +43,6 @@ Pulse／groove **主要在 Render**：同一 skeleton 換樂團＝換踩法（D'
 
 ## Next steps
 
-1. Founder 選 **M10** 或 **M4**（或兩線平行）
-2. 完成後：`tests/musicality/` + `musicality-report.py` + 人耳驗收
+1. Founder 人耳驗收 M10（同 skeleton × Di Sarli vs D'Arienzo；B 段連續 drive）
+2. **M4** 旋律三層重寫
 3. 再進 M5／M6／M7 → M8 → M9

@@ -72,8 +72,8 @@
   ],
   "pulse": {
     "feel": "heart",
-    "beat1_weight": 1.12,
-    "other_beat_weight": 0.93,
+    "beat1_weight": 1.15,
+    "other_beat_weight": 0.9,
     "bass_on_time": true,
     "chord_lag_ms": 16,
     "humanize_ms": 20,

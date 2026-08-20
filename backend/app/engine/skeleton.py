@@ -799,9 +799,13 @@ def _roll_section_groove(rng: random.Random, dance_type: str) -> dict[str, dict[
     Roles drive continuous contrast runs at render time; colour_slots remain only
     as optional 1-bar spice markers at phrase ends for home sections.
     """
-    contrast_run = 8 if rng.random() < 0.4 else 4
+    # Preserve pre-M10 RNG budget: only tango drew once here; vals/milonga drew zero.
     if dance_type == "vals":
         contrast_run = 4
+    elif dance_type == "milonga":
+        contrast_run = 4
+    else:
+        contrast_run = 8 if rng.random() < 0.4 else 4
 
     def _intent(
         role: str,

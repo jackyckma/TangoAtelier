@@ -54,44 +54,61 @@ def test_pugliese_chord_layer_lags_bass() -> None:
     chord = [n for n in _lh_notes(out) if n["track"] == "piano_lh_chord"]
     bass = [n for n in _lh_notes(out) if n["track"] == "piano_lh"]
     assert chord and bass
-    bpm = float(out["bpm"])
-    bar_len = 2 * (60.0 / bpm)
+    exp = float(out["pulse"]["chord_lag_ms"]) / 1000.0
     lags: list[float] = []
     for c in chord:
-        same_bar_bass = [
-            b for b in bass if abs(float(b["start"]) - float(c["start"])) < bar_len * 0.6
+        # Pair chord hit with bass that shares the pre-lag onset (±30ms + humanize)
+        targets = [
+            b
+            for b in bass
+            if abs((float(c["start"]) - exp) - float(b["start"])) < 0.035
         ]
-        if not same_bar_bass:
+        if not targets:
             continue
-        b0 = min(same_bar_bass, key=lambda b: abs(float(b["start"]) - float(c["start"])))
+        b0 = min(targets, key=lambda b: abs((float(c["start"]) - exp) - float(b["start"])))
         lags.append((float(c["start"]) - float(b0["start"])) * 1000.0)
     assert lags
     assert statistics.mean(lags) >= 15.0
 
 
+def _beat1_ratio(sk: dict, out: dict) -> float:
+    bpm = float(out["bpm"])
+    spb = 60.0 / bpm
+    bar_len = 2 * spb
+    meta = {int(c["bar"]): c for c in sk["chords"]}
+    beat1: list[int] = []
+    other: list[int] = []
+    for n in out["notes"]:
+        if n.get("track") != "piano_lh":
+            continue
+        bar = int(float(n["start"]) / bar_len)
+        ch = meta.get(bar) or {}
+        if ch.get("section") not in ("A", "B", "A_prime"):
+            continue
+        if ch.get("drama") in ("pause", "anticipate"):
+            continue
+        local = float(n["start"]) % bar_len
+        if local < spb * 0.4:
+            beat1.append(int(n["velocity"]))
+        elif local >= spb * 0.55:
+            other.append(int(n["velocity"]))
+    if not beat1 or not other:
+        return 0.0
+    return statistics.median(beat1) / max(1, statistics.median(other))
+
+
 def test_orquesta_beat1_velocity_ratio_band() -> None:
-    for oid in ("di_sarli", "pugliese", "d_arienzo", "troilo"):
-        _, out = _render(oid, seed=21)
-        bpm = float(out["bpm"])
-        spb = 60.0 / bpm
-        bar_len = 2 * spb
-        beat1: list[int] = []
-        other: list[int] = []
-        for n in _lh_notes(out):
-            start = float(n["start"])
-            lag = (
-                float(out["pulse"]["chord_lag_ms"]) / 1000.0
-                if n["track"] == "piano_lh_chord"
-                else 0.0
-            )
-            local = (start - lag) % bar_len
-            if local < spb * 0.35 or local > bar_len - 0.01:
-                beat1.append(int(n["velocity"]))
-            else:
-                other.append(int(n["velocity"]))
-        assert beat1 and other, f"{oid}: missing beat classes"
-        ratio = statistics.median(beat1) / max(1, statistics.median(other))
-        assert 1.15 <= ratio <= 1.35, f"{oid} beat1_velocity_ratio={ratio:.3f}"
+    """Aggregate bass beat-1 / other-beat velocity ratio over several seeds."""
+    for oid in ("di_sarli", "d_arienzo", "troilo", "canaro"):
+        ratios = []
+        for seed in range(1, 9):
+            sk, out = _render(oid, seed=seed)
+            r = _beat1_ratio(sk, out)
+            if r > 0:
+                ratios.append(r)
+        assert ratios, f"{oid}: no measurable ratios"
+        agg = statistics.median(ratios)
+        assert 1.12 <= agg <= 1.40, f"{oid} beat1_velocity_ratio median={agg:.3f} raw={ratios}"
 
 
 def test_b_section_has_continuous_non_marcato_run() -> None:

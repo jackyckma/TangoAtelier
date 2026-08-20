@@ -36,7 +36,7 @@ M3 (音樂性 critic) ─┘         │                 │
                          │ （舞池感不依賴旋律重寫）
 ```
 
-**狀態（2026-08-19）：** M3 → M1 → M2 已落地（含相對調 + A→B V7 bridge）。下一刀可選 **M4**（旋律句子）或 **M10**（舞池脈搏）——兩者互補、互不阻塞。
+**狀態（2026-08-20）：** M3 → M1 → M2 → **M10** 已落地（M10 待 founder 人耳驗收）。下一刀 **M4**（旋律句子）。
 
 M1、M2、M3 可平行；M3 建議**最先做**，因為它是後續所有改動的驗收工具。
 
@@ -1206,14 +1206,14 @@ SECTION_GROOVE_ROLES = {
 
 #### DoD
 
-- [ ] **同 skeleton、兩 profile 盲聽**：founder 能分辨「推著走」vs「心跳／戲劇」的踩法差異（旋律仍認得是同一首）
-- [ ] Di Sarli／Pugliese 路徑可測到 **chord 層平均落後 bass ≥ 15ms**（或等價的 beat 分數）
-- [ ] Tango `beat1_velocity_ratio` 落在目標帶；simple／D'Arienzo 不因 lag 變「拖泥帶水」
-- [ ] Drama `pause`／`anticipate` → `climax` 的 LH 密度與重量對比，盲聽可指出「哪一段比較想踩／想停」
-- [ ] **曲式驅動的 pattern 切換**：tango 預設下，B（或標記为 contrast 的段）出現 **≥4 連續小節**的非-marcato drive pattern（預設 3+3+2 或 profile 等價）；A／A′ 仍以 marcato 為 home
-- [ ] 盲聽可指出「哪一段換了踩法」（不是只覺得比較大聲）
-- [ ] Seed 可重現；不破壞 M1／M2 的 cadence／spelling 歸零
-- [ ] 更新 `docs/musicality-baseline.md` 與（若有）fingerprint 門檻
+- [ ] **同 skeleton、兩 profile 盲聽**：founder 能分辨「推著走」vs「心跳／戲劇」的踩法差異（旋律仍認得是同一首）← **待人耳**
+- [x] Di Sarli／Pugliese 路徑可測到 **chord 層平均落後 bass ≥ 15ms**（或等價的 beat 分數）
+- [x] Tango `beat1_velocity_ratio` 落在目標帶；simple／D'Arienzo 不因 lag 變「拖泥帶水」
+- [ ] Drama `pause`／`anticipate` → `climax` 的 LH 密度與重量對比，盲聽可指出「哪一段比較想踩／想停」← **待人耳**
+- [x] **曲式驅動的 pattern 切換**：tango 預設下，B（或標記为 contrast 的段）出現 **≥4 連續小節**的非-marcato drive pattern（預設 3+3+2 或 profile 等價）；A／A′ 仍以 marcato 為 home
+- [ ] 盲聽可指出「哪一段換了踩法」（不是只覺得比較大聲）← **待人耳**
+- [x] Seed 可重現；不破壞 M1／M2 的 cadence／spelling 歸零
+- [x] 更新 `docs/musicality-baseline.md` 與（若有）fingerprint 門檻
 
 #### 不要做的事
 

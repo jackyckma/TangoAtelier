@@ -72,8 +72,8 @@
   ],
   "pulse": {
     "feel": "drive",
-    "beat1_weight": 1.08,
-    "other_beat_weight": 0.92,
+    "beat1_weight": 1.1,
+    "other_beat_weight": 0.88,
     "bass_on_time": true,
     "chord_lag_ms": 8,
     "humanize_ms": 18,

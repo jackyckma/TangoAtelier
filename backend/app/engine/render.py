@@ -640,6 +640,21 @@ def render_skeleton(
             else:
                 lh_scale *= 0.85 + 0.3 * energy
 
+            # Weak-beat thinning before accent so beat-1 weight isn't inverted by drops
+            kept: list = []
+            for n in lh:
+                if section in ("A", "A_prime", "B") and beats_per_bar == 2:
+                    rel = (n.start - bar_start) / max(bar_len, 1e-6)
+                    if (
+                        section != "A_prime"
+                        and 0.4 < rel < 0.6
+                        and n.velocity < 90
+                        and drama_tag not in ("climax", "rise")
+                    ):
+                        continue
+                kept.append(n)
+            lh = kept
+
             apply_accent_curve(
                 lh,
                 bar_start=bar_start,
@@ -652,18 +667,6 @@ def render_skeleton(
             apply_microtiming(lh, pulse)
 
             for n in lh:
-                # Drop some weak-beat LH under lead so melody isn't carpeted
-                if section in ("A", "A_prime", "B") and beats_per_bar == 2:
-                    lag = (pulse.chord_lag_ms / 1000.0) if n.track == "piano_lh_chord" else 0.0
-                    rel = (n.start - bar_start - lag) / max(bar_len, 1e-6)
-                    # A′ walking needs those mid-bar steps — don't strip them
-                    if (
-                        section != "A_prime"
-                        and 0.4 < rel < 0.6
-                        and n.velocity < 90
-                        and drama_tag not in ("climax", "rise")
-                    ):
-                        continue
                 n.velocity = _apply_vel(n.velocity, lh_scale)
                 notes.append(n)
 

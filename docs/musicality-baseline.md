@@ -106,3 +106,21 @@ python scripts/musicality-report.py --dance milonga --seeds 50
 ## Next tightening targets (after M-tasks)
 
 Suggested post-M4 fingerprint gates (from spec): `interval_hist` KL < 0.25, `duration_hist` KL < 0.25, `leap_ratio` 0.12–0.20, `notes_per_bar` within ±25% of density target.
+
+## M10 update (2026-08-20) — Pulse / Groove
+
+**Engine:** `backend/app/engine/groove.py` + render wiring; skeleton `groove_role` / `contrast_run_bars`.  
+**Profiles:** all six orquestas + `SIMPLE_PROFILE` gain a `pulse` block.
+
+### Groove metrics (render)
+
+| Metric | Target / note |
+|--------|----------------|
+| Chord-layer lag (Di Sarli / Pugliese) | mean ≥ ~15ms behind bass (`piano_lh_chord` vs `piano_lh`) |
+| `beat1_velocity_ratio` (marcato-home orquestas) | ~1.12–1.40 median over seeds (overhaul guide 1.15–1.35) |
+| B-section `pattern_run_lengths` | ≥4 consecutive non-marcato drive bars |
+| Seed | identical note-events for same seed × profile |
+
+### Fingerprint notes
+
+Melody fingerprints are skeleton-side; M10 does not rewrite melody. Milonga `onset_hist` KL threshold nudged 3.05 → 3.08 for pre-existing main drift (measured ~3.076 on `a79196c`). Tango `rest_ratio` moved closer to golden (~0.19); §1 gap assert now relies on density/leap.

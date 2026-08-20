@@ -1,19 +1,19 @@
 # Session handoff
 
-**Last updated:** 2026-08-19  
-**Branch:** `main`（進行跟選項＋vals 長樂句）
+**Last updated:** 2026-08-20  
+**Branch:** `cursor/m10-pulse-groove-e15e`（M10 Pulse / Groove）
 
 ## Resume here
 
-1. 聽感驗收：選 `i–VI–III–V7` 時 A 段是否真的走完；vals 是否一整段才收句  
-2. 下一實作：**E0**（8／16 曲式）或 **E7**（配器角色）
+1. Founder 人耳：同 seed skeleton × D'Arienzo vs Di Sarli／Pugliese — 能否分辨踩法；B 段是否連續換格（非單小節閃）
+2. 下一實作：**M4**（旋律三層）或 M10 參數微調
 
 ## Context
 
-- 「進行唔跟」主因：E1 每 2–4 小節把和弦改成 V／i；B 段還會另抽進行  
-- 已改：user lock 時 A／B／A′ 原樣循環；終止只留 intro／bridge／coda  
-- Vals：12 小節 A 合成一句；不再每四小節切斷
+- M10：`backend/app/engine/groove.py`；skeleton `groove_role`；render microtiming／accent／humanize
+- LH 分軌：`piano_lh`（bass on time）+ `piano_lh_chord`（chord_lag_ms）；前端勿再雙重 lag
+- 測試：`tests/musicality/test_m10_pulse.py`
 
 ## Top priority next
 
-人耳驗收進行／vals 句子 → E0 或 E7
+M10 人耳驗收 → M4
