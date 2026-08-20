@@ -1,7 +1,7 @@
 # TangoAtelier — Multi-Phase Project Plan
 
-**Last updated:** 2026-08-19  
-**Status:** Phase 0–1 已落地；引擎 **E1–E6、E9–E12** done；M-task **M1–M3** done；下一刀 **M10（Pulse）或 M4（旋律）**（見 `MUSICALITY_OVERHAUL.md`）  
+**Last updated:** 2026-08-20  
+**Status:** Phase 0–1 已落地；引擎 **E1–E6、E9–E12** done；M-task **M1–M4** done（M4 人耳 pending）；下一刀 **M10（Pulse）**（見 `MUSICALITY_OVERHAUL.md`）  
 **Canonical product spec:** [tango-learning-webapp-project-doc.md](./tango-learning-webapp-project-doc.md)  
 **引擎分層規格（研究）：** [../research/Tango_music_synthesis.md](../research/Tango_music_synthesis.md)
 
