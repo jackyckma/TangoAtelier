@@ -135,9 +135,14 @@ def left_hand_for_bar(
     s = bar_len / 8  # sixteenth in 2/4
 
     def hit(start_off: float, dur: float, pitch: int, vel: int) -> None:
+        p = int(pitch)
+        while p > 60:
+            p -= 12
+        while p < 28:
+            p += 12
         notes.append(
             NoteEvent(
-                pitch=pitch,
+                pitch=p,
                 start=bar_start + start_off,
                 duration=dur,
                 velocity=vel,
