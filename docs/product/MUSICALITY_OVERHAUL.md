@@ -2,7 +2,7 @@
 
 **版本：** 1.1
 **建立日期：** 2026-08-19
-**最後更新：** 2026-08-19（加入 M10 Pulse／Groove；M1–M3 標為已完成）
+**最後更新：** 2026-08-20（M10 補 §10.4 節奏型用法語法；M1–M3 已完成）
 **目標讀者：** Cursor AI（實作）＋ founder（聽感驗收）
 **對應現有文件：** `docs/product/PROJECT_PLAN.md`（E-task 路線）、`docs/research/Tango_music_synthesis.md`
 
@@ -1062,7 +1062,7 @@ Founder 驗收（2026-08-19）：生成結果「已經像探戈」，但**比較
 | 拍號、預設 BPM 範圍、舞種 | LH pattern 家族內的具體踩法（en dos vs en cuatro） |
 | 樂句／8-count 邊界（已由 M2 phrase 提供） | **微時值**：bass 準拍、和弦層略晚（arrastre） |
 | `drama` tags + `energy`／`tension_curve`（何時該薄／厚／空） | beat-1 相對重量、staccato vs pesante 曲線 |
-| E12 `section_groove` intent（colour_slots、lh fullness） | 在哪些 bar 插入 síncopa／yumba（執行 intent） |
+| E12 加深：`groove_role`（home / contrast_drive / spice）+ 可選 colour_slots | 角色→哪個 pattern、**連續 run 長度**、pulse 參數 |
 | （可選）`pulse_plan`: `"drive"` \| `"heart"` \| `"dramatic"` 作為段落意圖標籤 | 該意圖在 D'Arienzo / Di Sarli / Pugliese profile 下的不同參數 |
 
 **為什麼不要把 pulse 寫進「基本音樂」音符格？**
@@ -1136,7 +1136,7 @@ docs/musicality-baseline.md           # 補 groove 相關指紋（若有新 metr
 1. **雙層 LH 時間**：`left_hand_for_bar` 產出的 bass／根音攻擊用 `start + 0`；block／chord 層加 `chord_lag_ms`（轉成 beats）。這是 arrastre 的最小可行版。
 2. **Accent curve**：每小節 beat 0 的 velocity × `beat1_weight`；其餘 × `other_beat_weight`；再乘既有 `tension`／drama 縮放。
 3. **Humanize**：piano 可到 ±`humanize_ms`（約 15–25ms）；**不要**對齊到 melodic grid 的整數 16th 再抹平。
-4. **執行 E12 intent**：`colour_slots` 為真時才允許 secondary pattern；climax／dense bars 提高 `colour_aggression`。
+4. **執行 groove plan（見 10.4）**：依段落／樂句角色選 pattern；**不要**只用 8 小節窗的隨機 colour slot 當「副歌換節奏」。
 5. **Pause／anticipate**：drama `pause` 與 `anticipate` 必須讓 LH **變稀疏**（已有雛形），M10 把對比拉大到人耳一聽就知道「要踩／要等」。
 6. **前端**：預設仍播放後端時間戳；僅在 profile 要求且 note-event 未帶 lag 時，才對 `piano_lh_chord` 類 track 做補償（避免雙重 lag）。
 
@@ -1147,6 +1147,62 @@ docs/musicality-baseline.md           # 補 groove 相關指紋（若有新 metr
 - `onset_grid_dev_ms`：LH 攻擊相對理論格子的平均／p90 偏差（應 > 極小量化值）
 - `beat1_velocity_ratio`：beat-1 vel 中位 ÷ 其他拍 vel 中位（tango 目標約 1.15–1.35）
 - 既有 `rest_ratio`／drama 區段的 notes 密度差（anticipate vs climax）
+- `pattern_run_lengths`：連續同 pattern 的小節數分佈（應出現 ≥4 小節的 secondary **區塊**，而不只是單小節閃現）
+
+#### 10.4 節奏型「用法語法」（比頻率重要）
+
+Founder 補充（2026-08-20）：真曲裡 **Marcato／Síncopa／3+3+2 常在同一首歌內切換**——例如副歌／對比段換成較「衝」的 3+3+2——而不是整首單一型，也不是「提高出現率隨機灑點」。
+
+**現況差距：** E12 用 `colour_slots`（8 小節窗內偶插 secondary）。B 段 slots 較多，聽感上「副歌有一點不一樣」，但本質仍是**單小節調味**，不是**有敘事功能的區塊切換**。
+
+##### 三大基本型的角色（tango 曲內）
+
+| Pattern | 身體感覺 | 典型用法（曲式角色） | 不該怎麼用 |
+|---------|----------|----------------------|------------|
+| **Marcato**（en dos／en cuatro） | 走路、可預期、邀舞地板 | **Home**：intro 立住、A 陳述、A′ 回歸、coda 收束前 | 整首永不離開（會悶）；或副歌完全消失（舞者丟格子） |
+| **Síncopa** | 「缺一下再踩」——用空拍強化主拍 | **調味／咬一口**：樂句末、bridge 尾、climax 前 1–2 小節；或 Biagi 性格的短句 | 連續整段當 home（除非明確走 Biagi caricature）；每 2 小節閃一次（噪音） |
+| **3+3+2** | 更密、更推、重心更碎 | **對比區塊**：B／estribillo／variación 的 **連續 4–8 小節**（或整句），製造「副歌加速感」；之後必須明確回到 marcato | 當 tango A 的 home；或只插 1 小節（聽成出錯） |
+
+Milonga 曲：habanera 當 home、3+3+2 當段落對比——語法同構，只是 home 不同。
+
+##### 建議的 Skeleton intent（輕量；Render 執行）
+
+把 E12 從「slot 清單」升級成**段落／樂句級 groove role**（仍不寫死微時值）：
+
+```python
+# 示意：每段一個角色；可選 phrase 級覆蓋
+SECTION_GROOVE_ROLES = {
+    "intro":    "home",          # marcato，偏疏
+    "A":        "home",          # marcato；句尾可 1 小節 spice
+    "bridge":   "pivot",         # 偏 marcato／短暫 sincopa，預告切換
+    "B":        "contrast_drive",# 預設連續區塊 → 3+3+2（或 profile 的 drive colour）
+    "A_prime":  "home_elevated", # 回 marcato，可更滿；結尾可 spice
+    "variacion":"contrast_drive_or_ornament",
+    "coda":     "home_cadence",  # marcato 收；最後可空
+}
+
+# contrast_drive 的執行（Render）：
+#   run_length = 4 或 8（對齊 phrase），pattern = "milonga_332" 或 profile.secondary
+#   區塊前後各留 ≥1 小節 home，讓切換可聽見
+```
+
+**層級分工再確認：**
+
+| 問題 | 放哪 |
+|------|------|
+| 「B 段要用 contrast_drive」 | Skeleton intent（跨團共用敘事） |
+| 「contrast 用 3+3+2 還是 yumba」 | Render／style profile（D'Arienzo 可能偏 cuatro+sincopa；milonga-ish 對比用 332） |
+| 「3+3+2 裡 chord 要不要 lag」 | Render pulse 參數 |
+
+##### 驗收直覺（給 founder）
+
+聽同一 seed 的 tango：
+
+1. A：能穩定走路（marcato）
+2. 進 B：有一段（不是一閃）明顯更「碎／推」——若選了 332，應能數 3+3+2
+3. 回 A′：明確回到走路格子（回家的感覺）
+
+若只有「B 比較吵／比較密」但數不出格子換了，則用法語法尚未達標。
 
 #### DoD
 
@@ -1154,6 +1210,8 @@ docs/musicality-baseline.md           # 補 groove 相關指紋（若有新 metr
 - [ ] Di Sarli／Pugliese 路徑可測到 **chord 層平均落後 bass ≥ 15ms**（或等價的 beat 分數）
 - [ ] Tango `beat1_velocity_ratio` 落在目標帶；simple／D'Arienzo 不因 lag 變「拖泥帶水」
 - [ ] Drama `pause`／`anticipate` → `climax` 的 LH 密度與重量對比，盲聽可指出「哪一段比較想踩／想停」
+- [ ] **曲式驅動的 pattern 切換**：tango 預設下，B（或標記为 contrast 的段）出現 **≥4 連續小節**的非-marcato drive pattern（預設 3+3+2 或 profile 等價）；A／A′ 仍以 marcato 為 home
+- [ ] 盲聽可指出「哪一段換了踩法」（不是只覺得比較大聲）
 - [ ] Seed 可重現；不破壞 M1／M2 的 cadence／spelling 歸零
 - [ ] 更新 `docs/musicality-baseline.md` 與（若有）fingerprint 門檻
 
@@ -1162,19 +1220,20 @@ docs/musicality-baseline.md           # 補 groove 相關指紋（若有新 metr
 - 不要把微時值寫進 skeleton 的 `melody[]`／和弦 onset（會鎖死風格對照）
 - 不要在 M10 重寫旋律引擎（那是 M4）或上真實 bandoneón sample（那是 M8）
 - 不要用全域 random jitter「假裝」groove；lag／accent 必須來自 profile + drama intent
-- 不要讓 secondary colour 蓋過 home groove（E12 約束仍在：colour 是調味）
+- 不要用「提高 sincopa／332 出現頻率」取代語法；**區塊角色 > 出現率**
+- 不要讓 contrast 區塊模糊到舞者丟拍：切換要對齊 phrase；回家要乾淨
+- 不要強制每首歌 B 都是 332——允許 profile／archetype 選 sincopa-run 或 yumba-run，但必須是**有長度的 run**
 - 不要為了 DoD 把所有 profile 做成同一組參數
 
 #### 與 M4／M8 的分工
 
 | Task | 解決 |
 |------|------|
-| **M10** | 「想不想跳、心跳跟不跟得上」——拍怎麼被打 |
+| **M10** | 「想不想跳、心跳跟不跟得上」——拍怎麼被打；**曲內何時換踩法** |
 | **M4** | 「好不好哼、像不像一句話」——旋律怎麼走 |
 | **M8** | 「像哪個樂團在演奏」——誰扛拍／誰對位＋音色 |
 
 先做 M10 或 M4 都可以；若 founder 當前痛點是舞池感，**優先 M10**。
-
 ---
 
 ### M9 — 教學 IR 與逐層剝開 UI

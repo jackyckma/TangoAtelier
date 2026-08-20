@@ -27,7 +27,7 @@
 
 ### 音樂模型（剩餘 M-task）
 
-- **舞池脈搏偏弱**：節奏「名字」對了，microtiming／beat-1 重量／雙層 arrastre 不足 → **M10**
+- **舞池脈搏偏弱**：節奏「名字」對了，microtiming／beat-1 重量不足；且 pattern 切換仍偏 E12「單小節調味」，缺曲式驅動的區塊用法（A=marcato，B=連續 332／sincopa-run）→ **M10**（見 overhaul §10.4）
 - **旋律仍偏 contour-first**：缺長音／休止／弱起姿態；`DENSITY_MISMATCH`／`RANGE_EXCEEDED` 仍多 → **M4**
 - **功能和聲語法**尚未取代固定 progression 池 → M5
 - **動機發展手法表**（可教學）→ M6
