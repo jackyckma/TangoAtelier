@@ -5,15 +5,18 @@
 
 ## Resume here
 
-1. Founder 人耳：M4 旋律是否可哼；同 seed × D'Arienzo vs Di Sarli／Pugliese 踩法；B 段是否連續換格  
-2. 下一實作：**M5**（功能和聲）或 M4 KL／警告收斂  
+1. **下一實作：連續性／期待感閘門**（見 CURRENT_STATUS — founder 2026-08-20 聽感）  
+   - 休止／急音串／decoration 必須跟 drama＋樂句位置  
+   - 禁止「為了有變化」在穩段砍句或爆密度  
+   - 中段和弦 colour 預設克制；高 tension 才開  
+2. 之後：M6（發展服務弧線）→ M5（功能和聲，克制）  
 
 ## Context
 
-- M4：`backend/app/engine/melody/`；contour-first helpers 已移除  
-- M10：`backend/app/engine/groove.py`；skeleton `groove_role`；`piano_lh` + `piano_lh_chord`（前端勿雙重 lag）  
-- 測試：`tests/musicality/`（含 `test_m10_pulse.py`）
+- Founder：變化像 uncomfortable randomness；全曲像 core idea＋variation 缺情緒推進；和弦太「故意」  
+- 根因假設：E9 drama／tension 有算，但 M4 connect／rests／density 與和聲填色未當硬約束；E11／A′ 變奏軸偏「換皮」  
+- M10 pulse 仍待複驗，但本輪主訴是敘事連續性，不是踩法  
 
 ## Top priority next
 
-人耳驗收 M4＋M10 → M5
+連續性／期待感閘門 → 人耳複驗 → M6／M5  

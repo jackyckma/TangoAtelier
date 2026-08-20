@@ -2,7 +2,7 @@
 
 **版本：** 1.1
 **建立日期：** 2026-08-19
-**最後更新：** 2026-08-20（M10 補 §10.4 節奏型用法語法；M1–M3 已完成）
+**最後更新：** 2026-08-20（founder 聽感：連續性／期待感優先於「更多變化」；M4＋M10 已合 main）
 **目標讀者：** Cursor AI（實作）＋ founder（聽感驗收）
 **對應現有文件：** `docs/product/PROJECT_PLAN.md`（E-task 路線）、`docs/research/Tango_music_synthesis.md`
 
