@@ -271,96 +271,83 @@ def _render_melody(
     beats_per_bar: int = 2,
     elaborations: dict[int, dict] | None = None,
     dance_type: str = "tango",
+    personality: str = "neutral",
 ) -> list[NoteEvent]:
-    notes: list[NoteEvent] = []
-    double_rate = _rh_double_rate(voicing_style)
-    elab_by_bar = elaborations or {}
+    """Render RH from skeleton melody; Pass 3 yeites via decorate (M4)."""
+    from app.engine.melody.decorate import decorate_melody_events
+
+    adjusted: list[dict] = []
     for m in melody:
-        start = float(m["start_beat"]) * spb
-        dur = float(m["duration_beats"]) * spb
-        pitch = int(m["pitch"])
         voice = m.get("voice") or "lead"
         if voice == "ornament":
             continue
-        drama = m.get("drama") or "normal"
-        energy = float(m.get("energy") or 0.5)
-        phrase_end = bool(m.get("phrase_end"))
+        mc = dict(m)
+        dur_beats = float(mc["duration_beats"])
+        drama = mc.get("drama") or "normal"
+        if voice != "lead" and staccato == "high":
+            dur_beats *= 0.65
+        elif staccato == "low" or voice == "lead":
+            dur_beats *= 1.08 if voice == "lead" else 1.0
+        if drama == "dense":
+            dur_beats *= 0.85
+        elif drama == "anticipate":
+            dur_beats *= 1.15
+        elif drama == "rise":
+            dur_beats *= 1.05
+        mc["duration_beats"] = dur_beats
+        adjusted.append(mc)
+
+    notes = decorate_melody_events(
+        rng,
+        adjusted,
+        decoration=decoration,
+        spb=spb,
+        dance_type=dance_type,
+        personality=personality,
+        elaborations=elaborations,
+        beats_per_bar=beats_per_bar,
+    )
+
+    double_rate = _rh_double_rate(voicing_style)
+    elab_by_bar = elaborations or {}
+    lead_starts = {
+        round(float(m["start_beat"]) * spb, 4): m
+        for m in adjusted
+        if (m.get("voice") or "lead") == "lead"
+    }
+    extras: list[NoteEvent] = []
+    for n in list(notes):
+        m = lead_starts.get(round(n.start, 4))
+        if m is None or n.duration < spb * 0.45:
+            continue
         bar = int(float(m["start_beat"]) // max(beats_per_bar, 1))
         elab = elab_by_bar.get(bar) or {}
         orn_boost = float(elab.get("ornament_boost") or 0)
-        dyn_boost = float(elab.get("dynamics_boost") or 0)
-        # Keep lead cantabile; only chop fill notes when staccato is high
-        if voice != "lead" and staccato == "high":
-            dur *= 0.65
-        elif staccato == "low" or voice == "lead":
-            dur *= 1.08 if voice == "lead" else 1.0
-        if drama == "dense":
-            dur *= 0.85
-        elif drama == "anticipate":
-            dur *= 1.15  # held tension
-        elif drama == "rise":
-            dur *= 1.05
-        if voice == "lead":
-            vel = 96 if staccato != "low" else 88
-        elif voice == "fill":
-            vel = 64
-        else:
-            vel = 78
-        # Energy arc → velocity (build, don't teleport)
-        vel = int(vel * (0.75 + 0.45 * energy))
-        if drama == "climax":
-            vel = min(127, vel + 10)
-        elif drama == "anticipate":
-            vel = max(48, vel - 6)
-        if dyn_boost:
-            vel = min(127, int(vel * (1.0 + dyn_boost) + 4))
-        vel = min(127, vel)
-        dur = max(0.05, dur)
-
-        orn_p = min(0.42, decoration * 0.65 + orn_boost * 0.35)
-        if dance_type == "vals":
-            orn_p = 0.0
-        elif dance_type == "milonga":
-            orn_p = min(0.22, orn_p * 0.55)
-        if drama == "climax" and phrase_end:
-            orn_p = min(0.5, orn_p + 0.08)
-        elif drama in ("anticipate", "rise", "dense"):
-            orn_p *= 0.2
-        cadenza = (
-            voice == "lead"
-            and phrase_end
-            and m.get("phrase_role") in ("answer", "cadence")
-            and rng.random() < orn_p
-        )
-        blended = (
-            _phrase_end_ornament(rng, pitch, start, dur, spb, vel, dance_type=dance_type)
-            if cadenza
-            else None
-        )
-        if blended:
-            notes.extend(blended)
-            landing = blended[-1]
-            start, dur, vel = landing.start, landing.duration, landing.velocity
-        else:
-            notes.append(NoteEvent(pitch, start, dur, vel, "piano_rh"))
-
-        # Doubles on the held landing only — never on a tiny approach chirp
         p_double = double_rate
         if orn_boost:
             p_double = min(0.7, p_double + orn_boost * 0.35)
-        if voice == "lead" and dur >= spb * 0.45 and not blended:
-            if drama == "climax" and phrase_end:
-                p_double = min(0.75, p_double + 0.2)
-            elif phrase_end:
-                p_double = min(0.55, p_double + 0.1)
-            else:
-                p_double *= 0.45
-            if rng.random() < p_double:
-                below = pitch - 12
-                if below >= 48:
-                    notes.append(
-                        NoteEvent(below, start, max(0.05, dur * 0.92), max(48, vel - 22), "piano_rh")
+        drama = m.get("drama") or "normal"
+        phrase_end = bool(m.get("phrase_end"))
+        if drama == "climax" and phrase_end:
+            p_double = min(0.75, p_double + 0.2)
+        elif phrase_end:
+            p_double = min(0.55, p_double + 0.1)
+        else:
+            p_double *= 0.45
+        if rng.random() < p_double:
+            below = n.pitch - 12
+            if below >= 48:
+                extras.append(
+                    NoteEvent(
+                        below,
+                        n.start,
+                        max(0.05, n.duration * 0.92),
+                        max(48, n.velocity - 22),
+                        "piano_rh",
                     )
+                )
+    notes.extend(extras)
+    notes.sort(key=lambda x: (x.start, x.pitch))
     return notes
 
 
@@ -653,6 +640,7 @@ def render_skeleton(
             beats_per_bar=beats_per_bar,
             elaborations=elaborations,
             dance_type=dance_type,
+            personality=str(profile.get("personality_type") or "neutral"),
         )
         for n in rh:
             n.velocity = _apply_vel(n.velocity, vols.get("piano_rh", 1.0))
