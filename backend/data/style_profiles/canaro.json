@@ -1,9 +1,15 @@
 {
   "id": "canaro",
-  "name": { "zh": "Canaro", "en": "Francisco Canaro" },
+  "name": {
+    "zh": "Canaro",
+    "en": "Francisco Canaro"
+  },
   "personality_type": "smooth_powerful",
   "personality_emoji": "🎹",
-  "era": { "start": 1920, "end": 1955 },
+  "era": {
+    "start": 1920,
+    "end": 1955
+  },
   "bio": {
     "zh": "Canaro 錄音生涯幾乎橫跨整個探戈史：從早期樸素舊派到晚期更圓滑的風格。米隆加與華爾滋曲目數量龐大，舞會開場定調時很常被選用——輕快、易辨識、容易抓住拍子。",
     "en": "Canaro's recording career spans almost the whole history of tango—from early, plainer styles to later smoother sounds. His vast milonga and vals catalogue is a favourite for opening a milonga: clear, catchy, easy to feel the beat."
@@ -12,11 +18,20 @@
     "zh": "涵蓋面廣；後期偏圓滑、易跳。適合當「入門耳朵」與米隆加／華爾滋節奏練習的參考。",
     "en": "Broad stylistic range; later periods lean smooth and danceable. A good ear-training entry point, especially for milonga and vals grooves."
   },
-  "tempo_bpm_range": [60, 68],
-  "rhythm_patterns": ["marcato_en_dos", "milonga_habanera"],
+  "tempo_bpm_range": [
+    60,
+    68
+  ],
+  "rhythm_patterns": [
+    "marcato_en_dos",
+    "milonga_habanera"
+  ],
   "harmonic_tendencies": {
     "primary_mode": "major_or_harmonic_minor",
-    "typical_progressions": ["I-IV-V-I", "i-iv-V-i"],
+    "typical_progressions": [
+      "I-IV-V-I",
+      "i-iv-V-i"
+    ],
     "borrowed_chords_frequency": "low",
     "dissonance_level": "low",
     "voicing_style": "clear_dance_band"
@@ -27,12 +42,43 @@
     "dynamic_contrast": "medium",
     "pause_frequency": "low"
   },
-  "instrumentation_defaults": ["piano", "bandoneon", "strings", "guitar"],
+  "instrumentation_defaults": [
+    "piano",
+    "bandoneon",
+    "strings",
+    "guitar"
+  ],
   "reference_songs": [
-    { "title": "Poema", "type": "tango" },
-    { "title": "Milonga Sentimental", "type": "milonga" },
-    { "title": "Desde el Alma", "type": "vals" },
-    { "title": "Reliquias Porteñas", "type": "milonga" },
-    { "title": "La Tablada", "type": "tango" }
-  ]
+    {
+      "title": "Poema",
+      "type": "tango"
+    },
+    {
+      "title": "Milonga Sentimental",
+      "type": "milonga"
+    },
+    {
+      "title": "Desde el Alma",
+      "type": "vals"
+    },
+    {
+      "title": "Reliquias Porteñas",
+      "type": "milonga"
+    },
+    {
+      "title": "La Tablada",
+      "type": "tango"
+    }
+  ],
+  "pulse": {
+    "feel": "drive",
+    "beat1_weight": 1.08,
+    "other_beat_weight": 0.92,
+    "bass_on_time": true,
+    "chord_lag_ms": 8,
+    "humanize_ms": 18,
+    "staccato_bias": 0.5,
+    "silence_bias": 0.1,
+    "colour_aggression": 0.22
+  }
 }

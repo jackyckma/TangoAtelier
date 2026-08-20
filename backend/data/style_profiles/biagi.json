@@ -1,9 +1,15 @@
 {
   "id": "biagi",
-  "name": { "zh": "Biagi", "en": "Rodolfo Biagi" },
+  "name": {
+    "zh": "Biagi",
+    "en": "Rodolfo Biagi"
+  },
   "personality_type": "rhythmic",
   "personality_emoji": "🥁",
-  "era": { "start": 1935, "end": 1955 },
+  "era": {
+    "start": 1935,
+    "end": 1955
+  },
   "bio": {
     "zh": "Biagi 是幫 D'Arienzo 打造招牌節奏的鋼琴手，後來自組樂團。他保留強烈驅動感，但多了一個鮮明簽名：在樂句中突然留白，讓你腳下忽然「空」一下——像電梯往下墜半秒。",
     "en": "Biagi was the pianist who helped forge D'Arienzo's trademark beat, then led his own orchestra. He kept the drive, but added sudden gaps mid-phrase—like the floor dropping for half a second."
@@ -12,11 +18,20 @@
     "zh": "節奏基礎跟 D'Arienzo 一樣強烈，但會在穩定拍子裡安插意外停頓（切分／空隙），製造戲劇性的失重感。",
     "en": "As rhythmically assertive as D'Arienzo, but with surprise silences and syncopated gaps that create a dramatic weightless moment."
   },
-  "tempo_bpm_range": [64, 70],
-  "rhythm_patterns": ["marcato_en_cuatro", "sincopa"],
+  "tempo_bpm_range": [
+    64,
+    70
+  ],
+  "rhythm_patterns": [
+    "marcato_en_cuatro",
+    "sincopa"
+  ],
   "harmonic_tendencies": {
     "primary_mode": "major_or_harmonic_minor",
-    "typical_progressions": ["I-IV-V-I", "descending_fifths"],
+    "typical_progressions": [
+      "I-IV-V-I",
+      "descending_fifths"
+    ],
     "borrowed_chords_frequency": "low",
     "dissonance_level": "low",
     "voicing_style": "piano_accent_gaps"
@@ -27,12 +42,42 @@
     "dynamic_contrast": "high",
     "pause_frequency": "high"
   },
-  "instrumentation_defaults": ["piano", "bandoneon", "strings"],
+  "instrumentation_defaults": [
+    "piano",
+    "bandoneon",
+    "strings"
+  ],
   "reference_songs": [
-    { "title": "Indio Manso", "type": "tango" },
-    { "title": "Tigre Viejo", "type": "tango" },
-    { "title": "Amurado", "type": "tango" },
-    { "title": "Racing Club", "type": "tango" },
-    { "title": "Por la Huella", "type": "milonga" }
-  ]
+    {
+      "title": "Indio Manso",
+      "type": "tango"
+    },
+    {
+      "title": "Tigre Viejo",
+      "type": "tango"
+    },
+    {
+      "title": "Amurado",
+      "type": "tango"
+    },
+    {
+      "title": "Racing Club",
+      "type": "tango"
+    },
+    {
+      "title": "Por la Huella",
+      "type": "milonga"
+    }
+  ],
+  "pulse": {
+    "feel": "drive",
+    "beat1_weight": 1.1,
+    "other_beat_weight": 0.9,
+    "bass_on_time": true,
+    "chord_lag_ms": 6,
+    "humanize_ms": 18,
+    "staccato_bias": 0.6,
+    "silence_bias": 0.18,
+    "colour_aggression": 0.35
+  }
 }

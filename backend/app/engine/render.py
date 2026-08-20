@@ -10,6 +10,15 @@ from app.engine.export_formats import (
     score_to_musicxml,
 )
 from app.engine.catalog import DANCE_TYPES
+from app.engine.groove import (
+    apply_accent_curve,
+    apply_microtiming,
+    apply_staccato_bias,
+    humanize_with_pulse,
+    pattern_for_groove_bar,
+    resolve_pulse,
+    thin_lh_for_drama,
+)
 from app.engine.harmony import chord_pitches
 from app.engine.rhythm import choose_rhythm_pair, left_hand_for_bar
 from app.engine.types import ChordEvent, NoteEvent, PieceDraft
@@ -24,6 +33,17 @@ SIMPLE_PROFILE = {
         "rubato_level": "low",
         "dynamic_contrast": "medium",
         "pause_frequency": "low",
+    },
+    "pulse": {
+        "feel": "drive",
+        "beat1_weight": 1.05,
+        "other_beat_weight": 0.92,
+        "bass_on_time": True,
+        "chord_lag_ms": 0,
+        "humanize_ms": 18,
+        "staccato_bias": 0.55,
+        "silence_bias": 0.08,
+        "colour_aggression": 0.15,
     },
     "instrumentation_defaults": ["piano"],
 }
@@ -131,24 +151,17 @@ def _pattern_for_bar(
     *,
     extras: list[str] | None = None,
     groove: dict[str, Any] | None = None,
+    dance_type: str = "tango",
 ) -> str:
-    """Rotate groove colour without abandoning the home pulse.
-
-    E12: section groove intent controls which slots in an 8-bar window may
-    leave the home pattern (intro/coda stay home; B digs into colour more).
-    """
-    colour = [p for p in ((secondary,) if secondary else ()) + tuple(extras or ()) if p and p != primary]
-    intent = groove or {}
-    if intent.get("force_primary") or not colour:
-        return primary
-    slots = tuple(intent.get("colour_slots") or ())
-    if not slots:
-        # Legacy fallback: mild colour in an 8-bar window
-        slots = (2, 6) if not primary.startswith("milonga") else (6,)
-    slot = bar % 8
-    if slot not in slots:
-        return primary
-    return colour[(bar // 8 + slots.index(slot)) % len(colour)]
+    """M10: groove_role → continuous pattern runs (legacy colour_slots still supported)."""
+    return pattern_for_groove_bar(
+        primary,
+        secondary,
+        bar,
+        extras=extras,
+        groove=groove,
+        dance_type=dance_type,
+    )
 
 
 def _lh_power_for_groove(section: str, drama_tag: str, groove: dict[str, Any], elab: dict) -> bool:
@@ -197,10 +210,9 @@ def _apply_vel(base: int, track_vol: float) -> int:
     return max(1, min(127, int(base * track_vol)))
 
 
-def _humanize(n: NoteEvent, rng: random.Random) -> None:
-    """E4: tiny deterministic timing/velocity jitter (same seed → same result)."""
-    n.start = max(0.0, n.start + rng.uniform(-0.011, 0.011))
-    n.velocity = max(1, min(127, int(n.velocity) + rng.randint(-3, 3)))
+def _humanize(n: NoteEvent, rng: random.Random, pulse) -> None:
+    """M10: deterministic timing/velocity jitter from pulse.humanize_ms."""
+    humanize_with_pulse(n, rng, pulse)
 
 
 def _surface_reharm_symbol(ch: dict, mode: str, tension: float) -> str | None:
@@ -481,6 +493,7 @@ def render_skeleton(
     bar_len = beats_per_bar * spb
     time_signature = tuple(skeleton["time_signature"])
     dance_type = str(skeleton.get("dance_type") or "tango")
+    pulse = resolve_pulse(profile)
     rhythm_primary, rhythm_secondary = _rhythm_pair_for_dance(profile, dance_type, rng)
     rhythm_extras = [
         p
@@ -553,6 +566,7 @@ def render_skeleton(
                 elaborations[int(ch["bar"])] = el
         tension_curve = list(skeleton.get("tension_curve") or [])
         prev_bass: int | None = None
+        pattern_by_bar: dict[int, str] = {}
 
         for ch in skeleton["chords"]:
             bar = int(ch["bar"])
@@ -575,7 +589,9 @@ def render_skeleton(
                 bar,
                 extras=rhythm_extras,
                 groove=groove,
+                dance_type=dance_type,
             )
+            pattern_by_bar[bar] = pattern
             lh_kind = str(groove.get("lh") or "steady")
             lh = left_hand_for_bar(
                 pattern,
@@ -610,14 +626,9 @@ def render_skeleton(
             elif section == "A_prime" or lh_kind == "full":
                 # Recap: fuller LH (elaboration) while still leaving the lead audible
                 lh_scale *= 0.92 + 0.15 * float(elab.get("dynamics_boost") or 0)
-            if drama_tag == "pause":
-                # Tango hole: keep a single bass hit or full silence
-                lh = lh[:1] if lh and rng.random() < 0.55 else []
-                lh_scale *= 0.55
-            elif drama_tag == "anticipate":
-                # Thin LH — leave air so the peak can land
-                lh = lh[: max(1, len(lh) // 2)]
-                lh_scale *= 0.7
+            if drama_tag in ("pause", "anticipate"):
+                lh, drama_scale = thin_lh_for_drama(lh, drama_tag, pulse, rng)
+                lh_scale *= drama_scale
             elif drama_tag == "rise":
                 lh_scale *= 0.95 + 0.15 * energy
             elif drama_tag == "climax":
@@ -628,10 +639,23 @@ def render_skeleton(
                 lh_scale *= 1.05
             else:
                 lh_scale *= 0.85 + 0.3 * energy
+
+            apply_accent_curve(
+                lh,
+                bar_start=bar_start,
+                bar_len=bar_len,
+                beats_per_bar=beats_per_bar,
+                pulse=pulse,
+                tension=tension,
+            )
+            apply_staccato_bias(lh, pulse)
+            apply_microtiming(lh, pulse)
+
             for n in lh:
                 # Drop some weak-beat LH under lead so melody isn't carpeted
                 if section in ("A", "A_prime", "B") and beats_per_bar == 2:
-                    rel = (n.start - bar_start) / max(bar_len, 1e-6)
+                    lag = (pulse.chord_lag_ms / 1000.0) if n.track == "piano_lh_chord" else 0.0
+                    rel = (n.start - bar_start - lag) / max(bar_len, 1e-6)
                     # A′ walking needs those mid-bar steps — don't strip them
                     if (
                         section != "A_prime"
@@ -657,6 +681,8 @@ def render_skeleton(
         for n in rh:
             n.velocity = _apply_vel(n.velocity, vols.get("piano_rh", 1.0))
             notes.append(n)
+    else:
+        pattern_by_bar = {}
 
     if enabled.get("bandoneon"):
         bn = _bandoneon_pads(
@@ -700,8 +726,8 @@ def render_skeleton(
 
     notes.sort(key=lambda n: (n.start, n.track, n.pitch))
     for n in notes:
-        if n.track in ("piano_lh", "piano_rh"):
-            _humanize(n, rng)
+        if n.track in ("piano_lh", "piano_lh_chord", "piano_rh"):
+            _humanize(n, rng, pulse)
     notes.sort(key=lambda n: (n.start, n.track, n.pitch))
     rhythm_label = rhythm_primary
     if rhythm_secondary:
@@ -740,6 +766,17 @@ def render_skeleton(
         "instruments": enabled,
         "bars": draft.bars,
         "duration_seconds": round(duration, 2),
+        # M10: pulse snapshot + per-bar LH pattern
+        # Track choice: bass/root = piano_lh (on time); lagged blocks = piano_lh_chord
+        "pulse": {
+            "feel": pulse.feel,
+            "beat1_weight": pulse.beat1_weight,
+            "other_beat_weight": pulse.other_beat_weight,
+            "chord_lag_ms": pulse.chord_lag_ms,
+            "humanize_ms": pulse.humanize_ms,
+            "silence_bias": pulse.silence_bias,
+        },
+        "lh_pattern_by_bar": {str(k): v for k, v in sorted(pattern_by_bar.items())},
         "chords": [
             {
                 "bar": c.bar,

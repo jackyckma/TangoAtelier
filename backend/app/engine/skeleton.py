@@ -794,35 +794,61 @@ def _lerp_between_anchors(total: int, targets: list[tuple[int, float]]) -> dict[
 
 
 def _roll_section_groove(rng: random.Random, dance_type: str) -> dict[str, dict[str, Any]]:
-    """E12: same base rhythm family; section only changes colour depth / LH fullness."""
-    # colour_slots: which positions in an 8-bar window may leave the home groove
+    """M10 / E12: form-level groove roles + LH fullness (no microtiming baked in).
+
+    Roles drive continuous contrast runs at render time; colour_slots remain only
+    as optional 1-bar spice markers at phrase ends for home sections.
+    """
+    contrast_run = 8 if rng.random() < 0.4 else 4
+    if dance_type == "vals":
+        contrast_run = 4
+
+    def _intent(
+        role: str,
+        lh: str,
+        *,
+        force_primary: bool = False,
+        colour_slots: tuple[int, ...] = (),
+        run: int | None = None,
+    ) -> dict[str, Any]:
+        out: dict[str, Any] = {
+            "groove_role": role,
+            "lh": lh,
+            "force_primary": force_primary,
+            "colour_slots": colour_slots,
+        }
+        if run is not None:
+            out["contrast_run_bars"] = run
+        return out
+
     if dance_type == "vals":
         return {
-            "intro": {"colour_slots": (), "lh": "sparse", "force_primary": True},
-            "A": {"colour_slots": (), "lh": "steady", "force_primary": True},
-            "B": {"colour_slots": (4,), "lh": "busy", "force_primary": False},
-            "A_prime": {"colour_slots": (6,), "lh": "full", "force_primary": True},
-            "bridge": {"colour_slots": (), "lh": "sparse", "force_primary": True},
-            "coda": {"colour_slots": (), "lh": "cadence", "force_primary": True},
+            "intro": _intent("home", "sparse", force_primary=True),
+            "A": _intent("home", "steady", force_primary=True),
+            "B": _intent("contrast_drive", "busy", run=contrast_run),
+            "A_prime": _intent("home_elevated", "full", force_primary=True),
+            "bridge": _intent("pivot", "sparse", force_primary=True),
+            "coda": _intent("home_cadence", "cadence", force_primary=True),
+            "variacion": _intent("contrast_drive", "busy", run=contrast_run),
         }
     if dance_type == "milonga":
         return {
-            "intro": {"colour_slots": (), "lh": "sparse", "force_primary": True},
-            "A": {"colour_slots": (6,), "lh": "steady", "force_primary": False},
-            "B": {"colour_slots": (2, 6), "lh": "busy", "force_primary": False},
-            "A_prime": {"colour_slots": (6,), "lh": "full", "force_primary": False},
-            "bridge": {"colour_slots": (), "lh": "sparse", "force_primary": True},
-            "coda": {"colour_slots": (), "lh": "cadence", "force_primary": True},
+            "intro": _intent("home", "sparse", force_primary=True),
+            "A": _intent("home", "steady", colour_slots=(6,)),
+            "B": _intent("contrast_drive", "busy", run=contrast_run),
+            "A_prime": _intent("home_elevated", "full", colour_slots=(6,)),
+            "bridge": _intent("pivot", "sparse", force_primary=True),
+            "coda": _intent("home_cadence", "cadence", force_primary=True),
+            "variacion": _intent("contrast_drive", "busy", run=contrast_run),
         }
-    # tango — B digs into sincopa colour more often; intro stays on home pulse
-    b_slots = (2, 6) if rng.random() < 0.65 else (2, 4, 6)
     return {
-        "intro": {"colour_slots": (), "lh": "sparse", "force_primary": True},
-        "A": {"colour_slots": (6,), "lh": "steady", "force_primary": False},
-        "B": {"colour_slots": b_slots, "lh": "busy", "force_primary": False},
-        "A_prime": {"colour_slots": (2, 6), "lh": "full", "force_primary": False},
-        "bridge": {"colour_slots": (), "lh": "sparse", "force_primary": True},
-        "coda": {"colour_slots": (), "lh": "cadence", "force_primary": True},
+        "intro": _intent("home", "sparse", force_primary=True),
+        "A": _intent("home", "steady", colour_slots=(6,)),
+        "B": _intent("contrast_drive", "busy", run=contrast_run),
+        "A_prime": _intent("home_elevated", "full", colour_slots=(6,)),
+        "bridge": _intent("pivot", "sparse", force_primary=True),
+        "coda": _intent("home_cadence", "cadence", force_primary=True),
+        "variacion": _intent("contrast_drive", "busy", run=contrast_run),
     }
 
 
@@ -2286,10 +2312,22 @@ def build_skeleton(
             elaboration = _roll_a_prime_elaboration(rng, melody_variation)
             sec["elaboration"] = elaboration
 
+        base_groove = section_groove.get(section_name) or {
+            "groove_role": "home",
+            "colour_slots": [],
+            "lh": "steady",
+            "force_primary": False,
+        }
+
         for j in range(section_bars):
             symbol = section_symbols[j]
             energy = float((drama.get("energy") or {}).get(bar, 0.5))
             tag = _drama_tag_for_bar(bar, drama)
+            groove = {
+                **base_groove,
+                "section_local_bar": j,
+                "section_bars": section_bars,
+            }
             entry: dict[str, Any] = {
                 "bar": bar,
                 "symbol": symbol,
@@ -2301,8 +2339,7 @@ def build_skeleton(
                 "section": section_name,
                 "drama": tag,
                 "energy": energy,
-                "groove": section_groove.get(section_name)
-                or {"colour_slots": (), "lh": "steady", "force_primary": False},
+                "groove": groove,
             }
             role = cadence_roles.get(j)
             if role:

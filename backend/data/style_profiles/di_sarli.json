@@ -1,9 +1,15 @@
 {
   "id": "di_sarli",
-  "name": { "zh": "Di Sarli", "en": "Carlos Di Sarli" },
+  "name": {
+    "zh": "Di Sarli",
+    "en": "Carlos Di Sarli"
+  },
   "personality_type": "smooth_powerful",
   "personality_emoji": "🎹",
-  "era": { "start": 1939, "end": 1958 },
+  "era": {
+    "start": 1939,
+    "end": 1958
+  },
   "bio": {
     "zh": "Di Sarli 的辨識度極高，靠的不是花俏，而是極簡克制。低音厚重緩慢，並大膽留下空拍——「什麼都沒發生」的瞬間反而更有張力。舞者形容：像絲絨，但底下藏著鋼鐵。",
     "en": "Di Sarli's sound is instantly recognisable through restraint, not ornament. Heavy, unhurried bass and bold silences—the empty beats carry the drama. Dancers call it velvet with steel underneath."
@@ -12,11 +18,20 @@
     "zh": "Marcato en dos／Pesante：低音八度齊奏、大量留白、動態對比強。少彈幾個音，但把每個音的重量感做足。",
     "en": "Marcato en dos / pesante: octave bass unisons, generous pauses, strong dynamic contrast. Fewer notes, each carrying real weight."
   },
-  "tempo_bpm_range": [58, 66],
-  "rhythm_patterns": ["marcato_en_dos", "pesante"],
+  "tempo_bpm_range": [
+    58,
+    66
+  ],
+  "rhythm_patterns": [
+    "marcato_en_dos",
+    "pesante"
+  ],
   "harmonic_tendencies": {
     "primary_mode": "harmonic_minor",
-    "typical_progressions": ["i-iv-V7b9-i", "descending_fifths"],
+    "typical_progressions": [
+      "i-iv-V7b9-i",
+      "descending_fifths"
+    ],
     "borrowed_chords_frequency": "medium",
     "dissonance_level": "low",
     "voicing_style": "octave_unison_bass"
@@ -27,12 +42,42 @@
     "dynamic_contrast": "high",
     "pause_frequency": "high"
   },
-  "instrumentation_defaults": ["piano", "bandoneon", "strings"],
+  "instrumentation_defaults": [
+    "piano",
+    "bandoneon",
+    "strings"
+  ],
   "reference_songs": [
-    { "title": "Bahía Blanca", "type": "tango" },
-    { "title": "A la Gran Muñeca", "type": "tango" },
-    { "title": "El Amanecer", "type": "tango" },
-    { "title": "Rosa Morena", "type": "milonga" },
-    { "title": "Verdemar", "type": "tango" }
-  ]
+    {
+      "title": "Bahía Blanca",
+      "type": "tango"
+    },
+    {
+      "title": "A la Gran Muñeca",
+      "type": "tango"
+    },
+    {
+      "title": "El Amanecer",
+      "type": "tango"
+    },
+    {
+      "title": "Rosa Morena",
+      "type": "milonga"
+    },
+    {
+      "title": "Verdemar",
+      "type": "tango"
+    }
+  ],
+  "pulse": {
+    "feel": "heart",
+    "beat1_weight": 1.2,
+    "other_beat_weight": 0.95,
+    "bass_on_time": true,
+    "chord_lag_ms": 22,
+    "humanize_ms": 20,
+    "staccato_bias": 0.35,
+    "silence_bias": 0.16,
+    "colour_aggression": 0.2
+  }
 }

@@ -107,7 +107,9 @@ def draft_to_score(draft: PieceDraft) -> stream.Score:
         m21.volume.velocity = n.velocity
         offset = _quantize_ql(to_ql(n.start))
         m21.quarterLength = _quantize_ql(to_ql(n.duration))
-        target = parts.get(n.track) or parts["piano_rh"]
+        # M10: lagged chord layer shares the LH staff (note-events keep piano_lh_chord)
+        track = "piano_lh" if n.track == "piano_lh_chord" else n.track
+        target = parts.get(track) or parts["piano_rh"]
         target.insert(offset, m21)
 
     if len(harmony_part.getElementsByClass(harmony.Harmony)) > 0:

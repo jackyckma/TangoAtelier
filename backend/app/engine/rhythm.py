@@ -146,8 +146,20 @@ def left_hand_for_bar(
         )
 
     def hit_block(start_off: float, dur: float, pitches: list[int], vel: int) -> None:
-        for i, pitch in enumerate(pitches):
-            hit(start_off, dur, pitch, max(48, vel - i * 6))
+        """Bass/root on `piano_lh` (on time); upper tones on `piano_lh_chord` (may lag)."""
+        if not pitches:
+            return
+        hit(start_off, dur, pitches[0], vel)
+        for i, pitch in enumerate(pitches[1:]):
+            notes.append(
+                NoteEvent(
+                    pitch=pitch,
+                    start=bar_start + start_off,
+                    duration=dur,
+                    velocity=max(48, vel - (i + 1) * 6),
+                    track="piano_lh_chord",
+                )
+            )
 
     # A′ walking: replace generic marcato with a clearer bass line (style patterns
     # like yumba/sincopa still run below, then we overlay connectors).
