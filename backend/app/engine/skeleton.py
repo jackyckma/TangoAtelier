@@ -37,6 +37,11 @@ from app.engine.melody import (
     sample_piece_cells,
     sample_rhythm_cell,
 )
+from app.engine.melody.expectancy import (
+    density_for_drama as _expectancy_density_for_drama,
+    development_level_cap,
+    phrase_transform,
+)
 
 Level = Literal["low", "medium", "high"]
 
@@ -292,18 +297,14 @@ def _motivic_development_level(
     energy: float,
     section_name: str,
 ) -> int:
-    """0–3 surface intensity on a locked cell contour."""
-    span = max(1, section_bars - 1)
-    level = int(round(3 * max(0, local_bar) / span))
-    if drama_tag in ("dense", "climax"):
-        level += 1
-    elif drama_tag in ("rise",) and energy >= 0.55:
-        level += 1
-    if energy >= 0.75:
-        level += 1
-    if section_name == "A_prime":
-        level += 1
-    return max(0, min(3, level))
+    """0–3 surface intensity on a locked cell contour — expectancy-capped."""
+    return development_level_cap(
+        local_bar=local_bar,
+        section_bars=section_bars,
+        drama_tag=drama_tag,
+        energy=energy,
+        section_name=section_name,
+    )
 
 
 def _density_for_development(base: Level, development: int, *, dance_type: str) -> Level:
@@ -325,6 +326,11 @@ def _step_density(prev: Level, wanted: Level) -> Level:
     if wi < pi - 1:
         return order[pi - 1]
     return wanted
+
+
+def _density_for_drama(base: Level, tag: str, *, dance_type: str) -> Level:
+    """Drama shapes intensity via expectancy gate — not sudden note sprays."""
+    return _expectancy_density_for_drama(base, tag, dance_type=dance_type)
 
 
 def _stamp_motivic_meta(
@@ -768,26 +774,6 @@ def _drama_tag_for_bar(bar: int, drama: dict[str, Any]) -> str:
     return "normal"
 
 
-def _density_for_drama(base: Level, tag: str, *, dance_type: str) -> Level:
-    """Drama shapes intensity via energy/register — not sudden note sprays."""
-    order: list[Level] = ["low", "medium", "high"]
-    idx = order.index(base) if base in order else 1
-    if tag == "anticipate":
-        # Thin the lead so the peak can land
-        return order[max(0, idx - 1)]
-    if tag == "rise":
-        return base  # same note count, rising register/energy elsewhere
-    if tag == "climax":
-        if dance_type in ("vals", "milonga"):
-            return base
-        return order[min(2, idx + 1)]  # one step up only
-    if tag == "release":
-        return order[max(0, idx - 1)] if base == "high" else base
-    if tag == "dense":
-        return base  # energy/register only — extra attacks sound like a dump
-    return base
-
-
 def _register_for_drama(tag: str, phrase_i: int) -> int:
     """Gradual register climb into climax — no post-hoc octave dump."""
     if tag == "rise":
@@ -1118,6 +1104,8 @@ def _emit_phrase(
     cadence: str = "authentic",
     rhythm_cells: list | None = None,
     pause_frequency: str = "medium",
+    drama_tag: str = "normal",
+    energy: float = 0.5,
 ) -> tuple[list[dict[str, Any]], int]:
     """M4 three-pass phrase: structural → connect (decorate is render-only)."""
     # Apply motif transform / sequence / key to starting register
@@ -1159,6 +1147,8 @@ def _emit_phrase(
         rhythm_cells=rhythm_cells,
         pause_frequency=pause_frequency,
         phrase_role_question_bars=q_bars,
+        drama_tag=drama_tag,
+        energy=energy,
     )
     notes = melody_notes_to_dicts(mel_notes, start_bar=start_bar, beats_per_bar=float(beats_per_bar))
     for n in notes:
@@ -1670,20 +1660,20 @@ def _melody_for_section(
             transform_q = "prime"
             for k in range(plen):
                 interweave_bars.add(abs_start + k)
-        elif section_name == "B":
-            seq = seq_unit * (1 + phrase_i // 2)
-            transform_q = "invert" if phrase_i % 2 else "sequence"
-        elif section_name == "A_prime":
-            seq = seq_unit if phrase_i >= 2 else 0
-            transform_q = "prime"
-            # Recap: lift register more often so A′ reads as the same tune, brighter
-            if reg == 0 and rng.random() < 0.65:
-                reg = 12
-            elif reg == 0:
-                reg = 7 if rng.random() < 0.45 else 0
         else:
-            seq = seq_unit * (phrase_i // 3)
-            transform_q = "prime"
+            transform_q, seq = phrase_transform(
+                section_name=section_name,
+                phrase_i=phrase_i,
+                drama_tag=tag,
+                energy=energy0,
+                seq_unit=seq_unit,
+            )
+            if section_name == "A_prime":
+                # Recap: lift register more often so A′ reads as the same tune, brighter
+                if reg == 0 and tag in ("climax", "rise", "dense"):
+                    reg = 12
+                elif reg == 0:
+                    reg = 7 if energy0 >= 0.55 else 0
 
         chord_slice = chords_for_bars[local_start : local_start + plen]
         cadence = form_phrase_cadence.get(
@@ -1710,6 +1700,8 @@ def _melody_for_section(
             cadence=cadence,
             rhythm_cells=rhythm_cells,
             pause_frequency=pause_frequency,
+            drama_tag=tag,
+            energy=energy0,
         )
         if phrase_covers_payoff:
             for n in emitted:
