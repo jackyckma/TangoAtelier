@@ -216,13 +216,18 @@ def _humanize(n: NoteEvent, rng: random.Random, pulse) -> None:
 
 
 def _surface_reharm_symbol(ch: dict, mode: str, tension: float) -> str | None:
-    """E5: render-only colour (does not change skeleton chord symbol)."""
+    """E5: render-only colour — only when tension clearly asks for it."""
     sym = str(ch.get("symbol") or "")
     if mode == "minor" and sym in ("V", "V7"):
         if (
-            tension >= 0.62
-            or ch.get("cadence") in ("half", "approach")
-            or str(ch.get("drama") or "") in ("climax", "dense")
+            tension >= 0.72
+            or (
+                tension >= 0.62
+                and (
+                    ch.get("cadence") in ("half", "approach")
+                    or str(ch.get("drama") or "") in ("climax", "dense")
+                )
+            )
         ):
             return "V7b9"
     return None

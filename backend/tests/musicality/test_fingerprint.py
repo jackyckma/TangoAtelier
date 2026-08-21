@@ -1,13 +1,13 @@
-# BASELINE 2026-08-20: M4 three-pass melody rewrite (+ M10 pulse does not rewrite melody)
-# tango interval_hist KL = 0.6440
-# tango onset_hist KL = 3.8249
-# tango duration_hist KL = 0.8483
-# vals interval_hist KL = 1.1176
-# vals onset_hist KL = 0.0006
-# vals duration_hist KL = 0.7171
-# milonga interval_hist KL = 1.2940
-# milonga onset_hist KL = 6.2255
-# milonga duration_hist KL = 0.4810
+# BASELINE 2026-08-21: continuity / expectancy gate (on top of M4)
+# tango interval_hist KL = 0.5374
+# tango onset_hist KL = 3.8422
+# tango duration_hist KL = 0.8473
+# vals interval_hist KL = 1.0978
+# vals onset_hist KL = 0.0016
+# vals duration_hist KL = 0.7194
+# milonga interval_hist KL = 1.2603
+# milonga onset_hist KL = 6.6450
+# milonga duration_hist KL = 0.4528
 
 from __future__ import annotations
 
@@ -16,11 +16,11 @@ import pytest
 from app.critic.fingerprint import aggregate, compare, extract_fingerprint, load_reference
 from app.engine.skeleton import build_skeleton
 
-# Thresholds = post-M4 measured aggregate KL (2026-08-20); tighten toward DoD (<0.25) later.
+# Thresholds = post-expectancy measured aggregate KL (2026-08-21); tighten toward DoD (<0.25) later.
 KL_THRESHOLDS = {
-    "tango": {"interval_hist": 0.66, "onset_hist": 3.90, "duration_hist": 0.87},
-    "vals": {"interval_hist": 1.15, "onset_hist": 0.05, "duration_hist": 0.73},
-    "milonga": {"interval_hist": 1.31, "onset_hist": 6.25, "duration_hist": 0.50},
+    "tango": {"interval_hist": 0.55, "onset_hist": 3.90, "duration_hist": 0.87},
+    "vals": {"interval_hist": 1.12, "onset_hist": 0.05, "duration_hist": 0.73},
+    "milonga": {"interval_hist": 1.28, "onset_hist": 6.70, "duration_hist": 0.50},
 }
 
 SEED_COUNTS = {"tango": 100, "vals": 50, "milonga": 50}

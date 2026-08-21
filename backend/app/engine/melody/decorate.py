@@ -5,6 +5,7 @@ from __future__ import annotations
 import random
 from typing import Any
 
+from app.engine.melody.expectancy import decoration_scale
 from app.engine.types import NoteEvent
 
 # Re-use NCT labels on ornament note events via optional metadata dicts
@@ -12,14 +13,7 @@ from app.engine.types import NoteEvent
 
 
 def _tension_factor(drama: str, energy: float) -> float:
-    base = {
-        "climax": 1.35,
-        "anticipate": 1.15,
-        "rise": 1.1,
-        "dense": 1.2,
-        "normal": 1.0,
-    }.get(drama or "normal", 1.0)
-    return base * (0.75 + 0.5 * float(energy))
+    return decoration_scale(drama, energy)
 
 
 def decorate_melody_events(
@@ -55,7 +49,10 @@ def decorate_melody_events(
         elab = elab_by_bar.get(bar) or {}
         orn_boost = float(elab.get("ornament_boost") or 0)
         tension = _tension_factor(drama, energy)
-        p = min(0.55, decoration * tension + orn_boost * 0.35)
+        p = min(0.45, decoration * tension + orn_boost * 0.25)
+        # Stable emotion: suppress yeites unless A′ ornament_boost is explicit
+        if drama in ("normal", "release", "pause") and orn_boost < 0.15:
+            p *= 0.35
 
         if dance_type == "vals":
             p *= 0.15

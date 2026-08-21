@@ -6,6 +6,11 @@ import random
 from dataclasses import dataclass
 from typing import Any
 
+from app.engine.melody.expectancy import (
+    allow_dense_rhythm_cell,
+    plan_rest_bars,
+    prefer_breath_cell,
+)
 from app.engine.melody.nct import NCT
 from app.engine.melody.rhythm_cell import RhythmCell, sample_rhythm_cell
 from app.engine.melody.structural import (
@@ -53,26 +58,17 @@ def plan_rests(
     rng: random.Random,
     *,
     pause_frequency: str = "medium",
+    drama_tag: str = "normal",
+    energy: float = 0.5,
 ) -> set[int]:
-    """Bars where melody leaves ≥1 beat of air (not necessarily empty bars)."""
-    rests: set[int] = set()
-    if phrase_bars <= 0:
-        return rests
-    if phrase_bars >= 4:
-        for chunk_start in range(0, phrase_bars, 4):
-            chunk = min(4, phrase_bars - chunk_start)
-            if chunk < 2:
-                continue
-            # Prefer 2nd bar of chunk or last bar (after answer)
-            pick = chunk_start + (1 if chunk > 1 else 0)
-            if chunk >= 4 and rng.random() < 0.45:
-                pick = chunk_start + 3
-            rests.add(pick)
-    elif phrase_bars >= 2:
-        rests.add(1)
-    if pause_frequency == "high" and phrase_bars >= 4 and rng.random() < 0.5:
-        rests.add(rng.choice([0, phrase_bars // 2]))
-    return rests
+    """Bars where melody leaves ≥1 beat of air — gated by drama expectancy."""
+    return plan_rest_bars(
+        phrase_bars,
+        drama_tag=drama_tag,
+        energy=energy,
+        pause_frequency=pause_frequency,
+        rng_pick_last=rng.random() < 0.5,
+    )
 
 
 def _recover_step(prev: int, leap_dir: int, scale: list[int]) -> int:
@@ -302,6 +298,8 @@ def generate_phrase_melody(
     rhythm_cells: list[RhythmCell] | None = None,
     pause_frequency: str = "medium",
     phrase_role_question_bars: int | None = None,
+    drama_tag: str = "normal",
+    energy: float = 0.5,
 ) -> tuple[list[MelodyNote], int]:
     """Pass 1+2 for one phrase. Returns (notes, last_pitch)."""
     phrase_obj = type("Phrase", (), {"bars": phrase_bars, "cadence": cadence})()
@@ -317,10 +315,26 @@ def generate_phrase_melody(
         pitch_cell_intervals=pitch_cell_intervals,
     )
 
-    rest_bars = plan_rests(phrase_bars, rng, pause_frequency=pause_frequency)
+    rest_bars = plan_rests(
+        phrase_bars,
+        rng,
+        pause_frequency=pause_frequency,
+        drama_tag=drama_tag,
+        energy=energy,
+    )
     target_npb = float(
         DENSITY_NOTES_PER_BAR.get(dance_type, DENSITY_NOTES_PER_BAR["tango"]).get(density, 5)
     )
+    # Stable emotion: do not chase the high density target with connecting spray
+    if drama_tag in ("normal", "release", "pause") and density == "high":
+        target_npb = min(
+            target_npb,
+            float(
+                DENSITY_NOTES_PER_BAR.get(dance_type, DENSITY_NOTES_PER_BAR["tango"]).get(
+                    "medium", 5
+                )
+            ),
+        )
     # Density over the full phrase — rest bars still carry a short note + gap, not silence-only
     target_total = max(len(structural) + 1, int(round(target_npb * phrase_bars)))
     if dance_type == "vals":
@@ -407,22 +421,30 @@ def generate_phrase_melody(
         leave_rest = bar in rest_bars
         if not material:
             continue
-        # Pick rhythm cell — breath on cadence / rest bars / structural-heavy bars
+        # Pick rhythm cell — expectancy: breath on stable / rest; dense only on drive
         has_struct = any(w >= 1.0 for _, _, w in material)
-        if leave_rest or (bar == phrase_bars - 1 and has_struct):
+        want_breath = prefer_breath_cell(
+            drama_tag, leave_rest=leave_rest, material_count=len(material)
+        ) or (bar == phrase_bars - 1 and has_struct)
+        if want_breath:
             breath = [c for c in cells if c.id in breath_ids] or cells
             cell = breath[bar % len(breath)]
-            # Rest bars: keep a few notes then leave ≥1 beat air — do not collapse to 1
             if leave_rest and len(material) > 3:
                 structs = [m for m in material if m[2] >= 1.0]
                 others = [m for m in material if m[2] < 1.0]
                 material = (structs[:1] + others)[: max(2, min(3, len(material)))]
         else:
             cell = cells[bar % len(cells)]
-            # Prefer denser cells when we have many pitches to place
-            if len(material) >= 4:
+            if len(material) >= 4 and allow_dense_rhythm_cell(drama_tag, density):
                 dense = [c for c in cells if len(c.onsets) >= 3] or cells
                 cell = dense[bar % len(dense)]
+            elif len(material) >= 4:
+                # Cap material instead of spraying 16ths on a stable line
+                structs = [m for m in material if m[2] >= 1.0]
+                others = [m for m in material if m[2] < 1.0]
+                material = (structs + others)[: max(2, min(3, len(material)))]
+                breath = [c for c in cells if c.id in breath_ids] or cells
+                cell = breath[bar % len(breath)]
 
         placed = _place_on_grid(
             material,
@@ -474,7 +496,11 @@ def generate_phrase_melody(
             a.duration = max(0.35, a.duration)
 
     # Density top-up on free eighth slots (non-overlapping)
-    if len(reshaped) < target_total * 0.85:
+    # Continuity: do not invent rapid fillers on stable / rising lines
+    allow_topup = drama_tag in ("climax", "dense") or (
+        drama_tag == "rise" and density == "high"
+    )
+    if allow_topup and len(reshaped) < target_total * 0.85:
         scale = scale_pool(chords[0].tonic, chords[0].mode)
         step = 1.0 if dance_type == "vals" else 0.5
         guard = 0

@@ -8,13 +8,14 @@ from typing import Any, Literal
 
 from app.engine.catalog import PROGRESSIONS_MAJOR, PROGRESSIONS_MINOR
 from app.engine.harmony import relative_key
+from app.engine.melody.expectancy import allow_deceptive_cadence, harmonic_rhythm_hold
 
 CadenceKind = Literal["half", "imperfect", "deceptive", "authentic", "open"]
 
 CADENCE_PLANS: dict[int, list[CadenceKind]] = {
     2: ["half", "authentic"],
-    3: ["half", "deceptive", "authentic"],
-    4: ["half", "imperfect", "deceptive", "authentic"],
+    3: ["half", "imperfect", "authentic"],
+    4: ["half", "imperfect", "half", "authentic"],
 }
 
 CADENCE_CHORDS: dict[str, dict[str, list[str]]] = {
@@ -65,7 +66,7 @@ class SectionPlan:
 
 
 def _extend_plan(n: int) -> list[CadenceKind]:
-    pattern: list[CadenceKind] = ["half", "imperfect", "deceptive", "authentic"]
+    pattern: list[CadenceKind] = ["half", "imperfect", "half", "authentic"]
     out: list[CadenceKind] = []
     while len(out) < n:
         out.extend(pattern)
@@ -99,10 +100,14 @@ def _map_progression_symbols(symbols: list[str], target_mode: str) -> list[str]:
     }
     _TO_MAJOR = {
         "i": "I",
+        "i6": "I",
+        "i7": "I",
+        "iM7": "I",
         "iiø7": "ii",
         "iii": "iii",
         "III": "iii",
         "iv": "IV",
+        "iv6": "IV",
         "IV": "IV",
         "V": "V",
         "V7": "V7",
@@ -111,8 +116,12 @@ def _map_progression_symbols(symbols: list[str], target_mode: str) -> list[str]:
         "VI": "vi",
         "bVII": "bVII",
         "vii°": "vii°",
+        "vii°7": "vii°",
         "V7/iv": "V7/IV",
         "V7/V": "V7/V",
+        "V7/VI": "V7/iii",
+        "V7/III": "V7/vi",
+        "V7/IV": "V7/IV",
         "I": "I",
         "bII": "bII",
     }
@@ -125,7 +134,16 @@ def _progression_for_mode(prog_id: str, mode: str, fallback: list[str]) -> list[
     table = PROGRESSIONS_MINOR if mode == "minor" else PROGRESSIONS_MAJOR
     if prog_id in table:
         return list(table[prog_id])
-    return _map_progression_symbols(fallback, mode)
+    mapped = _map_progression_symbols(fallback, mode)
+    # Reject unmapped minor-only colour (e.g. iM7) — fall back to a stable twin
+    from app.engine.harmony_vocab import MAJOR_VOCAB, MINOR_VOCAB, normalize_symbol
+
+    vocab = MINOR_VOCAB if mode == "minor" else MAJOR_VOCAB
+    if all(normalize_symbol(s) in vocab for s in mapped):
+        return mapped
+    if mode == "major":
+        return list(table.get("descending_fifths") or table["I-IV-V-I"])
+    return list(table.get("descending_fifths") or table["i-iv-V7-i"])
 
 
 def pick_progression(
@@ -151,13 +169,20 @@ def alternate_progression(
     return pid, list(table[pid])
 
 
-def harmonic_rhythm_for_bar(local_bar: int, phrase_bars: int) -> int:
-    """0 = hold previous chord; 1 = new chord slot."""
-    if local_bar >= phrase_bars - 1:
-        return 1
-    if local_bar >= phrase_bars - 2:
-        return 1
-    return 1 if local_bar % 2 == 1 else 0
+def harmonic_rhythm_for_bar(
+    local_bar: int,
+    phrase_bars: int,
+    *,
+    drama_tag: str = "normal",
+    section_name: str = "A",
+) -> int:
+    """0 = hold previous chord; 1 = new chord slot — expectancy-gated."""
+    return harmonic_rhythm_hold(
+        local_bar,
+        phrase_bars,
+        drama_tag=drama_tag,
+        section_name=section_name,
+    )
 
 
 def plan_phrases(
@@ -200,8 +225,17 @@ def plan_phrases(
         cadences = (["half"] * (n - 1) + ["authentic"]) if n > 1 else ["authentic"]
     else:
         cadences = list(CADENCE_PLANS.get(n) or _extend_plan(n))
-        if section_name in ("A_prime", "variacion") and n >= 3:
-            cadences[2] = "deceptive"
+        for i in range(n):
+            if allow_deceptive_cadence(
+                section_name=section_name,
+                phrase_index=i,
+                n_phrases=n,
+                energy_hint=0.6 if section_name in ("B", "A_prime", "variacion") else 0.4,
+            ):
+                cadences[i] = "deceptive"
+            elif cadences[i] == "deceptive":
+                # Plans no longer default to deceptive; belt-and-suspenders
+                cadences[i] = "imperfect" if i < n - 1 else "authentic"
 
     bar_cursor = bar_from_1based
     phrases: list[Phrase] = []
@@ -227,6 +261,7 @@ def fill_phrase_harmony(
     *,
     mode: str,
     progression_template: list[str],
+    section_name: str = "A",
 ) -> tuple[list[str], dict[int, str]]:
     """Return local-bar symbols and cadence roles (local index → role)."""
     symbols = [""] * phrase.bars
@@ -245,7 +280,13 @@ def fill_phrase_harmony(
         if symbols[local]:
             prev = symbols[local]
             continue
-        if harmonic_rhythm_for_bar(local, phrase.bars) == 0 and local > 0:
+        if (
+            harmonic_rhythm_for_bar(
+                local, phrase.bars, drama_tag="normal", section_name=section_name
+            )
+            == 0
+            and local > 0
+        ):
             symbols[local] = prev
             continue
         sym = progression_template[prog_i % len(progression_template)]
@@ -289,7 +330,10 @@ def fill_section_harmony(
     local_offset = 0
     for phrase in phrases:
         phrase_syms, phrase_roles = fill_phrase_harmony(
-            phrase, mode=mode, progression_template=progression_template
+            phrase,
+            mode=mode,
+            progression_template=progression_template,
+            section_name=section_name,
         )
         for i, sym in enumerate(phrase_syms):
             global_local = local_offset + i
@@ -340,17 +384,16 @@ def _apply_relative_modulation(
 
     key_name, mode, tonic = rel
     modulation = "relative_major" if mode == "major" else "relative_minor"
-    if user_locked_progression:
-        return (
-            key_name,
-            mode,
-            tonic,
-            home_prog_id,
-            _progression_for_mode(home_prog_id, mode, home_progression),
-            modulation,
-        )
-    prog_id, progression = pick_progression(rng, mode, "random")
-    return key_name, mode, tonic, prog_id, progression, modulation
+    # Continuity: keep the same progression family mapped to the relative key —
+    # do not shop a new template just to sound "different".
+    return (
+        key_name,
+        mode,
+        tonic,
+        home_prog_id,
+        _progression_for_mode(home_prog_id, mode, home_progression),
+        modulation,
+    )
 
 
 def plan_section_harmony(
