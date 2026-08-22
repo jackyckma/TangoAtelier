@@ -242,12 +242,7 @@ def left_hand_for_bar(
                 else:
                     hit(i * beat, beat * 0.45, pitches[i], vel - i * 4)
         else:
-            # Micro-rhythm: every 4th bar lighten beat 2 (tango air) without losing grid
-            skip_idx = 1 if bar_index % 4 == 3 else -1
             for i in range(4):
-                if i == skip_idx:
-                    continue
-                # Strong beats: block / octave; weak beats: broken single
                 if use_block and i % 2 == 0:
                     stack = [bass, fifth] if i == 0 else [root, third, fifth]
                     hit_block(i * e, e * 0.55, stack, vel)
@@ -269,9 +264,6 @@ def left_hand_for_bar(
             hit(0.0, dur, p0, 92)
         if pause == "high" and bar_index % 2 == 1:
             hit(q, q * 0.25, p1, 70)
-        elif bar_index % 8 == 7:
-            # Occasional hole on beat 2 — classic tango silence
-            pass
         elif use_block and bar_index % 2 == 0:
             second = [p1, third] if p1 != third else [p1, fifth]
             hit_block(q, dur * 0.85, second, 84)

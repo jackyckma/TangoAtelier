@@ -535,6 +535,29 @@ def phrase_to_dict(p: Phrase) -> dict[str, Any]:
     return d
 
 
+def phrase_context_for_bar(
+    phrases: list[Phrase],
+    *,
+    section_start_bar: int,
+    local_bar: int,
+) -> dict[str, Any] | None:
+    """Section-local bar index → M2 phrase metadata for LH phrase gating."""
+    abs_bar = section_start_bar + local_bar
+    for p in phrases:
+        start = p.bar_from - 1
+        end = start + p.bars
+        if start <= abs_bar < end:
+            offset = abs_bar - start
+            return {
+                "phrase_index": p.index,
+                "phrase_local_bar": offset,
+                "phrase_bars": p.bars,
+                "phrase_role": p.role,
+                "phrase_end": offset == p.bars - 1,
+            }
+    return None
+
+
 def build_section_harmony(
     rng: random.Random,
     *,

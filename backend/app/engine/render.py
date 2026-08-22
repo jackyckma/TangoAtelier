@@ -13,6 +13,7 @@ from app.engine.catalog import DANCE_TYPES
 from app.engine.groove import (
     apply_accent_curve,
     apply_microtiming,
+    apply_phrase_gated_marcacion,
     apply_staccato_bias,
     humanize_with_pulse,
     pattern_for_groove_bar,
@@ -602,6 +603,21 @@ def render_skeleton(
             )
             if lh:
                 prev_bass = min(n.pitch for n in lh)
+            lh = apply_phrase_gated_marcacion(
+                lh,
+                bar_start=bar_start,
+                bar_len=bar_len,
+                beats_per_bar=beats_per_bar,
+                pattern=pattern,
+                phrase_local_bar=ch.get("phrase_local_bar"),
+                phrase_bars=ch.get("phrase_bars"),
+                phrase_role=ch.get("phrase_role"),
+                phrase_end=bool(ch.get("phrase_end")),
+                drama_tag=drama_tag,
+                energy=energy,
+                pulse=pulse,
+                section=section,
+            )
             lh_scale = vols.get("piano_lh", 0.8)
             # E3: tension lifts accompaniment weight into the peak
             lh_scale *= 0.88 + 0.28 * tension
