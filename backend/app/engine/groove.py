@@ -279,3 +279,179 @@ def thin_lh_for_drama(
         lh = lh[:keep_n]
         scale = 0.7 * (1.0 - 0.25 * silence)
     return lh, scale
+
+
+_MARCATO_PATTERNS = frozenset(
+    {
+        "marcato_en_cuatro",
+        "marcato_en_dos",
+        "pesante",
+        "lyrical_phrasing",
+        "milonga_habanera",
+        "milonga_332",
+    }
+)
+
+
+def _phrase_drive_level(drama_tag: str, energy: float) -> float:
+    tag = drama_tag or "normal"
+    level = float(energy)
+    if tag in ("climax", "dense"):
+        return min(1.0, level + 0.28)
+    if tag in ("rise", "anticipate"):
+        return min(1.0, level + 0.14)
+    if tag in ("pause", "release"):
+        return max(0.0, level - 0.22)
+    return level
+
+
+def phrase_gate_strength(
+    *,
+    phrase_end: bool,
+    phrase_local_bar: int,
+    phrase_bars: int,
+    phrase_role: str,
+    drama_tag: str,
+    energy: float,
+    pulse: PulseParams,
+) -> float:
+    """0 = no gating; 1 = keep beat-1 only on phrase-end bars."""
+    if not phrase_end:
+        return 0.0
+    drive = _phrase_drive_level(drama_tag, energy)
+    if drive >= 0.78:
+        return max(0.0, 0.08 * pulse.silence_bias)
+    if drive >= 0.62:
+        return 0.28 + 0.35 * pulse.silence_bias
+    return min(1.0, 0.48 + pulse.silence_bias * 1.6)
+
+
+def _lh_subdiv_index(
+    rel: float,
+    bar_len: float,
+    pattern: str,
+    beats_per_bar: int,
+) -> int:
+    if pattern == "marcato_en_cuatro" and beats_per_bar == 2:
+        unit = bar_len / 4
+        return min(3, max(0, int(rel / max(unit, 1e-9) + 1e-6)))
+    if pattern == "milonga_habanera" and beats_per_bar == 2:
+        q = bar_len / 2
+        e8 = q / 2
+        d8 = q * 0.75
+        if rel < q * 0.2:
+            return 0
+        if rel < d8 + e8 * 0.5:
+            return 1
+        if rel < q + e8 * 0.5:
+            return 2
+        return 3
+    if pattern == "milonga_332" and beats_per_bar == 2:
+        s = bar_len / 8
+        if rel < 2.5 * s:
+            return 0
+        if rel < 5.5 * s:
+            return 1
+        return 2
+    if pattern in ("marcato_en_dos", "pesante", "lyrical_phrasing") and beats_per_bar == 2:
+        return 0 if rel < bar_len * 0.35 else 1
+    if pattern == "marcato_en_cuatro" and beats_per_bar == 3:
+        return min(2, int(rel / max(bar_len / 3, 1e-9)))
+    return 0
+
+
+def _drop_lh_subdiv(
+    subdiv: int,
+    strength: float,
+    *,
+    phrase_bars: int,
+    phrase_role: str,
+    pattern: str,
+    beats_per_bar: int,
+) -> bool:
+    if strength <= 0.05:
+        return False
+    if pattern == "marcato_en_cuatro" and beats_per_bar == 2:
+        # Short answer bar: classic 4+1 (full bar then downbeat only).
+        if phrase_bars <= 2 and phrase_role == "answer" and strength >= 0.32:
+            return subdiv >= 1
+        if strength >= 0.72:
+            return subdiv >= 3
+        if strength >= 0.42:
+            return subdiv >= 2
+        return subdiv >= 3 and phrase_bars >= 4 and strength >= 0.22
+    if pattern in ("marcato_en_dos", "lyrical_phrasing") and beats_per_bar == 2:
+        return subdiv >= 1 and strength >= 0.28
+    if pattern == "pesante" and beats_per_bar == 2:
+        return subdiv >= 1 and strength >= 0.38
+    if pattern == "milonga_habanera" and beats_per_bar == 2:
+        if phrase_bars <= 2 and phrase_role == "answer" and strength >= 0.3:
+            return subdiv >= 1
+        if strength >= 0.55:
+            return subdiv >= 3
+        if strength >= 0.32:
+            return subdiv >= 2
+        return False
+    if pattern == "milonga_332" and beats_per_bar == 2:
+        if strength >= 0.45:
+            return subdiv >= 2
+        if strength >= 0.28:
+            return subdiv >= 1 and phrase_role == "answer"
+        return False
+    return False
+
+
+def apply_phrase_gated_marcacion(
+    notes: list[NoteEvent],
+    *,
+    bar_start: float,
+    bar_len: float,
+    beats_per_bar: int,
+    pattern: str,
+    phrase_local_bar: int | None,
+    phrase_bars: int | None,
+    phrase_role: str | None,
+    phrase_end: bool,
+    drama_tag: str,
+    energy: float,
+    pulse: PulseParams,
+    section: str,
+) -> list[NoteEvent]:
+    """Thin LH hits at phrase boundaries — marcación frasal (M10)."""
+    if pattern not in _MARCATO_PATTERNS or section in ("intro", "bridge"):
+        return notes
+    if phrase_local_bar is None or phrase_bars is None:
+        return notes
+
+    strength = phrase_gate_strength(
+        phrase_end=phrase_end,
+        phrase_local_bar=phrase_local_bar,
+        phrase_bars=phrase_bars,
+        phrase_role=phrase_role or "question",
+        drama_tag=drama_tag,
+        energy=energy,
+        pulse=pulse,
+    )
+    if strength <= 0.02:
+        return notes
+
+    kept: list[NoteEvent] = []
+    for n in notes:
+        if n.track not in ("piano_lh", "piano_lh_chord"):
+            kept.append(n)
+            continue
+        subdiv = _lh_subdiv_index(n.start - bar_start, bar_len, pattern, beats_per_bar)
+        if phrase_local_bar == 0 and subdiv == 0:
+            kept.append(n)
+            continue
+        if _drop_lh_subdiv(
+            subdiv,
+            strength,
+            phrase_bars=phrase_bars,
+            phrase_role=phrase_role or "question",
+            pattern=pattern,
+            beats_per_bar=beats_per_bar,
+        ):
+            continue
+        kept.append(n)
+    return kept

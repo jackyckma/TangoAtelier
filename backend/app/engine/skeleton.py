@@ -14,6 +14,7 @@ from app.engine.catalog import (
 )
 from app.engine.form import (
     build_section_harmony,
+    phrase_context_for_bar,
     phrase_to_dict,
     pick_progression,
     plan_section_harmony,
@@ -1882,6 +1883,11 @@ def build_skeleton(
                 "energy": energy,
                 "groove": groove,
             }
+            phrase_ctx = phrase_context_for_bar(
+                phrase_objs, section_start_bar=section_start_bar, local_bar=j
+            )
+            if phrase_ctx:
+                entry.update(phrase_ctx)
             role = cadence_roles.get(j)
             if role:
                 entry["cadence"] = role
