@@ -1,0 +1,105 @@
+{
+  "tags": {
+    "lyrical": {
+      "label": { "en": "Lyrical", "zh": "抒情" },
+      "category": "mood",
+      "weights": {
+        "melody_density": "medium",
+        "melody_variation": "medium",
+        "progression_character": "lyrical",
+        "generation_options": { "yeites_intensity": "low" }
+      }
+    },
+    "dark": {
+      "label": { "en": "Dark", "zh": "暗" },
+      "category": "mood",
+      "weights": {
+        "mode": "minor",
+        "progression_character": "chromatic",
+        "generation_options": { "surface_reharm": "low" }
+      }
+    },
+    "playful": {
+      "label": { "en": "Playful", "zh": "輕快" },
+      "category": "mood",
+      "weights": {
+        "dance_type": "milonga",
+        "melody_variation": "high"
+      }
+    },
+    "dramatic": {
+      "label": { "en": "Dramatic", "zh": "戲劇" },
+      "category": "mood",
+      "weights": {
+        "melody_variation": "high",
+        "progression_character": "chromatic",
+        "generation_options": {
+          "yeites_intensity": "medium",
+          "b_groove_contrast_run": true
+        }
+      }
+    },
+    "sparse": {
+      "label": { "en": "Sparse", "zh": "留白" },
+      "category": "texture",
+      "weights": {
+        "melody_density": "low",
+        "generation_options": { "expectancy_gate": true }
+      }
+    },
+    "driving": {
+      "label": { "en": "Driving", "zh": "推進" },
+      "category": "energy",
+      "weights": {
+        "melody_density": "medium",
+        "melody_variation": "high",
+        "progression_character": "descending"
+      }
+    },
+    "calm": {
+      "label": { "en": "Calm", "zh": "平穩" },
+      "category": "energy",
+      "weights": {
+        "melody_density": "low",
+        "melody_variation": "low",
+        "generation_options": {
+          "expectancy_gate": true,
+          "phrase_transform_aggressive": false
+        }
+      }
+    },
+    "tango": {
+      "label": { "en": "Tango", "zh": "Tango" },
+      "category": "dance",
+      "weights": { "dance_type": "tango" }
+    },
+    "milonga": {
+      "label": { "en": "Milonga", "zh": "Milonga" },
+      "category": "dance",
+      "weights": { "dance_type": "milonga" }
+    },
+    "vals": {
+      "label": { "en": "Vals", "zh": "Vals" },
+      "category": "dance",
+      "weights": { "dance_type": "vals" }
+    },
+    "di_sarli_like": {
+      "label": { "en": "Di Sarli-like", "zh": "Di Sarli 感" },
+      "category": "reference",
+      "weights": {
+        "style_id": "di_sarli",
+        "ensemble_id": "piano_violin",
+        "generation_options": { "yeites_intensity": "low" }
+      }
+    },
+    "d_arienzo_like": {
+      "label": { "en": "D'Arienzo-like", "zh": "D'Arienzo 感" },
+      "category": "reference",
+      "weights": {
+        "style_id": "d_arienzo",
+        "ensemble_id": "small_combo",
+        "melody_density": "medium"
+      }
+    }
+  }
+}

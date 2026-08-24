@@ -15,8 +15,8 @@ export function Layout() {
           <NavLink to="/" end>
             {t('nav.home')}
           </NavLink>
-          <NavLink to="/atelier">{t('nav.atelier')}</NavLink>
-          <NavLink to="/orchestras">{t('nav.orchestras')}</NavLink>
+          <NavLink to="/lab">{t('nav.lab')}</NavLink>
+          <NavLink to="/orchestras">{t('nav.reference')}</NavLink>
           <div className="lang-toggle" role="group" aria-label="language">
             <button
               type="button"

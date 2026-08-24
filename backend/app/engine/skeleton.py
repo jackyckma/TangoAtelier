@@ -3,6 +3,7 @@ from __future__ import annotations
 import random
 from typing import Any, Literal
 
+from app.engine.generation_options import normalize_generation_options
 from app.engine.catalog import (
     DANCE_TYPES,
     FORMS,
@@ -519,7 +520,12 @@ def _lerp_between_anchors(total: int, targets: list[tuple[int, float]]) -> dict[
     return energy
 
 
-def _roll_section_groove(rng: random.Random, dance_type: str) -> dict[str, dict[str, Any]]:
+def _roll_section_groove(
+    rng: random.Random,
+    dance_type: str,
+    *,
+    b_groove_contrast_run: bool = True,
+) -> dict[str, dict[str, Any]]:
     """M10 / E12: form-level groove roles + LH fullness (no microtiming baked in).
 
     Roles drive continuous contrast runs at render time; colour_slots remain only
@@ -532,7 +538,7 @@ def _roll_section_groove(rng: random.Random, dance_type: str) -> dict[str, dict[
     elif dance_type == "milonga":
         contrast_run = 4
     else:
-        contrast_run = 8 if rng.random() < 0.4 else 4
+        contrast_run = 8 if b_groove_contrast_run and rng.random() < 0.4 else 4
 
     def _intent(
         role: str,
@@ -552,6 +558,8 @@ def _roll_section_groove(rng: random.Random, dance_type: str) -> dict[str, dict[
             out["contrast_run_bars"] = run
         return out
 
+    cadence_intent = _intent("home_cadence", "cadence", force_primary=True)
+
     if dance_type == "vals":
         return {
             "intro": _intent("home", "sparse", force_primary=True),
@@ -559,7 +567,8 @@ def _roll_section_groove(rng: random.Random, dance_type: str) -> dict[str, dict[
             "B": _intent("contrast_drive", "busy", run=contrast_run),
             "A_prime": _intent("home_elevated", "full", force_primary=True),
             "bridge": _intent("pivot", "sparse", force_primary=True),
-            "coda": _intent("home_cadence", "cadence", force_primary=True),
+            "coda": cadence_intent,
+            "cadence": cadence_intent,
             "variacion": _intent("contrast_drive", "busy", run=contrast_run),
         }
     if dance_type == "milonga":
@@ -569,7 +578,8 @@ def _roll_section_groove(rng: random.Random, dance_type: str) -> dict[str, dict[
             "B": _intent("contrast_drive", "busy", run=contrast_run),
             "A_prime": _intent("home_elevated", "full", colour_slots=(6,)),
             "bridge": _intent("pivot", "sparse", force_primary=True),
-            "coda": _intent("home_cadence", "cadence", force_primary=True),
+            "coda": cadence_intent,
+            "cadence": cadence_intent,
             "variacion": _intent("contrast_drive", "busy", run=contrast_run),
         }
     # tango — B = continuous drive block; A/A′ stay marcato with rare phrase-end spice
@@ -579,7 +589,8 @@ def _roll_section_groove(rng: random.Random, dance_type: str) -> dict[str, dict[
         "B": _intent("contrast_drive", "busy", run=contrast_run),
         "A_prime": _intent("home_elevated", "full", colour_slots=(6,)),
         "bridge": _intent("pivot", "sparse", force_primary=True),
-        "coda": _intent("home_cadence", "cadence", force_primary=True),
+        "coda": cadence_intent,
+        "cadence": cadence_intent,
         "variacion": _intent("contrast_drive", "busy", run=contrast_run),
     }
 
@@ -1662,13 +1673,30 @@ def _melody_for_section(
             for k in range(plen):
                 interweave_bars.add(abs_start + k)
         else:
-            transform_q, seq = phrase_transform(
-                section_name=section_name,
-                phrase_i=phrase_i,
-                drama_tag=tag,
-                energy=energy0,
-                seq_unit=seq_unit,
-            )
+            if theme_state.get("generation_options", {}).get("phrase_transform_aggressive"):
+                if section_name == "B":
+                    if phrase_i % 2 == 1:
+                        transform_q, seq = "invert", 0
+                    else:
+                        transform_q, seq = "sequence", seq_unit * (1 + phrase_i // 2)
+                elif section_name == "A_prime" and phrase_i >= 1:
+                    transform_q, seq = "sequence", seq_unit
+                else:
+                    transform_q, seq = phrase_transform(
+                        section_name=section_name,
+                        phrase_i=phrase_i,
+                        drama_tag=tag,
+                        energy=energy0,
+                        seq_unit=seq_unit,
+                    )
+            else:
+                transform_q, seq = phrase_transform(
+                    section_name=section_name,
+                    phrase_i=phrase_i,
+                    drama_tag=tag,
+                    energy=energy0,
+                    seq_unit=seq_unit,
+                )
             if section_name == "A_prime":
                 # Recap: lift register more often so A′ reads as the same tune, brighter
                 if reg == 0 and tag in ("climax", "rise", "dense"):
@@ -1730,9 +1758,11 @@ def build_skeleton(
     melody_density: Level = "medium",
     melody_variation: Level = "medium",
     seed: int | None = None,
+    generation_options: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     seed = int(seed if seed is not None else random.randint(1, 2_147_483_647))
     rng = random.Random(seed)
+    gen_opts = normalize_generation_options(generation_options)
 
     if melody_density not in ("low", "medium", "high"):
         raise ValueError("melody_density must be low|medium|high")
@@ -1744,7 +1774,10 @@ def build_skeleton(
     dance = DANCE_TYPES[dance_type]
     beats_per_bar = dance["time_signature"][0]
 
-    if key in (None, "", "random"):
+    if key in ("major", "minor"):
+        pool = KEYS_MAJOR if key == "major" else KEYS_MINOR
+        key_name, mode, tonic = _parse_key(rng.choice(pool))
+    elif key in (None, "", "random"):
         prog_mode = _progression_mode_for_id(str(progression_id or ""))
         if prog_mode == "major":
             pool = KEYS_MAJOR
@@ -1794,6 +1827,8 @@ def build_skeleton(
     piece_harmony: dict[str, Any] = {}
     theme_state: dict[str, Any] = {}
     cells = _roll_motivic_cells(rng, dance_type, tonic, mode)
+    if gen_opts.get("motivic_cells") == "single":
+        cells = [cells[0]]
     rhythm_cells, _pitch_cells = sample_piece_cells(rng, dance_type)
     theme_state["motivic_cells"] = cells
     theme_state["motif"] = cells[0]
@@ -1801,6 +1836,7 @@ def build_skeleton(
     theme_state["home_tonic"] = tonic
     theme_state["home_mode"] = mode
     theme_state["home_key"] = key_name
+    theme_state["generation_options"] = gen_opts
     # Di Sarli-ish pause bias when variation high (style still render-side; skeleton rests)
     theme_state["pause_frequency"] = (
         "high" if melody_variation == "high" and rng.random() < 0.35 else "medium"
@@ -1810,7 +1846,11 @@ def build_skeleton(
         rng, sections, climax_bar=climax0, n_cells=len(cells)
     )
     theme_state["setup_payoff"] = setup_payoff
-    section_groove = _roll_section_groove(rng, dance_type)
+    section_groove = _roll_section_groove(
+        rng,
+        dance_type,
+        b_groove_contrast_run=bool(gen_opts.get("b_groove_contrast_run", True)),
+    )
     # JSON-friendly (tuples → lists)
     section_groove = {
         name: {
@@ -1849,7 +1889,10 @@ def build_skeleton(
         )
 
         elaboration: dict[str, Any] | None = None
-        if section_name in ("A_prime", "variacion"):
+        if (
+            section_name in ("A_prime", "variacion")
+            and gen_opts.get("a_prime_elaboration", True)
+        ):
             elaboration = _roll_a_prime_elaboration(rng, melody_variation)
             sec["elaboration"] = elaboration
 
@@ -1977,4 +2020,5 @@ def build_skeleton(
             round(float((drama.get("energy") or {}).get(i, 0.5)), 3)
             for i in range(total_bars)
         ],
+        "generation_options": gen_opts,
     }

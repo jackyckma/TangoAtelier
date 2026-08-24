@@ -56,9 +56,23 @@ export type MelodyLevel = 'low' | 'medium' | 'high'
 
 export type RenderInstruments = {
   piano?: boolean
+  guitar?: boolean
   bandoneon?: boolean
   strings?: boolean
 }
+
+export type GenerationOptions = {
+  expectancy_gate?: boolean
+  surface_reharm?: 'off' | 'low' | 'on'
+  motivic_cells?: 'single' | 'multi'
+  phrase_transform_aggressive?: boolean
+  b_groove_contrast_run?: boolean
+  yeites_intensity?: 'low' | 'medium' | 'high'
+  a_prime_elaboration?: boolean
+  harmonic_grammar?: string
+}
+
+export type LabLayer = 'theme' | 'groove' | 'ensemble'
 
 export type GeneratedPiece = {
   orchestra_id: string
@@ -153,6 +167,62 @@ export type Skeleton = {
     phrase_role?: string
     phrase_end?: boolean
   }[]
+  generation_options?: GenerationOptions
+  archetype_id?: string
+  progression_character?: string
+  segment_bars?: number
+  intent_translation?: {
+    tag_id: string
+    label_en: string
+    label_zh: string
+    applied?: Record<string, unknown>
+  }[]
+  suggested_style_id?: string
+  suggested_ensemble_id?: string
+}
+
+export type LabSkeletonRequest = {
+  dance_type?: DanceType
+  mode?: string
+  progression_character?: string
+  archetype_id?: string
+  melody_density?: MelodyLevel
+  melody_variation?: MelodyLevel
+  intent_tags?: string[]
+  generation_options?: GenerationOptions
+  seed?: number
+}
+
+export type LabOptions = {
+  dance_types: { id: DanceType }[]
+  modes: { id: string; label: Localized }[]
+  progression_characters: { id: string; label: Localized }[]
+  archetypes: {
+    id: string
+    form_id: string
+    bars: number
+    label: Localized
+  }[]
+  intent_tags: {
+    id: string
+    label_en: string
+    label_zh: string
+    category: string
+  }[]
+  ensemble_presets: {
+    id: string
+    label: Localized
+    instruments: RenderInstruments
+    default_style_id?: string
+  }[]
+  generation_options_defaults: GenerationOptions
+  style_references: {
+    id: string
+    personality_type: string
+    personality_emoji?: string
+    name?: Localized
+  }[]
+  segment_bars_default: number
 }
 
 export type SkeletonRequest = {

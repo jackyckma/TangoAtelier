@@ -55,6 +55,14 @@ export function OrchestraDetailPage() {
     )
   }
 
+  const referenceTagById: Record<string, string> = {
+    d_arienzo: 'd_arienzo_like',
+    di_sarli: 'di_sarli_like',
+  }
+  const labHref = referenceTagById[data.id]
+    ? `/lab?style=${data.id}&tags=${referenceTagById[data.id]}`
+    : `/lab?style=${data.id}`
+
   return (
     <div className="page">
       <Link className="back-link" to="/orchestras">
@@ -75,8 +83,8 @@ export function OrchestraDetailPage() {
       <StyleDefaults orchestra={data} />
 
       <p className="generator-actions">
-        <Link className="btn" to={`/atelier?style=${data.id}`}>
-          {t('detail.openAtelier')}
+        <Link className="btn" to={labHref}>
+          {t('detail.openLab')}
         </Link>
       </p>
 
