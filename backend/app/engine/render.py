@@ -3,6 +3,7 @@ from __future__ import annotations
 import random
 from typing import Any
 
+from app.engine.generation_options import normalize_generation_options, yeites_multiplier
 from app.engine.export_formats import (
     draft_to_score,
     notes_payload,
@@ -202,6 +203,7 @@ def _default_instruments(profile: dict) -> dict[str, bool]:
     defaults = set(profile.get("instrumentation_defaults") or ["piano"])
     return {
         "piano": True,
+        "guitar": "guitar" in defaults and profile.get("id") != "simple",
         "bandoneon": "bandoneon" in defaults and profile.get("id") != "simple",
         "strings": "strings" in defaults and profile.get("id") != "simple",
     }
@@ -216,14 +218,24 @@ def _humanize(n: NoteEvent, rng: random.Random, pulse) -> None:
     humanize_with_pulse(n, rng, pulse)
 
 
-def _surface_reharm_symbol(ch: dict, mode: str, tension: float) -> str | None:
+def _surface_reharm_symbol(
+    ch: dict,
+    mode: str,
+    tension: float,
+    *,
+    level: str = "off",
+) -> str | None:
     """E5: render-only colour — only when tension clearly asks for it."""
+    if level == "off":
+        return None
     sym = str(ch.get("symbol") or "")
+    threshold = 0.72 if level == "on" else 0.78
     if mode == "minor" and sym in ("V", "V7"):
         if (
-            tension >= 0.72
+            tension >= threshold
             or (
-                tension >= 0.62
+                level == "on"
+                and tension >= 0.62
                 and (
                     ch.get("cadence") in ("half", "approach")
                     or str(ch.get("drama") or "") in ("climax", "dense")
@@ -467,6 +479,35 @@ def _strings_section(
     return notes
 
 
+def _guitar_comp(
+    skeleton: dict,
+    *,
+    spb: float,
+) -> list[NoteEvent]:
+    """Rhythmic guitar accompaniment when piano carries the theme."""
+    notes: list[NoteEvent] = []
+    beats_per_bar = int(skeleton["beats_per_bar"])
+    bar_len = beats_per_bar * spb
+    for ch in skeleton["chords"]:
+        bar = int(ch["bar"])
+        ch_tonic, ch_mode = _chord_tonality(ch, skeleton)
+        pitches = chord_pitches(ch_tonic, ch_mode, str(ch["symbol"]))
+        if not pitches:
+            continue
+        root = pitches[0]
+        fifth = pitches[2] if len(pitches) > 2 else root + 7
+        bar_start = bar * bar_len
+        offbeat = bar_start + (0.5 if beats_per_bar == 2 else 1.0) * spb
+        dur = spb * 0.32
+        for p in (max(40, root - 12), max(40, fifth - 12)):
+            notes.append(NoteEvent(p, offbeat, dur, 56, "guitar"))
+        if bar % 2 == 0:
+            notes.append(
+                NoteEvent(max(36, root - 24), bar_start, spb * 0.38, 50, "guitar")
+            )
+    return notes
+
+
 def render_skeleton(
     skeleton: dict[str, Any],
     profile: dict,
@@ -497,6 +538,8 @@ def render_skeleton(
     if dance_type == "tango" and not rhythm_secondary and not rhythm_extras and profile.get("id") != "simple":
         rhythm_extras = ["sincopa"] if rhythm_primary.startswith("marcato") else ["marcato_en_dos"]
     articulation = _articulation_for_dance(profile, dance_type)
+    gen_opts = normalize_generation_options(skeleton.get("generation_options"))
+    surface_level = str(gen_opts.get("surface_reharm", "off"))
     tonic = int(skeleton["tonic"])
     mode = skeleton["mode"]
     mix = _mix_for(profile)
@@ -513,12 +556,17 @@ def render_skeleton(
         decoration *= 0.4
     elif dance_type == "vals":
         decoration *= 0.35
+    decoration *= yeites_multiplier(str(gen_opts.get("yeites_intensity", "medium")))
 
     enabled = _default_instruments(profile)
     if instruments:
-        for k in ("piano", "bandoneon", "strings"):
+        for k in ("piano", "guitar", "bandoneon", "strings"):
             if k in instruments:
                 enabled[k] = bool(instruments[k])
+
+    needs_piano_engine = enabled.get("piano", True) or (
+        enabled.get("guitar") and not enabled.get("piano")
+    )
 
     for layer, floor in (("bandoneon", 0.5), ("violin", 0.4), ("cello", 0.35)):
         if layer == "bandoneon":
@@ -551,7 +599,7 @@ def render_skeleton(
         (profile.get("harmonic_tendencies") or {}).get("voicing_style") or "bright_staccato"
     )
 
-    if enabled.get("piano", True):
+    if needs_piano_engine:
         elaborations: dict[int, dict] = {}
         for ch in skeleton["chords"]:
             el = ch.get("elaboration")
@@ -569,7 +617,9 @@ def render_skeleton(
             tension = float(tension_curve[bar]) if bar < len(tension_curve) else energy
             elab = elaborations.get(bar) or {}
             ch_tonic, ch_mode = _chord_tonality(ch, skeleton)
-            surface = _surface_reharm_symbol(ch, ch_mode, tension)
+            surface = _surface_reharm_symbol(
+                ch, ch_mode, tension, level=surface_level
+            )
             pitches = chord_pitches(ch_tonic, ch_mode, surface or ch["symbol"])
             bar_start = bar * bar_len
             # E12: section groove intent — same base family, different depth by form
@@ -736,9 +786,33 @@ def render_skeleton(
             n.velocity = _apply_vel(n.velocity, base * theme_scale)
             notes.append(n)
 
+    if enabled.get("guitar") and enabled.get("piano"):
+        for n in _guitar_comp(skeleton, spb=spb):
+            n.velocity = _apply_vel(n.velocity, 0.72)
+            notes.append(n)
+
+    if enabled.get("guitar") and not enabled.get("piano"):
+        remapped: list[NoteEvent] = []
+        for n in notes:
+            track = n.track
+            if track == "piano_rh":
+                track = "guitar_lead"
+            elif track.startswith("piano"):
+                track = "guitar"
+            remapped.append(
+                NoteEvent(n.pitch, n.start, n.duration, n.velocity, track)
+            )
+        notes = remapped
+
     notes.sort(key=lambda n: (n.start, n.track, n.pitch))
     for n in notes:
-        if n.track in ("piano_lh", "piano_lh_chord", "piano_rh"):
+        if n.track in (
+            "piano_lh",
+            "piano_lh_chord",
+            "piano_rh",
+            "guitar",
+            "guitar_lead",
+        ):
             _humanize(n, rng, pulse)
     notes.sort(key=lambda n: (n.start, n.track, n.pitch))
     rhythm_label = rhythm_primary

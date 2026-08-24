@@ -55,6 +55,7 @@ export function OrchestrasPage() {
   return (
     <div className="page">
       <h1>{t('orchestras.title')}</h1>
+      <p className="prose params-lead">{t('orchestras.subtitle')}</p>
       <div className="tabs" role="tablist">
         <button
           type="button"

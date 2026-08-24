@@ -36,7 +36,7 @@ CADENCE_ROLE: dict[str, str] = {
 
 # Sections that use phrase-driven fill (not bridge pedal)
 _PHRASE_SECTIONS = frozenset(
-    {"A", "B", "A_prime", "A2", "variacion", "estribillo", "intro", "coda"}
+    {"A", "B", "A_prime", "A2", "variacion", "estribillo", "intro", "coda", "cadence"}
 )
 
 
@@ -222,6 +222,8 @@ def plan_phrases(
     elif section_name == "bridge":
         cadences = ["half"] * n
     elif section_name == "coda":
+        cadences = (["half"] * (n - 1) + ["authentic"]) if n > 1 else ["authentic"]
+    elif section_name == "cadence":
         cadences = (["half"] * (n - 1) + ["authentic"]) if n > 1 else ["authentic"]
     else:
         cadences = list(CADENCE_PLANS.get(n) or _extend_plan(n))

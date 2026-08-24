@@ -70,6 +70,14 @@ FORMS = {
             ("coda", 4),
         ],
     },
+    "segment_song": {
+        "id": "segment_song",
+        "sections": [
+            ("intro", 4),
+            ("A", 16),
+            ("cadence", 4),
+        ],
+    },
     "aaba": {
         "id": "aaba",
         "sections": [

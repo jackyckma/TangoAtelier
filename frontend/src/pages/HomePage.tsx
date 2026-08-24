@@ -11,11 +11,11 @@ export function HomePage() {
         <h1>{t('home.headline')}</h1>
         <p>{t('home.lead')}</p>
         <div className="hero-actions">
-          <Link className="btn" to="/atelier">
-            {t('home.ctaAtelier')}
+          <Link className="btn" to="/lab">
+            {t('home.ctaLab')}
           </Link>
           <Link className="btn btn-ghost" to="/orchestras">
-            {t('home.cta')}
+            {t('home.ctaReference')}
           </Link>
           <span className="hero-note">{t('home.note')}</span>
         </div>

@@ -8,6 +8,7 @@ let sampler: Tone.Sampler | null = null
 let bandoneon: Tone.PolySynth | null = null
 let violin: Tone.PolySynth | null = null
 let cello: Tone.PolySynth | null = null
+let guitar: Tone.PolySynth | null = null
 let loadPromise: Promise<void> | null = null
 
 export type PlaybackHandlers = {
@@ -20,7 +21,7 @@ export type PlaybackHandlers = {
 }
 
 async function ensureInstruments(): Promise<void> {
-  if (sampler?.loaded && bandoneon && violin && cello) return
+  if (sampler?.loaded && bandoneon && violin && cello && guitar) return
   if (!loadPromise) {
     loadPromise = (async () => {
       const s = new Tone.Sampler({
@@ -84,11 +85,19 @@ async function ensureInstruments(): Promise<void> {
       vc.volume.value = -15
       vc.maxPolyphony = 6
 
+      const gt = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'triangle' },
+        envelope: { attack: 0.06, decay: 0.25, sustain: 0.55, release: 0.45 },
+      }).toDestination()
+      gt.volume.value = -10
+      gt.maxPolyphony = 8
+
       await Tone.loaded()
       sampler = s
       bandoneon = bn
       violin = vn
       cello = vc
+      guitar = gt
     })()
   }
   await loadPromise
@@ -107,6 +116,7 @@ export function stopPlayback() {
   bandoneon?.releaseAll()
   violin?.releaseAll()
   cello?.releaseAll()
+  guitar?.releaseAll()
 }
 
 function trigger(
@@ -126,6 +136,15 @@ function trigger(
   }
   if (track === 'cello' && cello) {
     cello.triggerAttackRelease(midiNote, dur, time, vel * 0.42)
+    return
+  }
+  if ((track === 'guitar' || track === 'guitar_lead') && guitar) {
+    guitar.triggerAttackRelease(
+      midiNote,
+      dur,
+      time,
+      vel * (track === 'guitar_lead' ? 0.62 : 0.48),
+    )
     return
   }
   sampler?.triggerAttackRelease(midiNote, dur, time, vel)
