@@ -128,12 +128,14 @@ intro(4) + A(16) + cadence(4) = 24
 
 ### Progression characters
 
-| id | minor template | major template |
-|----|----------------|----------------|
-| `diatonic` | i-iv-V7-i | I-IV-V-I |
-| `descending` | descending_fifths | descending_fifths |
-| `chromatic` | chromatic_bass | I-vi-IV-V |
-| `lyrical` | i-VI-III-V7 | I-vi-IV-V |
+Each character rolls **one** catalog template from a pool (seeded), not a 1:1 map.
+
+| id | minor templates | major templates |
+|----|-----------------|-----------------|
+| `diatonic` | i-iv-V7-i, i-iv-V7b9-i, borrowed_chords | I-IV-V-I, I-vi-IV-V |
+| `descending` | descending_fifths, secondary_dominant | descending_fifths, I-vi-IV-V |
+| `chromatic` | chromatic_bass, neapolitan_cadence, secondary_dominant, tritone_substitution_flavour | descending_fifths, I-vi-IV-V |
+| `lyrical` | i-VI-III-V7, picardy_close, borrowed_chords | I-vi-IV-V, I-IV-V-I |
 
 ### Ensemble presets
 

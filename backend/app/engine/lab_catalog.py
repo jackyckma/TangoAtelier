@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 from typing import Any
 
 from app.engine.catalog import DANCE_TYPES, FORMS
@@ -23,11 +24,29 @@ ARCHETYPES: dict[str, dict[str, Any]] = {
     },
 }
 
-PROGRESSION_CHARACTERS: dict[str, dict[str, str]] = {
-    "diatonic": {"minor": "i-iv-V7-i", "major": "I-IV-V-I"},
-    "descending": {"minor": "descending_fifths", "major": "descending_fifths"},
-    "chromatic": {"minor": "chromatic_bass", "major": "I-vi-IV-V"},
-    "lyrical": {"minor": "i-VI-III-V7", "major": "I-vi-IV-V"},
+# Each character maps to ≥2 catalog templates per mode; Lab rolls one with the piece seed.
+PROGRESSION_CHARACTERS: dict[str, dict[str, list[str]]] = {
+    "diatonic": {
+        "minor": ["i-iv-V7-i", "i-iv-V7b9-i", "borrowed_chords"],
+        "major": ["I-IV-V-I", "I-vi-IV-V"],
+    },
+    "descending": {
+        "minor": ["descending_fifths", "secondary_dominant"],
+        "major": ["descending_fifths", "I-vi-IV-V"],
+    },
+    "chromatic": {
+        "minor": [
+            "chromatic_bass",
+            "neapolitan_cadence",
+            "secondary_dominant",
+            "tritone_substitution_flavour",
+        ],
+        "major": ["descending_fifths", "I-vi-IV-V"],
+    },
+    "lyrical": {
+        "minor": ["i-VI-III-V7", "picardy_close", "borrowed_chords"],
+        "major": ["I-vi-IV-V", "I-IV-V-I"],
+    },
 }
 
 PROGRESSION_CHARACTER_LABELS: dict[str, dict[str, str]] = {
@@ -85,13 +104,29 @@ ENSEMBLE_PRESETS: dict[str, dict[str, Any]] = {
 }
 
 
-def resolve_progression_id(character: str | None, mode: str) -> str | None:
+def resolve_progression_id(
+    character: str | None,
+    mode: str,
+    *,
+    rng: random.Random | None = None,
+) -> str | None:
+    """Pick one catalog progression_id for a character × mode.
+
+    When ``rng`` is given, sample among the character's templates.
+    Without ``rng``, return the first template (deterministic fallback).
+    ``character=random`` → ``None`` so ``build_skeleton`` draws from the full catalog.
+    """
     if not character or character in ("", "random"):
         return None
     mapping = PROGRESSION_CHARACTERS.get(character)
     if not mapping:
         return None
-    return mapping.get(mode) or mapping.get("minor")
+    pool = list(mapping.get(mode) or mapping.get("minor") or [])
+    if not pool:
+        return None
+    if rng is not None:
+        return str(rng.choice(pool))
+    return pool[0]
 
 
 def resolve_archetype_form_id(archetype_id: str | None) -> str | None:
@@ -110,7 +145,11 @@ def lab_options(style_references: list[dict[str, Any]] | None = None) -> dict[st
             {"id": "minor", "label": {"en": "Minor", "zh": "小調"}},
         ],
         "progression_characters": [
-            {"id": k, "label": PROGRESSION_CHARACTER_LABELS[k]}
+            {
+                "id": k,
+                "label": PROGRESSION_CHARACTER_LABELS[k],
+                "templates": PROGRESSION_CHARACTERS[k],
+            }
             for k in PROGRESSION_CHARACTERS
         ],
         "archetypes": list(ARCHETYPES.values()),

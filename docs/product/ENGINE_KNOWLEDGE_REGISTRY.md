@@ -44,7 +44,7 @@
 | M2_PHRASE_CADENCE | L1 | M2 | high | on | — | Phrases end on V or i/I |
 | M2_RELATIVE_MODULATION | L1 | tango convention | high | on | — | B section relative major/minor |
 | BRIDGE_V7_PEDAL | L1 | form.py | high | on | — | 4-bar bridge before B |
-| PROGRESSION_CHARACTER | L1 | rebrand | high | on | `progression_character` | 4 presets vs random template |
+| PROGRESSION_CHARACTER | L1 | rebrand | high | on | `progression_character` | Each character rolls ≥2 templates; same character ≠ same chords |
 | MODE_MAJOR_MINOR | L1 | rebrand | high | on | `mode` | Tonic random; mode matters |
 | E5_SURFACE_REHARM | L1 | E5 | experimental | off | `surface_reharm` | V7→V7b9 at high tension only |
 | M5_FUNCTIONAL_GRAMMAR | L1 | MUSICALITY | pending | off | `harmonic_grammar` | Not implemented — legacy templates |

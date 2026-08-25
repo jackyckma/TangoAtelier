@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 from typing import Any, Literal
 
 from app.engine.generation_options import normalize_generation_options
@@ -46,9 +47,14 @@ def build_lab_skeleton(
     melody_variation = tag_params.get("melody_variation") or melody_variation
 
     resolved_form = form_id or resolve_archetype_form_id(archetype_id) or "segment_song"
+    # Salt so progression roll stays reproducible but not identical to melody RNG path
+    piece_seed = int(seed if seed is not None else random.randint(1, 2_147_483_647))
+    prog_rng = random.Random(piece_seed ^ 0xA11CE)
+    mode_for_prog = "minor" if mode == "random" else mode
     resolved_prog = progression_id or resolve_progression_id(
         None if progression_character == "random" else progression_character,
-        "minor" if mode == "random" else mode,
+        mode_for_prog,
+        rng=prog_rng,
     )
 
     sk = build_skeleton(
@@ -58,7 +64,7 @@ def build_lab_skeleton(
         form_id=resolved_form,
         melody_density=melody_density,
         melody_variation=melody_variation,
-        seed=seed,
+        seed=piece_seed,
         generation_options=opts,
     )
     sk["generation_options"] = opts
