@@ -4,8 +4,8 @@
     "T-0007": {
       "by": "maker",
       "since": "2026-08-31T17:00:58Z",
-      "branch": null,
-      "pr": null
+      "branch": "cursor/t-0007-k1-knowledge-scaffold",
+      "pr": "https://github.com/jackyckma/TangoAtelier/pull/17"
     }
   }
 }

@@ -164,10 +164,11 @@
       ],
       "deps": [],
       "flag": null,
-      "status": "in_progress",
+      "status": "in_review",
       "retries": 0,
       "feedback": [
-        "2026-08-31: queued under approved epic E-03 (safe knowledge track)."
+        "2026-08-31: queued under approved epic E-03 (safe knowledge track).",
+        "2026-08-31: Maker IMPLEMENT complete — PR #17 on cursor/t-0007-k1-knowledge-scaffold; acceptance + agent-verify green."
       ]
     },
     {
