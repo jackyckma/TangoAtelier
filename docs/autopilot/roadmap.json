@@ -42,6 +42,22 @@
       ],
       "decisions": [],
       "notes": "Extend existing motif/theme_state in backend/app/engine/skeleton.py; keep legacy skeleton.motif export. No new user-facing UX until cells are stable (flag null). Founder direction: CURRENT_STATUS.md + SESSION_HANDOFF.md. Completed 2026-08-19 on main."
+    },
+    {
+      "id": "E-03",
+      "title": "Safe tango knowledge track (no MuseScore corpus risk)",
+      "goal": "Curate abstract tango music-theory knowledge (sentence/phrase shape, progression families, rhythm archetypes) from legally safe sources only, then optionally wire into Lab behind generation_options default-off. Product is likely forever free — zero appetite for MuseScore.com / ML-training / community-score risk.",
+      "status": "approved",
+      "phase": "knowledge",
+      "decomposes_into": [
+        "T-0007",
+        "T-0008",
+        "T-0009",
+        "T-0010",
+        "T-0011"
+      ],
+      "decisions": [],
+      "notes": "Policy: docs/research/KNOWLEDGE_SOURCE_POLICY.md. Roadmap table: docs/product/PROJECT_PLAN.md §3c (K1–K5). Forbidden: MuseScore.com bulk/Pro download as corpus; treating community uploads as PD; ML training on third-party scores; committing copyrighted MusicXML. Allowed: repo research, published musicology paraphrases, founder abstract notes, verified PD/CC0 metadata + abstract stats, test fixtures. Prefer extend ENGINE_KNOWLEDGE_REGISTRY + lab_catalog over parallel engines."
     }
   ]
 }

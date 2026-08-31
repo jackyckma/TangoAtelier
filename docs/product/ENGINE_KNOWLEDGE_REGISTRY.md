@@ -1,9 +1,11 @@
 # Engine Knowledge Registry
 
-**Last updated:** 2026-08-24  
+**Last updated:** 2026-08-31  
 **Purpose:** Catalog rule-engine knowledge extracted from founder listening feedback, M/E tasks, and research. Each row is addressable for Lab **experiment toggles** and A/B ear tests.
 
-**Related:** `COMPOSE_LAB_SPEC.md`, `MUSICALITY_OVERHAUL.md`, `PROJECT_PLAN.md` §0 filter table.
+**Related:** `COMPOSE_LAB_SPEC.md`, `MUSICALITY_OVERHAUL.md`, `PROJECT_PLAN.md` §0 filter table + §3c K-tasks, `docs/research/KNOWLEDGE_SOURCE_POLICY.md`.
+
+**Sources:** Only abstract rules and allowlisted PD/CC0-derived stats. Do **not** register knowledge mined from MuseScore.com or other forbidden sources (see policy).
 
 ---
 
@@ -48,6 +50,7 @@
 | MODE_MAJOR_MINOR | L1 | rebrand | high | on | `mode` | Tonic random; mode matters |
 | E5_SURFACE_REHARM | L1 | E5 | experimental | off | `surface_reharm` | V7→V7b9 at high tension only |
 | M5_FUNCTIONAL_GRAMMAR | L1 | MUSICALITY | pending | off | `harmonic_grammar` | Not implemented — legacy templates |
+| KNOWLEDGE_CATALOG_V1 | L1 | K-track §3c | experimental | off | `knowledge_catalog_v1` | Flag off = legacy pools; on = catalog-backed templates (K5) |
 
 ---
 
