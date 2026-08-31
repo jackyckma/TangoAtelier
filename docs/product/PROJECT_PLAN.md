@@ -1,10 +1,11 @@
 # TangoAtelier — Multi-Phase Project Plan
 
-**Last updated:** 2026-08-20  
-**Status:** Phase 0–1 已落地；引擎 **E1–E6、E9–E12** done；M-task **M1–M4、M10** done（人耳 pending）；下一刀 **M5**（見 `MUSICALITY_OVERHAUL.md`）  
+**Last updated:** 2026-08-31  
+**Status:** Phase 0–1 已落地；引擎 **E1–E6、E9–E12** done；M-task **M1–M4、M10** done（人耳 pending）；Lab rebrand done；**知識來源政策**已定（見 §3c／`KNOWLEDGE_SOURCE_POLICY.md`）。音樂性下一刀仍可為 **M5／M6**；**安全知識軌道（K-tasks）** 與之並行、由 autopilot **E-03** 推進。  
 
 **Canonical product spec:** [tango-learning-webapp-project-doc.md](./tango-learning-webapp-project-doc.md)  
-**引擎分層規格（研究）：** [../research/Tango_music_synthesis.md](../research/Tango_music_synthesis.md)
+**引擎分層規格（研究）：** [../research/Tango_music_synthesis.md](../research/Tango_music_synthesis.md)  
+**知識來源政策：** [../research/KNOWLEDGE_SOURCE_POLICY.md](../research/KNOWLEDGE_SOURCE_POLICY.md)
 
 本計劃把 product doc 的 Phase 規劃對齊目前決策（Zeabur、MusicXML 主產物、音色、save／share），並納入規則引擎「保真度／多樣性」吸收項——**全部先入 plan，實作分批，每完成一項就聽感驗收再推進**。
 
@@ -24,6 +25,7 @@
 | 視覺 | 簡約 + 淡 Latin／artistic，不 fancy |
 | Save／Share | **Phase 5**（已確認：不提前做最小版） |
 | 生成切法 | **Skeleton（跨樂團鎖定）→ Style render（風格分叉）**；對照教學優先於「一次七層生成」 |
+| 樂理知識／語料 | **最穩陣優先**：repo 研究＋公開樂理＋確認 PD／CC0 衍生統計；**禁止** MuseScore.com bulk／社群譜當 PD、禁止第三方譜 ML training（產品多半永不收費，無必要冒風險） |
 
 ### Skeleton vs Render 過濾器（吸收研究時必守）
 
@@ -246,13 +248,40 @@ E0（曲式 8／16）多數已由 M2 golden-age 模板覆蓋；剩餘宏觀多�
 
 ---
 
+## 3c. 安全知識軌道（Knowledge）— K-tasks
+
+來源政策：[KNOWLEDGE_SOURCE_POLICY.md](../research/KNOWLEDGE_SOURCE_POLICY.md)（founder 2026-08-31）。  
+Autopilot epic：**E-03**（`docs/autopilot/roadmap.json`）。  
+**規則：先沉澱抽象假設／統計，再以 `generation_options`（default off）接入引擎；一次 1 個 K-task；禁止為過 AC 去碰政策黑名單來源。**
+
+狀態：`pending`｜`in_progress`｜`done`｜`deferred`
+
+| ID | 任務 | 產物 | 狀態 | 機器驗收重點 |
+|----|------|------|------|--------------|
+| **K1** | 知識目錄骨架＋假設 schema | `docs/research/knowledge/` | pending → autopilot **T-0007** | 目錄與 schema 檔存在；JSON schema 可被腳本／python 讀到 |
+| **K2** | 只從 **既有 repo 研究** 策展假設（sentence／進行家族／節奏 archetype） | `docs/research/knowledge/hypotheses/*.json` | pending → **T-0008** | ≥N 條假設；每條有 `id`／`confidence`／`evidence`／`layer`；無外部下載 |
+| **K3** | PD／CC0 **allowlist ledger**（metadata only；本步不下載整譜） | `docs/research/knowledge/pd_allowlist.json` + scan script | pending → **T-0009** | script 可跑；ledger schema 固定；標明 tango-adjacent 極稀疏時仍合法為空清單 |
+| **K4** | 抽象特徵抽取器（和弦符號序列、樂句／小節長）；fixture 驅動；**不**把受保護旋律入庫 | `backend/app/knowledge/` + fixture + stats JSON shape | pending → **T-0010** | 對 fixture MusicXML exit 0；輸出無 pitch-melody dump |
+| **K5** | 高信心假設接入 Lab／registry（flag `knowledge_catalog_v1` default **off**） | `ENGINE_KNOWLEDGE_REGISTRY` + `lab_catalog`／options | pending → **T-0011** | flag off 行為不變；on 時可測到模板池差異；`agent-verify` |
+
+### 建議推進順序
+
+```
+K1 schema → K2 策展（零外部依賴）→ K3 PD ledger
+    → K4 fixture extractor → K5 flag 接入（人耳後再 default on）
+```
+
+**刻意不做（除非新開 decisions.json）：** MuseScore.com corpus、社群譜當 training／統計主來源、生成式 ML 吃譜。
+
+---
+
 ## 4. 建議實作順序（近期）
 
-1. **現在：** E1–E6、E9–E12 done；M1–M4、M10 done（人耳 pending）→ 下一刀 **M5（功能和聲）**  
-2. 穿插：同骨架 D'Arienzo vs Di Sarli 對照；多 seed 聽 M4 旋律是否可哼  
-
-3. Phase 4 Hint、Phase 5 Save／Share 仍依產品優先級  
-4. Phase 6 滑桿／E8 在保真度主線穩定後再加重
+1. **Autopilot：** E-03／K1–K5（安全知識軌道）— 與人耳／M-task **可並行**，因多數為 docs＋可關 flag  
+2. **音樂性主線（人耳後）：** M6 → 克制 M5（見 `MUSICALITY_OVERHAUL.md`）  
+3. 穿插：同骨架 D'Arienzo vs Di Sarli 對照；多 seed 聽 M4 旋律是否可哼  
+4. Phase 4 Hint、Phase 5 Save／Share 仍依產品優先級  
+5. Phase 6 滑桿／E8 在保真度主線穩定後再加重
 
 ---
 
@@ -267,7 +296,9 @@ E0（曲式 8／16）多數已由 M2 golden-age 模板覆蓋；剩餘宏觀多�
 | E9／E10 | done（錨點插值張力＋setup／payoff 排程）；聽感驗收敘事感 |
 | 旋律模子過同 | 已拉開 contour／節奏細胞／對比 cell 獨立 roll；多 seed 再聽 |
 | E11 vs 現有單一 motif | E11 已擴充 motif cells；勿平行重寫一套旋律引擎 |
+| 第三方樂譜／MuseScore 語料 | **已決策拒絕作主來源**；見 `KNOWLEDGE_SOURCE_POLICY.md` |
+| PDMX tango-adjacent 極少 | 預期；K-track 以文獻＋repo 假設為主，PD 統計為輔 |
 
 ---
 
-*Phase 與 E-task 範圍可在實作中拆細或合併；以可驗證聽感產出為準，不需死守字面。研究文件若與 Skeleton→Render 衝突，以 §0 過濾器為準。*
+*Phase 與 E/M/K-task 範圍可在實作中拆細或合併；以可驗證產出為準，不需死守字面。研究文件若與 Skeleton→Render 衝突，以 §0 過濾器為準。知識來源若衝突，以 `KNOWLEDGE_SOURCE_POLICY.md` 為準。*

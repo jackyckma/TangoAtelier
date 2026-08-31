@@ -146,6 +146,120 @@
       "feedback": [
         "2026-08-19: implemented on main (founder session). T-0004 acceptance allows empty B when form has no B section."
       ]
+    },
+    {
+      "id": "T-0007",
+      "lane": "docs",
+      "phase": "K1",
+      "title": "K1: scaffold docs/research/knowledge/ + hypothesis schema",
+      "description": "Create knowledge-track scaffolding per docs/research/KNOWLEDGE_SOURCE_POLICY.md and PROJECT_PLAN.md §3c K1. MUST create: (1) docs/research/knowledge/README.md — index linking the policy, listing allowed outputs (hypotheses, allowlists, abstract stats) and explicitly forbidding MuseScore.com ingestion; (2) docs/research/knowledge/hypothesis.schema.json — JSON Schema draft-07 for one hypothesis object with required keys: id (string pattern ^[A-Z0-9_]+$), title, layer (enum L0|L1|L2|L3|L4), kind (enum sentence|progression|rhythm|form|other), confidence (enum high|medium|experimental), evidence (array of strings, minItems 1), summary (string), engine_hint (string, may be empty); (3) docs/research/knowledge/hypotheses/.gitkeep so the directory exists. Do NOT download scores. Do NOT edit backend/frontend product code. Do NOT weaken KNOWLEDGE_SOURCE_POLICY.md.",
+      "acceptance": [
+        "./scripts/agent-verify.sh",
+        "test -f docs/research/KNOWLEDGE_SOURCE_POLICY.md",
+        "test -f docs/research/knowledge/README.md",
+        "test -f docs/research/knowledge/hypothesis.schema.json",
+        "test -d docs/research/knowledge/hypotheses",
+        "grep -q 'MuseScore.com' docs/research/knowledge/README.md",
+        "python3 -c \"import json; s=json.load(open('docs/research/knowledge/hypothesis.schema.json')); assert s.get('type')=='object'; req=set(s.get('required',[])); assert {'id','title','layer','kind','confidence','evidence','summary','engine_hint'}<=req; print('schema ok')\""
+      ],
+      "deps": [],
+      "flag": null,
+      "status": "ready",
+      "retries": 0,
+      "feedback": [
+        "2026-08-31: queued under approved epic E-03 (safe knowledge track)."
+      ]
+    },
+    {
+      "id": "T-0008",
+      "lane": "docs",
+      "phase": "K2",
+      "title": "K2: curate ≥12 hypotheses from existing repo research only",
+      "description": "Fill docs/research/knowledge/hypotheses/ with at least 12 JSON files (one hypothesis per file, filename = id + .json) curated ONLY from existing repo docs: docs/research/Tango_music_synthesis.md, milonga_story1.md, milonga_story2.md, docs/product/MUSICALITY_OVERHAUL.md, ENGINE_KNOWLEDGE_REGISTRY.md, COMPOSE_LAB_SPEC.md, PROJECT_PLAN.md. Cover kinds: sentence (≥3), progression (≥3), rhythm (≥3), form (≥2). Each file MUST validate against docs/research/knowledge/hypothesis.schema.json. evidence[] must cite repo paths/sections (e.g. 'docs/research/Tango_music_synthesis.md §2'). Do NOT fetch MuseScore, PDMX score bytes, or the web for new copyrighted examples. Do NOT change engine code in this task.",
+      "acceptance": [
+        "./scripts/agent-verify.sh",
+        "test -f docs/research/knowledge/hypothesis.schema.json",
+        "python3 - <<'PY'\nimport json, pathlib\nroot = pathlib.Path('docs/research/knowledge/hypotheses')\nschema = json.load(open('docs/research/knowledge/hypothesis.schema.json'))\nreq = set(schema['required'])\nfiles = sorted(root.glob('*.json'))\nassert len(files) >= 12, len(files)\nkinds = {}\nfor p in files:\n    o = json.load(open(p))\n    assert req <= set(o), (p, req - set(o))\n    assert p.stem == o['id'], (p, o['id'])\n    kinds[o['kind']] = kinds.get(o['kind'], 0) + 1\n    assert o['evidence'], p\nassert kinds.get('sentence', 0) >= 3\nassert kinds.get('progression', 0) >= 3\nassert kinds.get('rhythm', 0) >= 3\nassert kinds.get('form', 0) >= 2\nprint('hypotheses ok', len(files), kinds)\nPY"
+      ],
+      "deps": [
+        "T-0007"
+      ],
+      "flag": null,
+      "status": "ready",
+      "retries": 0,
+      "feedback": [
+        "2026-08-31: queued under E-03. Dispatcher may leave deps-blocked tasks until T-0007 done — keep both ready; Maker picks unlocked deps."
+      ]
+    },
+    {
+      "id": "T-0009",
+      "lane": "docs",
+      "phase": "K3",
+      "title": "K3: PD/CC0 allowlist ledger + metadata scan script (no score download)",
+      "description": "Add scripts/knowledge/scan_pd_allowlist.py and docs/research/knowledge/pd_allowlist.json. Script behavior: (1) If env PDMX_CSV or path docs/research/knowledge/_cache/PDMX.csv exists, read CSV and select rows whose license/tags indicate PD or CC0 AND whose genre/tags/path text vaguely match tango|milonga|vals|waltz|habanera|bandoneon (case-insensitive); (2) If CSV absent, write a valid empty allowlist with meta.note explaining how to obtain PDMX metadata only — MUST NOT download score files or call MuseScore.com; (3) Output schema: { meta: { generated_at, source, policy_ref }, entries: [ { id, title, license, tags, reason } ] }. Commit a generated pd_allowlist.json (empty entries OK). Document in docs/research/knowledge/README.md. No backend generation changes.",
+      "acceptance": [
+        "./scripts/agent-verify.sh",
+        "test -f scripts/knowledge/scan_pd_allowlist.py",
+        "python3 scripts/knowledge/scan_pd_allowlist.py",
+        "python3 -c \"import json; d=json.load(open('docs/research/knowledge/pd_allowlist.json')); assert 'meta' in d and 'entries' in d and isinstance(d['entries'], list); assert 'KNOWLEDGE_SOURCE_POLICY' in d['meta'].get('policy_ref',''); print('allowlist ok', len(d['entries']))\"",
+        "grep -q 'pd_allowlist' docs/research/knowledge/README.md"
+      ],
+      "deps": [
+        "T-0007"
+      ],
+      "flag": null,
+      "status": "ready",
+      "retries": 0,
+      "feedback": [
+        "2026-08-31: queued under E-03. Empty allowlist is a valid pass — PDMX tango-adjacent is known-sparse."
+      ]
+    },
+    {
+      "id": "T-0010",
+      "lane": "engine",
+      "phase": "K4",
+      "title": "K4: abstract chord/phrase extractor on fixture MusicXML only",
+      "description": "Implement backend/app/knowledge/extract_abstract.py (package backend/app/knowledge/) that reads one MusicXML path and returns a dict with ONLY: chord_symbols (list[str]), bars (int), phrase_bar_lengths (list[int] heuristic OK), source_path (basename only). MUST NOT include note pitch lists, MIDI numbers, or melody contours in the output. Add a tiny synthetic fixture at backend/tests/fixtures/knowledge/minimal_phrase.musicxml (original public-domain-style I-V-I or i-V-i teaching example — not a famous tango tune). Add CLI or pytest under backend/tests/knowledge/test_extract_abstract.py. Optional write to docs/research/knowledge/fixture_stats.example.json. Obey KNOWLEDGE_SOURCE_POLICY.md — no MuseScore download in this task.",
+      "acceptance": [
+        "./scripts/agent-verify.sh",
+        "cd backend && test -x .venv/bin/python || (python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt)",
+        "test -f backend/tests/fixtures/knowledge/minimal_phrase.musicxml",
+        "cd backend && .venv/bin/python -c \"from app.knowledge.extract_abstract import extract_abstract; r=extract_abstract('tests/fixtures/knowledge/minimal_phrase.musicxml'); assert 'chord_symbols' in r and 'bars' in r and 'phrase_bar_lengths' in r; assert 'pitches' not in r and 'melody' not in r and 'notes' not in r; assert isinstance(r['chord_symbols'], list); print('extract ok', r)\"",
+        "cd backend && .venv/bin/python -m pytest -q tests/knowledge/test_extract_abstract.py"
+      ],
+      "deps": [
+        "T-0007"
+      ],
+      "flag": null,
+      "status": "ready",
+      "retries": 0,
+      "feedback": [
+        "2026-08-31: queued under E-03. Fixture-only so AC is machine-checkable without PD corpus on disk."
+      ]
+    },
+    {
+      "id": "T-0011",
+      "lane": "engine",
+      "phase": "K5",
+      "title": "K5: wire catalog hypotheses behind knowledge_catalog_v1 (default off)",
+      "description": "After T-0008 hypotheses exist: (1) Add generation_options flag knowledge_catalog_v1 default False; (2) When True, lab progression and/or phrase-related template selection must consult at least 3 progression or sentence hypotheses from docs/research/knowledge/hypotheses/*.json (load at import or via small helper); (3) When False, behavior matches pre-flag baselines for fixed seeds used in acceptance; (4) Register row already sketched in ENGINE_KNOWLEDGE_REGISTRY (KNOWLEDGE_CATALOG_V1) — keep default off; (5) Do not flip prod defaults on. Prefer extending lab_catalog.py / generation_options.py — no parallel engine. No MuseScore. If hypotheses missing, fail closed (flag ignored) rather than inventing copyrighted tunes.",
+      "acceptance": [
+        "./scripts/agent-verify.sh",
+        "cd backend && test -x .venv/bin/python || (python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt)",
+        "cd backend && .venv/bin/python -c \"from app.engine import generation_options as go; import inspect; src=inspect.getsource(go); assert 'knowledge_catalog_v1' in src; print('flag present')\"",
+        "cd backend && .venv/bin/python -c \"from pathlib import Path; import json; hyps=list(Path('../docs/research/knowledge/hypotheses').glob('*.json')); assert len(hyps)>=12; print('hyps', len(hyps))\"",
+        "cd backend && .venv/bin/python -c \"\n# Flag off: stable. Flag on: must not crash; may differ.\nfrom app.engine.lab import build_lab_skeleton\nkw=dict(seed=42, dance_type='tango', mode='minor')\na=build_lab_skeleton(**kw, generation_options={'knowledge_catalog_v1': False})\nb=build_lab_skeleton(**kw, generation_options={'knowledge_catalog_v1': False})\nassert a==b\nc=build_lab_skeleton(**kw, generation_options={'knowledge_catalog_v1': True})\nassert c is not None\nprint('lab flag ok')\n\""
+      ],
+      "deps": [
+        "T-0008",
+        "T-0010"
+      ],
+      "flag": "knowledge_catalog_v1",
+      "status": "ready",
+      "retries": 0,
+      "feedback": [
+        "2026-08-31: queued under E-03. Acceptance imports build_lab_skeleton — if API name differs, Maker must adjust assertion to the real Lab entrypoint while keeping flag off==stable semantics."
+      ]
     }
   ]
 }
