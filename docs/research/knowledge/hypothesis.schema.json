@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://tangoatelier.zeabur.app/schemas/hypothesis.schema.json",
+  "title": "TangoAtelier knowledge hypothesis",
+  "description": "One abstract music-theory hypothesis for the rule-engine knowledge track. See docs/research/KNOWLEDGE_SOURCE_POLICY.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "title",
+    "layer",
+    "kind",
+    "confidence",
+    "evidence",
+    "summary",
+    "engine_hint"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Z0-9_]+$",
+      "description": "Stable uppercase identifier, e.g. TANGO_SENT_QA_4BAR"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Short human-readable label"
+    },
+    "layer": {
+      "type": "string",
+      "enum": ["L0", "L1", "L2", "L3", "L4"],
+      "description": "Engine knowledge layer (L0=form, L1=harmony, L2=melody, L3=rhythm, L4=style)"
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["sentence", "progression", "rhythm", "form", "other"],
+      "description": "Primary teaching category for this hypothesis"
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["high", "medium", "experimental"],
+      "description": "Curator confidence before ear sign-off"
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Citations to repo research paths/sections or published pedagogy — not score URLs"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Abstract rule statement for humans and agents"
+    },
+    "engine_hint": {
+      "type": "string",
+      "description": "Optional note for future flag-gated engine wiring; may be empty"
+    }
+  }
+}
