@@ -1,11 +1,4 @@
 {
   "_doc": "Task lease lock on main. Maker writes lock + in_progress on main BEFORE branching. Checker clears on merge or bounce.",
-  "locks": {
-    "T-0008": {
-      "by": "maker",
-      "since": "2026-09-01T17:10:00.000Z",
-      "branch": "cursor/t-0008-k2-hypotheses-curate",
-      "pr": "https://github.com/jackyckma/TangoAtelier/pull/18"
-    }
-  }
+  "locks": {}
 }
