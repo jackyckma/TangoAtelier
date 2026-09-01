@@ -4,8 +4,8 @@
     "T-0008": {
       "by": "maker",
       "since": "2026-09-01T17:10:00.000Z",
-      "branch": null,
-      "pr": null
+      "branch": "cursor/t-0008-k2-hypotheses-curate",
+      "pr": "https://github.com/jackyckma/TangoAtelier/pull/18"
     }
   }
 }

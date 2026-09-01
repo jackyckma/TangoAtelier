@@ -187,11 +187,12 @@
         "T-0007"
       ],
       "flag": null,
-      "status": "in_progress",
+      "status": "in_review",
       "retries": 0,
       "feedback": [
         "2026-08-31: queued under E-03. Dispatcher may leave deps-blocked tasks until T-0007 done — keep both ready; Maker picks unlocked deps.",
-        "2026-09-01: Maker IMPLEMENT lease on main."
+        "2026-09-01: Maker IMPLEMENT lease on main.",
+        "2026-09-01: Maker IMPLEMENT complete — PR #18 on cursor/t-0008-k2-hypotheses-curate; acceptance + agent-verify green."
       ]
     },
     {
