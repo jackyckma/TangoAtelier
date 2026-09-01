@@ -1,0 +1,14 @@
+{
+  "id": "PROG_DES_FIFTHS",
+  "title": "Descending fifths as default harmonic spine",
+  "layer": "L1",
+  "kind": "progression",
+  "confidence": "high",
+  "evidence": [
+    "docs/research/Tango_music_synthesis.md §2 第二層",
+    "docs/product/COMPOSE_LAB_SPEC.md §5 Progression characters (descending)",
+    "docs/product/ENGINE_KNOWLEDGE_REGISTRY.md L1 PROGRESSION_CHARACTER"
+  ],
+  "summary": "Phrase interiors often walk by descending fifths (circle-of-fifths motion), drawn from style-profile harmonic_tendencies; this is the default connective tissue between cadence anchors.",
+  "engine_hint": "Include descending_fifths in descending and chromatic character pools; fill_phrase_harmony must reach the locked cadence chord."
+}

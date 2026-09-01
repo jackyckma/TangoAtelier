@@ -1,0 +1,14 @@
+{
+  "id": "FORM_SEGMENT_24",
+  "title": "segment_song packs intro + A + cadence in 24 bars",
+  "layer": "L0",
+  "kind": "form",
+  "confidence": "high",
+  "evidence": [
+    "docs/product/COMPOSE_LAB_SPEC.md §5 Form segment_song",
+    "docs/product/ENGINE_KNOWLEDGE_REGISTRY.md L0 FORM_SEGMENT_24",
+    "docs/product/PROJECT_PLAN.md §3c K2"
+  ],
+  "summary": "The Lab segment_song archetype (intro 4 + A 16 + cadence 4 = 24 bars) is a self-contained teaching slice: one tema with a clear cadential close, suitable for A/B ear tests without full golden-age length.",
+  "engine_hint": "archetype_id=segment_song; default Lab segment for founder toggles; climax anchor typically in final cadence bars."
+}

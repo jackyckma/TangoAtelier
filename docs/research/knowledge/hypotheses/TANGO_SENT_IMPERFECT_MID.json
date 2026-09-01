@@ -1,0 +1,13 @@
+{
+  "id": "TANGO_SENT_IMPERFECT_MID",
+  "title": "Mid-section imperfect cadence sustains forward motion",
+  "layer": "L2",
+  "kind": "sentence",
+  "confidence": "high",
+  "evidence": [
+    "docs/product/MUSICALITY_OVERHAUL.md §2.2 終止式分級規則",
+    "docs/product/ENGINE_KNOWLEDGE_REGISTRY.md L2 EXPECTANCY_GATE"
+  ],
+  "summary": "In a four-phrase 16-bar section, the second phrase uses an imperfect cadence: harmony reaches i/I but the melody settles on the 3rd or 5th scale degree, giving partial resolution while keeping narrative momentum.",
+  "engine_hint": "Phrase 2 cadence=imperfect in CADENCE_PLANS[4]; avoid mid-phrase melodic chop that breaks expectancy gate."
+}

@@ -1,0 +1,13 @@
+{
+  "id": "PROG_DECEPTIVE_VI",
+  "title": "Deceptive V→VI cadence deepens mid-section tension",
+  "layer": "L1",
+  "kind": "progression",
+  "confidence": "high",
+  "evidence": [
+    "docs/product/MUSICALITY_OVERHAUL.md §2.2 終止式分級規則",
+    "docs/product/MUSICALITY_OVERHAUL.md §2.3 終止和弦對照表 (deceptive)"
+  ],
+  "summary": "The third phrase of a four-phrase section may use a deceptive cadence (V7→VI in minor, V7→vi in major) instead of resolving, heightening tension before the final authentic close.",
+  "engine_hint": "CADENCE_PLANS[4] phrase 3 = deceptive; A_prime third phrase may upgrade half→deceptive for recap drama."
+}

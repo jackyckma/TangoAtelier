@@ -1,0 +1,14 @@
+{
+  "id": "PROG_DIATONIC_I_IV_V",
+  "title": "Diatonic I–IV–V circle as rhythmic-orchestra home progression",
+  "layer": "L1",
+  "kind": "progression",
+  "confidence": "high",
+  "evidence": [
+    "docs/research/milonga_story1.md §2.1 D'Arienzo 音樂特徵",
+    "docs/research/milonga_story2.md §節奏系 D'Arienzo",
+    "docs/product/COMPOSE_LAB_SPEC.md §5 Progression characters (diatonic)"
+  ],
+  "summary": "Hard-rhythmic Golden Age tango (D'Arienzo lineage) favours straightforward diatonic progressions—chiefly I–IV–V and descending-fifths variants—with minimal reharmonisation so the dance pulse stays legible.",
+  "engine_hint": "progression_character=diatonic pools i-iv-V7-i and I-IV-V-I templates; keep surface reharm off by default."
+}

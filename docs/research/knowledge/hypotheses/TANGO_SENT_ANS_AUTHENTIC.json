@@ -1,0 +1,14 @@
+{
+  "id": "TANGO_SENT_ANS_AUTHENTIC",
+  "title": "Answer phrase resolves with authentic cadence to tonic",
+  "layer": "L2",
+  "kind": "sentence",
+  "confidence": "high",
+  "evidence": [
+    "docs/research/Tango_music_synthesis.md §2 第五層",
+    "docs/product/MUSICALITY_OVERHAUL.md §2.2 終止式分級規則",
+    "docs/product/ENGINE_KNOWLEDGE_REGISTRY.md L1 M2_PHRASE_CADENCE"
+  ],
+  "summary": "The answer phrase of a sentence pair closes with an authentic cadence (V7b9→i in minor, V7→I in major) and the melody lands on the tonic, completing the question–answer arc.",
+  "engine_hint": "Lock final 1–2 bars to CADENCE_CHORDS.authentic; prefer melody resolution to scale degree 1 on the final bar."
+}
