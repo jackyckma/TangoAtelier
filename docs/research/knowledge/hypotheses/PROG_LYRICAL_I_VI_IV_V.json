@@ -1,0 +1,14 @@
+{
+  "id": "PROG_LYRICAL_I_VI_IV_V",
+  "title": "Lyrical I–vi–IV–V loop for singing sections",
+  "layer": "L1",
+  "kind": "progression",
+  "confidence": "medium",
+  "evidence": [
+    "docs/research/milonga_story1.md §2.4 Troilo 音樂特徵",
+    "docs/research/milonga_story2.md §柔情系 Troilo",
+    "docs/product/COMPOSE_LAB_SPEC.md §5 Progression characters (lyrical)"
+  ],
+  "summary": "Softer rhythmic orchestras (Troilo, Tanturi) support more lyrical progression families such as I–vi–IV–V in major or i–VI–III–V7 in minor, giving melodic phrases room to breathe.",
+  "engine_hint": "progression_character=lyrical; pair with lower marcato density and higher ornament allowance on Render."
+}

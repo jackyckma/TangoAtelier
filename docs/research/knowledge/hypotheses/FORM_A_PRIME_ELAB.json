@@ -1,0 +1,14 @@
+{
+  "id": "FORM_A_PRIME_ELAB",
+  "title": "A′ section elaborates the same thematic material",
+  "layer": "L0",
+  "kind": "form",
+  "confidence": "high",
+  "evidence": [
+    "docs/research/Tango_music_synthesis.md §2 第六層",
+    "docs/product/ENGINE_KNOWLEDGE_REGISTRY.md L2 A_PRIME_ELABORATION",
+    "docs/product/PROJECT_PLAN.md §3b E11 動機細胞"
+  ],
+  "summary": "On recap, A′ is not a copy-paste of A: the same motivic cell returns with higher ornament density, LH variation, or tension—'same story told richer' per elaboration transform rules.",
+  "engine_hint": "a_prime_elaboration=true; motivic_development level ≥ A; E11 interweave may quote cell-0 in B/coda when n_cells≥2."
+}

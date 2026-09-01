@@ -1,0 +1,14 @@
+{
+  "id": "FORM_GOLDEN_AGE_8BAR",
+  "title": "Section lengths align to 8- or 16-bar dance units",
+  "layer": "L0",
+  "kind": "form",
+  "confidence": "high",
+  "evidence": [
+    "docs/research/Tango_music_synthesis.md §2 第一層",
+    "docs/product/MUSICALITY_OVERHAUL.md §2.5 曲式模板",
+    "docs/product/ENGINE_KNOWLEDGE_REGISTRY.md L0 FORM_GOLDEN_AGE"
+  ],
+  "summary": "Tango form skeletons use 8- or 16-bar section multiples (intro 4, A/B 16, coda 4–6); arbitrary bar counts break dance-floor recognisability and should not be randomised at L0.",
+  "engine_hint": "Prefer golden_age_short / golden_age_standard forms; phrase_len=4 for tango, 8 for vals per M2 plan_phrases."
+}

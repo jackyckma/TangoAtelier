@@ -1,0 +1,13 @@
+{
+  "id": "TANGO_SENT_QA_HALF",
+  "title": "Question phrase ends on dominant (half cadence)",
+  "layer": "L2",
+  "kind": "sentence",
+  "confidence": "high",
+  "evidence": [
+    "docs/research/Tango_music_synthesis.md §2 第五層",
+    "docs/product/MUSICALITY_OVERHAUL.md §2.2 終止式分級規則"
+  ],
+  "summary": "In a question–answer sentence pair, the question phrase must close on V or V7 (half cadence), leaving harmonic tension unresolved so the answer phrase can resolve.",
+  "engine_hint": "Map to phrase.cadence=half in M2 CADENCE_PLANS; melody may land on chord tone but harmony stays on dominant."
+}

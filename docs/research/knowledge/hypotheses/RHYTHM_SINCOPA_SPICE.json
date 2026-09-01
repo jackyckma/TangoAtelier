@@ -1,0 +1,14 @@
+{
+  "id": "RHYTHM_SINCOPA_SPICE",
+  "title": "Síncopa as phrase-end spice, not home pattern",
+  "layer": "L3",
+  "kind": "rhythm",
+  "confidence": "high",
+  "evidence": [
+    "docs/research/milonga_story2.md §Biagi 切分音",
+    "docs/product/MUSICALITY_OVERHAUL.md §10.4 Síncopa 角色表",
+    "docs/product/ENGINE_KNOWLEDGE_REGISTRY.md L3 M10_PULSE"
+  ],
+  "summary": "Síncopa (syncopated accent displacement) functions as short phrase-end or bridge colour—one or two bars—not as a continuous home groove; Biagi-style 'floor drop' is an accent, not a section default.",
+  "engine_hint": "Limit sincopa to colour_slots at phrase tails; never assign contrast_drive to sincopa alone for full B sections."
+}

@@ -1,0 +1,14 @@
+{
+  "id": "RHYTHM_MARCATO_CUATRO",
+  "title": "Marcato en cuatro as tango home groove",
+  "layer": "L3",
+  "kind": "rhythm",
+  "confidence": "high",
+  "evidence": [
+    "docs/research/Tango_music_synthesis.md §2 第三層",
+    "docs/research/milonga_story1.md §1 樂團分類 (Harder Rhythmic)",
+    "docs/product/MUSICALITY_OVERHAUL.md §10.4 Marcato 角色表"
+  ],
+  "summary": "Golden Age dance tango treats Marcato en cuatro (four-beat marcato marking) as the home pattern—steady, walkable, and predictable—for intro, A, and A′ sections before any contrast.",
+  "engine_hint": "SECTION_GROOVE_ROLES intro/A/A_prime = home; M10 pulse beat-1 weight; D'Arienzo profile emphasises cuatro density."
+}

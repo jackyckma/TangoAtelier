@@ -1,0 +1,14 @@
+{
+  "id": "RHYTHM_332_CONTRAST",
+  "title": "3+3+2 block as B-section contrast drive",
+  "layer": "L3",
+  "kind": "rhythm",
+  "confidence": "high",
+  "evidence": [
+    "docs/research/Tango_music_synthesis.md §2 第三層 (3+3+2)",
+    "docs/product/MUSICALITY_OVERHAUL.md §10.4 3+3+2 角色表",
+    "docs/product/ENGINE_KNOWLEDGE_REGISTRY.md L3 B_GROOVE_CONTRAST_RUN"
+  ],
+  "summary": "A continuous 4–8 bar 3+3+2 run marks B or variación as contrast_drive—denser and more forward-leaning than marcato home—then the groove must return clearly to marcato for A′.",
+  "engine_hint": "b_groove_contrast_run=true; run_length 4 or 8 aligned to phrase; bookend with ≥1 bar home before and after."
+}
