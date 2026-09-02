@@ -213,7 +213,7 @@
         "T-0007"
       ],
       "flag": null,
-      "status": "ready",
+      "status": "in_progress",
       "retries": 0,
       "feedback": [
         "2026-08-31: queued under E-03. Empty allowlist is a valid pass — PDMX tango-adjacent is known-sparse."
