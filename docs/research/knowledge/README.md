@@ -47,6 +47,31 @@ knowledge/
 
 ---
 
+## PD/CC0 allowlist (K3)
+
+`pd_allowlist.json` is a **metadata-only ledger** of public-domain or CC0 scores that vaguely match tango-adjacent keywords. It never stores score bytes.
+
+Regenerate:
+
+```bash
+python3 scripts/knowledge/scan_pd_allowlist.py
+```
+
+**Input (optional):** place `PDMX.csv` from [Zenodo PDMX](https://zenodo.org/records/15571083) at `docs/research/knowledge/_cache/PDMX.csv`, or set `PDMX_CSV` to its path. Download **metadata CSV only** — do not fetch MusicXML/MXL/PDF/MID or scrape MuseScore.com.
+
+**Output schema:**
+
+```json
+{
+  "meta": { "generated_at", "source", "policy_ref", "note?" },
+  "entries": [{ "id", "title", "license", "tags", "reason" }]
+}
+```
+
+An empty `entries` array is a valid pass when no CSV is present or no rows match (PDMX tango-adjacent coverage is known-sparse).
+
+---
+
 ## Hypothesis schema
 
 See `hypothesis.schema.json` (JSON Schema draft-07). Required fields: `id`, `title`, `layer`, `kind`, `confidence`, `evidence`, `summary`, `engine_hint`.
