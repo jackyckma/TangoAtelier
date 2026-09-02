@@ -4,8 +4,8 @@
     "T-0009": {
       "by": "maker",
       "since": "2026-09-02T17:01:22Z",
-      "branch": null,
-      "pr": null
+      "branch": "cursor/t-0009-k3-pd-allowlist",
+      "pr": "https://github.com/jackyckma/TangoAtelier/pull/19"
     }
   }
 }

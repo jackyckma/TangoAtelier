@@ -213,10 +213,11 @@
         "T-0007"
       ],
       "flag": null,
-      "status": "in_progress",
+      "status": "in_review",
       "retries": 0,
       "feedback": [
-        "2026-08-31: queued under E-03. Empty allowlist is a valid pass — PDMX tango-adjacent is known-sparse."
+        "2026-08-31: queued under E-03. Empty allowlist is a valid pass — PDMX tango-adjacent is known-sparse.",
+        "2026-09-02: Maker IMPLEMENT complete — PR #19 on cursor/t-0009-k3-pd-allowlist; acceptance + agent-verify green."
       ]
     },
     {
