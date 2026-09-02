@@ -1,0 +1,9 @@
+{
+  "meta": {
+    "generated_at": "2026-09-02T17:01:51Z",
+    "source": "none",
+    "policy_ref": "docs/research/KNOWLEDGE_SOURCE_POLICY.md",
+    "note": "No PDMX.csv found. To populate this ledger, download PDMX metadata only from https://zenodo.org/records/15571083 (PDMX.csv — not score bytes) and place it at docs/research/knowledge/_cache/PDMX.csv or set PDMX_CSV to its path, then re-run this script. Do not download MusicXML/MXL/PDF/MID or scrape MuseScore.com."
+  },
+  "entries": []
+}
