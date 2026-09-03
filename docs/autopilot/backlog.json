@@ -238,10 +238,11 @@
         "T-0007"
       ],
       "flag": null,
-      "status": "ready",
+      "status": "in_progress",
       "retries": 0,
       "feedback": [
-        "2026-08-31: queued under E-03. Fixture-only so AC is machine-checkable without PD corpus on disk."
+        "2026-08-31: queued under E-03. Fixture-only so AC is machine-checkable without PD corpus on disk.",
+        "2026-09-03: Maker IMPLEMENT lease on main."
       ]
     },
     {
