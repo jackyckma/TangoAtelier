@@ -1,0 +1,12 @@
+{
+  "meta": {
+    "description": "Example abstract stats from backend/tests/fixtures/knowledge/minimal_phrase.musicxml",
+    "policy_ref": "docs/research/KNOWLEDGE_SOURCE_POLICY.md",
+    "extractor": "backend/app/knowledge/extract_abstract.py"
+  },
+  "fixture": "minimal_phrase.musicxml",
+  "chord_symbols": ["C", "G", "C", "C"],
+  "bars": 4,
+  "phrase_bar_lengths": [2, 2],
+  "source_path": "minimal_phrase.musicxml"
+}
