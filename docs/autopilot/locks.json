@@ -4,8 +4,8 @@
     "T-0010": {
       "by": "maker",
       "since": "2026-09-03T17:09:49Z",
-      "branch": null,
-      "pr": null
+      "branch": "cursor/t-0010-k4-extract-abstract",
+      "pr": "https://github.com/jackyckma/TangoAtelier/pull/20"
     }
   }
 }
