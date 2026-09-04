@@ -8,6 +8,7 @@ from typing import Any
 from app.engine.catalog import DANCE_TYPES, FORMS
 from app.engine.generation_options import DEFAULTS
 from app.engine.intent import intent_tag_catalog
+from app.engine.knowledge_catalog import catalog_progression_boost
 
 ARCHETYPES: dict[str, dict[str, Any]] = {
     "segment_song": {
@@ -109,24 +110,36 @@ def resolve_progression_id(
     mode: str,
     *,
     rng: random.Random | None = None,
-) -> str | None:
+    generation_options: dict[str, Any] | None = None,
+) -> tuple[str | None, list[str]]:
     """Pick one catalog progression_id for a character × mode.
 
     When ``rng`` is given, sample among the character's templates.
     Without ``rng``, return the first template (deterministic fallback).
     ``character=random`` → ``None`` so ``build_skeleton`` draws from the full catalog.
+
+    Returns ``(progression_id, consulted_hypothesis_ids)``. Consulted ids are
+    non-empty only when ``knowledge_catalog_v1`` is on and the hypothesis catalog
+    is available (fail closed otherwise).
     """
     if not character or character in ("", "random"):
-        return None
+        return None, []
     mapping = PROGRESSION_CHARACTERS.get(character)
     if not mapping:
-        return None
+        return None, []
     pool = list(mapping.get(mode) or mapping.get("minor") or [])
     if not pool:
-        return None
+        return None, []
+
+    consulted: list[str] = []
+    if generation_options and generation_options.get("knowledge_catalog_v1"):
+        boosted, consulted = catalog_progression_boost(character, mode, pool)
+        if consulted:
+            pool = boosted
+
     if rng is not None:
-        return str(rng.choice(pool))
-    return pool[0]
+        return str(rng.choice(pool)), consulted
+    return pool[0], consulted
 
 
 def resolve_archetype_form_id(archetype_id: str | None) -> str | None:

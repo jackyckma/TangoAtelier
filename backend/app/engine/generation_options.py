@@ -18,6 +18,7 @@ DEFAULTS: dict[str, Any] = {
     "yeites_intensity": "medium",
     "a_prime_elaboration": True,
     "harmonic_grammar": "legacy_templates",
+    "knowledge_catalog_v1": False,
 }
 
 
@@ -36,6 +37,8 @@ def normalize_generation_options(raw: dict[str, Any] | None) -> dict[str, Any]:
         out["yeites_intensity"] = "medium"
     if out["harmonic_grammar"] not in ("legacy_templates", "functional"):
         out["harmonic_grammar"] = "legacy_templates"
+    if "knowledge_catalog_v1" in raw and raw["knowledge_catalog_v1"] is not None:
+        out["knowledge_catalog_v1"] = bool(raw["knowledge_catalog_v1"])
     return out
 
 
