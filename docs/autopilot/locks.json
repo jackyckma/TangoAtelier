@@ -4,8 +4,8 @@
     "T-0011": {
       "by": "maker",
       "since": "2026-09-04T17:01:58Z",
-      "branch": null,
-      "pr": null
+      "branch": "cursor/t-0011-knowledge-catalog-v1",
+      "pr": 21
     }
   }
 }
