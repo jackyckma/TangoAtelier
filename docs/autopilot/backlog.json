@@ -265,12 +265,13 @@
         "T-0010"
       ],
       "flag": "knowledge_catalog_v1",
-      "status": "in_review",
+      "status": "done",
       "retries": 0,
       "feedback": [
         "2026-08-31: queued under E-03. Acceptance imports build_lab_skeleton — if API name differs, Maker must adjust assertion to the real Lab entrypoint while keeping flag off==stable semantics.",
         "2026-09-04: Maker IMPLEMENT lease on main.",
-        "2026-09-04: Maker IMPLEMENT complete — PR #21 on cursor/t-0011-knowledge-catalog-v1; acceptance + agent-verify green."
+        "2026-09-04: Maker IMPLEMENT complete — PR #21 on cursor/t-0011-knowledge-catalog-v1; acceptance + agent-verify green.",
+        "2026-09-04: Checker REVIEW — verify-all + task acceptance green; merged PR #21 (merge commit 82c5682)."
       ]
     }
   ]
