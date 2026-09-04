@@ -7,6 +7,7 @@ from typing import Any, Literal
 
 from app.engine.generation_options import normalize_generation_options
 from app.engine.intent import merge_intent_tags
+from app.engine.knowledge_catalog import sentence_hints_from_catalog
 from app.engine.lab_catalog import (
     ENSEMBLE_PRESETS,
     resolve_archetype_form_id,
@@ -51,10 +52,15 @@ def build_lab_skeleton(
     piece_seed = int(seed if seed is not None else random.randint(1, 2_147_483_647))
     prog_rng = random.Random(piece_seed ^ 0xA11CE)
     mode_for_prog = "minor" if mode == "random" else mode
-    resolved_prog = progression_id or resolve_progression_id(
-        None if progression_character == "random" else progression_character,
-        mode_for_prog,
-        rng=prog_rng,
+    resolved_prog, catalog_consulted = (
+        (progression_id, [])
+        if progression_id
+        else resolve_progression_id(
+            None if progression_character == "random" else progression_character,
+            mode_for_prog,
+            rng=prog_rng,
+            generation_options=opts,
+        )
     )
 
     sk = build_skeleton(
@@ -72,6 +78,11 @@ def build_lab_skeleton(
     sk["progression_character"] = progression_character
     sk["segment_bars"] = sk.get("bars")
     sk["intent_translation"] = translation
+    if opts.get("knowledge_catalog_v1") and catalog_consulted:
+        sk["knowledge_catalog_consulted"] = catalog_consulted
+        sentence_hints = sentence_hints_from_catalog()
+        if sentence_hints:
+            sk["knowledge_catalog_sentence_hints"] = sentence_hints
     if tag_params.get("style_id"):
         sk["suggested_style_id"] = tag_params["style_id"]
     if tag_params.get("ensemble_id"):
