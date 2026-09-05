@@ -47,7 +47,7 @@
       "id": "E-03",
       "title": "Safe tango knowledge track (no MuseScore corpus risk)",
       "goal": "Curate abstract tango music-theory knowledge (sentence/phrase shape, progression families, rhythm archetypes) from legally safe sources only, then optionally wire into Lab behind generation_options default-off. Product is likely forever free — zero appetite for MuseScore.com / ML-training / community-score risk.",
-      "status": "approved",
+      "status": "done",
       "phase": "knowledge",
       "decomposes_into": [
         "T-0007",
@@ -57,7 +57,22 @@
         "T-0011"
       ],
       "decisions": [],
-      "notes": "Policy: docs/research/KNOWLEDGE_SOURCE_POLICY.md. Roadmap table: docs/product/PROJECT_PLAN.md §3c (K1–K5). Forbidden: MuseScore.com bulk/Pro download as corpus; treating community uploads as PD; ML training on third-party scores; committing copyrighted MusicXML. Allowed: repo research, published musicology paraphrases, founder abstract notes, verified PD/CC0 metadata + abstract stats, test fixtures. Prefer extend ENGINE_KNOWLEDGE_REGISTRY + lab_catalog over parallel engines."
+      "notes": "Policy: docs/research/KNOWLEDGE_SOURCE_POLICY.md. Roadmap table: docs/product/PROJECT_PLAN.md §3c (K1–K5). Completed 2026-09-04 (Checker merged PR #21 for T-0011). Forbidden sources unchanged."
+    },
+    {
+      "id": "E-04",
+      "title": "M6 Motivic development techniques",
+      "goal": "Teachable motivic development: per-phrase DevelopmentTechnique assignment, MotifPlan setup/payoff scheduling, and skeleton export of motif_id + development_technique — per docs/product/MUSICALITY_OVERHAUL.md §M6 and PROJECT_PLAN musicality line (post-expectancy gate).",
+      "status": "approved",
+      "phase": "M6",
+      "decomposes_into": [
+        "T-0012",
+        "T-0013",
+        "T-0014",
+        "T-0015"
+      ],
+      "decisions": [],
+      "notes": "Extend M4 PitchCell/RhythmCell + E11 motivic_cells; do NOT parallel-rewrite melody engine. Expectancy gate stays on (generation_options.expectancy_gate default true). M5 functional grammar is a separate future epic — do not scope here."
     }
   ]
 }

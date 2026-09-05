@@ -273,6 +273,87 @@
         "2026-09-04: Maker IMPLEMENT complete — PR #21 on cursor/t-0011-knowledge-catalog-v1; acceptance + agent-verify green.",
         "2026-09-04: Checker REVIEW — verify-all + task acceptance green; merged PR #21 (merge commit 82c5682)."
       ]
+    },
+    {
+      "id": "T-0012",
+      "lane": "engine",
+      "phase": "M6",
+      "title": "M6: DevelopmentTechnique enum + section technique table",
+      "description": "Create backend/app/engine/melody/development.py with DevelopmentTechnique(str, Enum) per MUSICALITY_OVERHAUL.md §6.1 (at minimum: literal, sequence, inversion, augmentation, diminution, fragmentation, extension, ornamentation, reharmonization, rhythm_swap, pitch_swap). Add SECTION_TECHNIQUES dict mapping section names (A, B, A_prime, variacion, coda, bridge) to ordered technique lists. Export pure helper technique_for_phrase(section_name, phrase_index, n_phrases) -> DevelopmentTechnique cycling the section list. Do NOT wire into skeleton melody yet. Re-export from backend/app/engine/melody/__init__.py if that module already re-exports siblings.",
+      "acceptance": [
+        "./scripts/agent-verify.sh",
+        "cd backend && test -x .venv/bin/python || (python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt)",
+        "cd backend && .venv/bin/python -c \"from app.engine.melody.development import DevelopmentTechnique, technique_for_phrase; assert technique_for_phrase('A', 0, 4)==DevelopmentTechnique.LITERAL; assert technique_for_phrase('B', 1, 4)==DevelopmentTechnique.SEQUENCE; assert technique_for_phrase('A_prime', 3, 4)==DevelopmentTechnique.ORNAMENTATION; print('techniques ok')\""
+      ],
+      "deps": [],
+      "flag": null,
+      "status": "ready",
+      "retries": 0,
+      "feedback": [
+        "2026-09-05: queued under approved epic E-04 (M6 motivic development)."
+      ]
+    },
+    {
+      "id": "T-0013",
+      "lane": "engine",
+      "phase": "M6",
+      "title": "M6: MotifPlan + setup/payoff scheduler (pure)",
+      "description": "In backend/app/engine/melody/development.py add MotifPlan dataclass (cell_id, first_appearance bar, developments list of (bar, DevelopmentTechnique), payoff_bar, payoff_technique) and pure function plan_motif_developments(motivic_cells, section_timeline, climax_bar, rng) -> list[MotifPlan]. Must align payoff_bar with existing skeleton climax/drama when possible. Add pitch_cell_similarity(intervals_a, intervals_b) -> float in [0,1] for later acceptance. Do NOT change skeleton.py or render in this task.",
+      "acceptance": [
+        "./scripts/agent-verify.sh",
+        "cd backend && test -x .venv/bin/python || (python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt)",
+        "cd backend && .venv/bin/python -c \"import random; from app.engine.melody.development import MotifPlan, plan_motif_developments, pitch_cell_similarity; cells=[{'intervals':[0,2,3,5]},{'intervals':[0,-2,-3,-5]}]; tl=[('intro',4),('A',16),('B',16),('A_prime',16),('coda',4)]; plans=plan_motif_developments(cells, tl, climax_bar=36, rng=random.Random(1)); assert plans and plans[0].payoff_bar > plans[0].first_appearance; assert pitch_cell_similarity([0,2,3],[0,2,3])==1.0; assert pitch_cell_similarity([0,2,3],[0,-2,-3]) < 0.5; print('motif plan ok')\""
+      ],
+      "deps": [],
+      "flag": null,
+      "status": "ready",
+      "retries": 0,
+      "feedback": [
+        "2026-09-05: queued under E-04. Parallel with T-0012 (same file — Maker should land one before the other or merge carefully)."
+      ]
+    },
+    {
+      "id": "T-0014",
+      "lane": "engine",
+      "phase": "M6",
+      "title": "M6: wire development_technique onto melody bars",
+      "description": "Use technique_for_phrase (T-0012) when generating melody in skeleton.py: each melody bar dict gets development_technique (string enum value). Phrase boundaries come from existing form/phrase plan. When motivic_cells absent, omit field (backward compat). Export unchanged skeleton shape otherwise. Render unchanged.",
+      "acceptance": [
+        "./scripts/agent-verify.sh",
+        "cd backend && test -x .venv/bin/python || (python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt)",
+        "cd backend && .venv/bin/python -c \"from app.engine.skeleton import build_skeleton; s=build_skeleton(seed=42,dance_type='tango'); tagged=[m for m in s['melody'] if m.get('development_technique')]; assert len(tagged) > 10; secs=set(m.get('section') for m in tagged); assert 'A' in secs; print('technique tags ok', len(tagged))\""
+      ],
+      "deps": [
+        "T-0012"
+      ],
+      "flag": null,
+      "status": "ready",
+      "retries": 0,
+      "feedback": [
+        "2026-09-05: queued under E-04; blocked until T-0012 done."
+      ]
+    },
+    {
+      "id": "T-0015",
+      "lane": "engine",
+      "phase": "M6",
+      "title": "M6: technique transforms + motif_id export + similarity acceptance",
+      "description": "After T-0014: implement at least LITERAL, SEQUENCE, ORNAMENTATION, PITCH_SWAP, RHYTHM_SWAP so phrase generation selects/transforms PitchCell/RhythmCell per development_technique (integrate plan_motif_developments from T-0013). Each melody bar gets motif_id (cell id string/int). Export skeleton motif_development_plans summary. Fixed-seed acceptance: A/A_prime pitch intervals similarity > 0.7; B vs A primary cell similarity < 0.4 (use pitch_cell_similarity). Do not break expectancy_gate defaults.",
+      "acceptance": [
+        "./scripts/agent-verify.sh",
+        "cd backend && test -x .venv/bin/python || (python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt)",
+        "cd backend && .venv/bin/python -c \"from app.engine.skeleton import build_skeleton; from app.engine.melody.development import pitch_cell_similarity; s=build_skeleton(seed=99,dance_type='tango',form_id='golden_age_short'); cells=s.get('motivic_cells') or []; assert cells; a=[m['pitch'] for m in s['melody'] if m.get('section') in ('A','A_prime') and m.get('motif_id') is not None][:24]; b=[m['pitch'] for m in s['melody'] if m.get('section')=='B' and m.get('motif_id') is not None][:24]; assert len(a)>=8 and len(b)>=8; mid=len(a)//2; sim_aa=pitch_cell_similarity(a[:mid], a[mid:]); sim_ab=pitch_cell_similarity(a, b); assert sim_aa > 0.7; assert sim_ab < 0.4; print('similarity ok', round(sim_aa,2), round(sim_ab,2))\""
+      ],
+      "deps": [
+        "T-0013",
+        "T-0014"
+      ],
+      "flag": null,
+      "status": "ready",
+      "retries": 0,
+      "feedback": [
+        "2026-09-05: queued under E-04; final M6 slice — similarity thresholds per MUSICALITY_OVERHAUL.md §M6 DoD."
+      ]
     }
   ]
 }
