@@ -10,6 +10,11 @@ from app.engine.melody.connect import (
     plan_rests,
 )
 from app.engine.melody.decorate import decorate_melody_events
+from app.engine.melody.development import (
+    DevelopmentTechnique,
+    SECTION_TECHNIQUES,
+    technique_for_phrase,
+)
 from app.engine.melody.nct import NCT
 from app.engine.melody.rhythm_cell import (
     PitchCell,
@@ -46,6 +51,9 @@ __all__ = [
     "generate_phrase_melody",
     "melody_notes_to_dicts",
     "decorate_melody_events",
+    "DevelopmentTechnique",
+    "SECTION_TECHNIQUES",
+    "technique_for_phrase",
     "sample_piece_cells",
     "sample_rhythm_cell",
     "make_pitch_cell",
