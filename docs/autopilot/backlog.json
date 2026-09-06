@@ -287,10 +287,11 @@
       ],
       "deps": [],
       "flag": null,
-      "status": "ready",
+      "status": "in_progress",
       "retries": 0,
       "feedback": [
-        "2026-09-05: queued under approved epic E-04 (M6 motivic development)."
+        "2026-09-05: queued under approved epic E-04 (M6 motivic development).",
+        "2026-09-06: Maker IMPLEMENT lease on main."
       ]
     },
     {
