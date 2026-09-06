@@ -287,11 +287,12 @@
       ],
       "deps": [],
       "flag": null,
-      "status": "in_progress",
+      "status": "in_review",
       "retries": 0,
       "feedback": [
         "2026-09-05: queued under approved epic E-04 (M6 motivic development).",
-        "2026-09-06: Maker IMPLEMENT lease on main."
+        "2026-09-06: Maker IMPLEMENT lease on main.",
+        "2026-09-06: Maker IMPLEMENT complete — PR #22 on cursor/t-0012-m6-development-technique-enum; acceptance + agent-verify green."
       ]
     },
     {
