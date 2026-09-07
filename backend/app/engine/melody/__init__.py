@@ -12,7 +12,10 @@ from app.engine.melody.connect import (
 from app.engine.melody.decorate import decorate_melody_events
 from app.engine.melody.development import (
     DevelopmentTechnique,
+    MotifPlan,
     SECTION_TECHNIQUES,
+    pitch_cell_similarity,
+    plan_motif_developments,
     technique_for_phrase,
 )
 from app.engine.melody.nct import NCT
@@ -52,7 +55,10 @@ __all__ = [
     "melody_notes_to_dicts",
     "decorate_melody_events",
     "DevelopmentTechnique",
+    "MotifPlan",
     "SECTION_TECHNIQUES",
+    "pitch_cell_similarity",
+    "plan_motif_developments",
     "technique_for_phrase",
     "sample_piece_cells",
     "sample_rhythm_cell",
