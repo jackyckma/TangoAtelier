@@ -309,11 +309,12 @@
       ],
       "deps": [],
       "flag": null,
-      "status": "in_progress",
+      "status": "in_review",
       "retries": 0,
       "feedback": [
         "2026-09-05: queued under E-04. Parallel with T-0012 (same file — Maker should land one before the other or merge carefully).",
-        "2026-09-07: Maker IMPLEMENT lease on main."
+        "2026-09-07: Maker IMPLEMENT lease on main.",
+        "2026-09-07: Maker IMPLEMENT complete — PR #23 on cursor/t-0013-m6-motif-plan-setup-payoff; acceptance + agent-verify green."
       ]
     },
     {

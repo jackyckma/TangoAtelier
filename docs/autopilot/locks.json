@@ -4,8 +4,8 @@
     "T-0013": {
       "by": "maker",
       "since": "2026-09-07T17:02:41Z",
-      "branch": null,
-      "pr": null
+      "branch": "cursor/t-0013-m6-motif-plan-setup-payoff",
+      "pr": 23
     }
   }
 }
