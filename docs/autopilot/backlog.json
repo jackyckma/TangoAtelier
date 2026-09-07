@@ -309,14 +309,15 @@
       ],
       "deps": [],
       "flag": null,
-      "status": "ready",
+      "status": "in_progress",
       "retries": 0,
       "feedback": [
-        "2026-09-05: queued under E-04. Parallel with T-0012 (same file — Maker should land one before the other or merge carefully)."
+        "2026-09-05: queued under E-04. Parallel with T-0012 (same file — Maker should land one before the other or merge carefully).",
+        "2026-09-07: Maker IMPLEMENT lease on main."
       ]
     },
     {
-      "id": "T-0014",
+      "id": "T-0014"
       "lane": "engine",
       "phase": "M6",
       "title": "M6: wire development_technique onto melody bars",
