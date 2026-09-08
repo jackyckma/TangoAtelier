@@ -319,7 +319,7 @@
       ]
     },
     {
-      "id": "T-0014"
+      "id": "T-0014",
       "lane": "engine",
       "phase": "M6",
       "title": "M6: wire development_technique onto melody bars",
@@ -359,6 +359,27 @@
       "retries": 0,
       "feedback": [
         "2026-09-05: queued under E-04; final M6 slice — similarity thresholds per MUSICALITY_OVERHAUL.md §M6 DoD."
+      ]
+    },
+    {
+      "id": "T-0016",
+      "lane": "engine",
+      "phase": "M6",
+      "title": "M6: export motif_development_plans on skeleton (pure)",
+      "description": "In build_skeleton (backend/app/engine/skeleton.py), after motivic_cells and section timeline are known, call plan_motif_developments from backend/app/engine/melody/development.py and export skeleton['motif_development_plans'] as a JSON-serializable list of dicts (cell_id, first_appearance, payoff_bar, payoff_technique as string, developments as list of {bar, technique}). Do NOT change melody bar generation or wire development_technique yet (T-0014/T-0015). Fixed seed must be reproducible. Render unchanged.",
+      "acceptance": [
+        "./scripts/agent-verify.sh",
+        "cd backend && test -x .venv/bin/python || (python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt)",
+        "cd backend && .venv/bin/python -c \"from app.engine.skeleton import build_skeleton; s=build_skeleton(seed=42,dance_type='tango'); plans=s.get('motif_development_plans') or []; assert plans; p=plans[0]; assert 'cell_id' in p and 'payoff_bar' in p and 'payoff_technique' in p; assert p['payoff_bar'] > p.get('first_appearance', 0); print('motif plans export ok', len(plans))\""
+      ],
+      "deps": [
+        "T-0013"
+      ],
+      "flag": null,
+      "status": "ready",
+      "retries": 0,
+      "feedback": [
+        "2026-09-08: REPLAN — parallel M6 export slice; keeps READY_MIN≥2 while T-0014/T-0015 chain runs."
       ]
     }
   ]

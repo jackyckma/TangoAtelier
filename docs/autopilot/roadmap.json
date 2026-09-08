@@ -69,7 +69,8 @@
         "T-0012",
         "T-0013",
         "T-0014",
-        "T-0015"
+        "T-0015",
+        "T-0016"
       ],
       "decisions": [],
       "notes": "Extend M4 PitchCell/RhythmCell + E11 motivic_cells; do NOT parallel-rewrite melody engine. Expectancy gate stays on (generation_options.expectancy_gate default true). M5 functional grammar is a separate future epic — do not scope here."
