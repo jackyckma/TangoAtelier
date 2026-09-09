@@ -38,6 +38,7 @@ from app.engine.melody import (
     melody_notes_to_dicts,
     sample_piece_cells,
     sample_rhythm_cell,
+    technique_for_phrase,
 )
 from app.engine.melody.expectancy import (
     density_for_drama as _expectancy_density_for_drama,
@@ -366,6 +367,22 @@ def _stamp_motivic_meta(
         if bar in iw:
             n["motivic_interweave"] = True
     return notes
+
+
+def _stamp_development_technique(
+    notes: list[dict[str, Any]],
+    *,
+    section_name: str,
+    phrase_index: int,
+    n_phrases: int,
+    enabled: bool,
+) -> None:
+    if not enabled or not notes:
+        return
+    tech = technique_for_phrase(section_name, phrase_index, n_phrases)
+    val = tech.value
+    for n in notes:
+        n["development_technique"] = val
 
 
 def _realize_motif(
@@ -1465,6 +1482,7 @@ def _melody_for_section(
     pause = set(drama.get("pause_bars") or [])
     pause_frequency = str(theme_state.get("pause_frequency") or "medium")
     rhythm_cells = theme_state.get("rhythm_cells")
+    tag_development = bool(theme_state.get("motivic_cells"))
 
     cells: list[dict[str, Any]] = list(theme_state.get("motivic_cells") or [])
     if not cells and theme_state.get("motif"):
@@ -1510,6 +1528,13 @@ def _melody_for_section(
             motif=home_motif,
             setup_payoff=setup_payoff or None,
         )
+        _stamp_development_technique(
+            notes,
+            section_name=section_name,
+            phrase_index=0,
+            n_phrases=1,
+            enabled=tag_development,
+        )
         return _finish(notes)
     if section_name == "bridge":
         notes = _bridge_melody(
@@ -1539,6 +1564,13 @@ def _melody_for_section(
                 )
                 if quoted:
                     notes[-1]["pitch"] = int(quoted[0])
+        _stamp_development_technique(
+            notes,
+            section_name=section_name,
+            phrase_index=0,
+            n_phrases=1,
+            enabled=tag_development,
+        )
         return _finish(notes)
     if section_name == "coda":
         notes, coda_iw = _coda_melody(
@@ -1560,6 +1592,13 @@ def _melody_for_section(
                 bar = int(float(n["start_beat"]) // max(beats_per_bar, 1))
                 if bar == payoff_bar:
                     n["motif_role"] = "payoff"
+        _stamp_development_technique(
+            notes,
+            section_name=section_name,
+            phrase_index=0,
+            n_phrases=1,
+            enabled=tag_development,
+        )
         return _finish(notes, coda_iw)
 
     notes_per_bar = DENSITY_NOTES_PER_BAR.get(dance_type, DENSITY_NOTES_PER_BAR["tango"])[
@@ -1738,6 +1777,13 @@ def _melody_for_section(
         elif phrase_covers_setup:
             for n in emitted:
                 n["motif_role"] = "setup"
+        _stamp_development_technique(
+            emitted,
+            section_name=section_name,
+            phrase_index=phrase_i,
+            n_phrases=len(phrases),
+            enabled=tag_development,
+        )
         notes.extend(emitted)
         if section_name == "A" and phrase_i == 0:
             # Snapshot first phrase contour for coda fallback
