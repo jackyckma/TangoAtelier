@@ -333,10 +333,11 @@
         "T-0012"
       ],
       "flag": null,
-      "status": "ready",
+      "status": "in_progress",
       "retries": 0,
       "feedback": [
-        "2026-09-05: queued under E-04; blocked until T-0012 done."
+        "2026-09-05: queued under E-04; blocked until T-0012 done.",
+        "2026-09-09: Maker IMPLEMENT lease on main."
       ]
     },
     {
