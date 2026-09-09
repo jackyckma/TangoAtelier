@@ -333,12 +333,13 @@
         "T-0012"
       ],
       "flag": null,
-      "status": "in_review",
+      "status": "done",
       "retries": 0,
       "feedback": [
         "2026-09-05: queued under E-04; blocked until T-0012 done.",
         "2026-09-09: Maker IMPLEMENT lease on main.",
-        "2026-09-09: Maker IMPLEMENT complete — PR #24 on cursor/t-0014-wire-development-technique; acceptance + agent-verify green."
+        "2026-09-09: Maker IMPLEMENT complete — PR #24 on cursor/t-0014-wire-development-technique; acceptance + agent-verify green.",
+        "2026-09-09: Checker REVIEW — verify-all + task acceptance green; merged PR #24 (merge commit b378b3f)."
       ]
     },
     {
