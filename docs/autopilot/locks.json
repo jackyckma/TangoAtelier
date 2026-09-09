@@ -4,8 +4,8 @@
     "T-0014": {
       "by": "maker",
       "since": "2026-09-09T17:00:59Z",
-      "branch": null,
-      "pr": null
+      "branch": "cursor/t-0014-wire-development-technique",
+      "pr": 24
     }
   }
 }
