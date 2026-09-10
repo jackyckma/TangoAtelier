@@ -1,11 +1,4 @@
 {
   "_doc": "Task lease lock on main. Maker writes lock + in_progress on main BEFORE branching. Checker clears on merge or bounce.",
-  "locks": {
-    "T-0015": {
-      "by": "maker",
-      "since": "2026-09-10T17:15:00.000Z",
-      "branch": "cursor/t-0015-technique-transforms-motif-id",
-      "pr": 25
-    }
-  }
+  "locks": {}
 }

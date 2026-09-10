@@ -358,12 +358,13 @@
         "T-0014"
       ],
       "flag": null,
-      "status": "in_review",
+      "status": "done",
       "retries": 0,
       "feedback": [
         "2026-09-05: queued under E-04; final M6 slice — similarity thresholds per MUSICALITY_OVERHAUL.md §M6 DoD.",
         "2026-09-10: Maker IMPLEMENT lease on main.",
-        "2026-09-10: Maker IMPLEMENT complete — PR #25 on cursor/t-0015-technique-transforms-motif-id; acceptance + agent-verify green."
+        "2026-09-10: Maker IMPLEMENT complete — PR #25 on cursor/t-0015-technique-transforms-motif-id; acceptance + agent-verify green.",
+        "2026-09-10: Checker REVIEW — verify-all + task acceptance green; merged PR #25 (merge commit 1fa52ee)."
       ]
     },
     {
