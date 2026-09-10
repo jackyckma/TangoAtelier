@@ -14,8 +14,12 @@ from app.engine.melody.development import (
     DevelopmentTechnique,
     MotifPlan,
     SECTION_TECHNIQUES,
+    apply_pitch_technique,
+    apply_rhythm_to_motif,
+    motif_plan_to_dict,
     pitch_cell_similarity,
     plan_motif_developments,
+    prepare_phrase_motif_for_technique,
     technique_for_phrase,
 )
 from app.engine.melody.nct import NCT
@@ -59,6 +63,10 @@ __all__ = [
     "SECTION_TECHNIQUES",
     "pitch_cell_similarity",
     "plan_motif_developments",
+    "prepare_phrase_motif_for_technique",
+    "apply_pitch_technique",
+    "apply_rhythm_to_motif",
+    "motif_plan_to_dict",
     "technique_for_phrase",
     "sample_piece_cells",
     "sample_rhythm_cell",

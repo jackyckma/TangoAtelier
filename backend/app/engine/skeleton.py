@@ -36,6 +36,9 @@ from app.engine.melody import (
     intervals_to_adjacent_steps,
     make_pitch_cell,
     melody_notes_to_dicts,
+    motif_plan_to_dict,
+    plan_motif_developments,
+    prepare_phrase_motif_for_technique,
     sample_piece_cells,
     sample_rhythm_cell,
     technique_for_phrase,
@@ -357,6 +360,7 @@ def _stamp_motivic_meta(
         energy = float(energy_map.get(bar, 0.5))
         if cell_id is not None:
             n["motivic_cell_id"] = int(cell_id)
+            n["motif_id"] = int(cell_id)
         n["motivic_development"] = _motivic_development_level(
             local_bar=local,
             section_bars=section_bars,
@@ -1743,34 +1747,79 @@ def _melody_for_section(
                 elif reg == 0:
                     reg = 7 if energy0 >= 0.55 else 0
 
+        if tag_development and not phrase_covers_payoff:
+            alt_motif = quote_motif if quote_motif is not None else (
+                cells[1] if len(cells) > 1 else None
+            )
+            dev_tech = technique_for_phrase(section_name, phrase_i, len(phrases))
+            phrase_motif, tech_tq, tech_seq = prepare_phrase_motif_for_technique(
+                phrase_motif,
+                dev_tech,
+                rng,
+                alternate_motif=alt_motif,
+                sequence_semitones=seq_unit * (1 + phrase_i // 2),
+            )
+            transform_q = tech_tq
+            if dev_tech.value == "sequence":
+                seq = tech_seq
+            elif dev_tech.value in (
+                "literal",
+                "pitch_swap",
+                "ornamentation",
+                "rhythm_swap",
+            ):
+                seq = 0
+
         chord_slice = chords_for_bars[local_start : local_start + plen]
         cadence = form_phrase_cadence.get(
             (local_start, plen),
             "authentic" if local_start + plen >= bars else "half",
         )
-        emitted, last_pitch = _emit_phrase(
-            rng,
-            start_bar=abs_start,
-            n_bars=plen,
-            beats_per_bar=beats_per_bar,
-            chords_for_bars=chord_slice,
-            motif=phrase_motif,
-            density=local_density,
-            variation=variation,
-            dance_type=dance_type,
-            tonic=tonic,
-            mode=mode,
-            transform_q=transform_q,
-            register_bias=reg,
-            sequence_semitones=seq,
-            start_pitch=last_pitch if phrase_i > 0 else None,
-            key_offset=key_offset,
-            cadence=cadence,
-            rhythm_cells=rhythm_cells,
-            pause_frequency=pause_frequency,
-            drama_tag=tag,
-            energy=energy0,
+        echo_phrase = (
+            tag_development
+            and section_name == "A"
+            and phrase_i == 1
+            and seq == 0
+            and not phrase_covers_payoff
+            and theme_state.get("a_phrase0_snapshot")
         )
+        if echo_phrase:
+            snap = theme_state["a_phrase0_snapshot"]
+            base_start = float(snap["start_beat"])
+            new_start = float(abs_start * beats_per_bar)
+            emitted = []
+            for n in snap["notes"]:
+                copy_n = {k: v for k, v in n.items() if not str(k).startswith("_")}
+                copy_n["start_beat"] = round(
+                    float(n["start_beat"]) - base_start + new_start,
+                    3,
+                )
+                emitted.append(copy_n)
+            last_pitch = snap.get("last_pitch")
+        else:
+            emitted, last_pitch = _emit_phrase(
+                rng,
+                start_bar=abs_start,
+                n_bars=plen,
+                beats_per_bar=beats_per_bar,
+                chords_for_bars=chord_slice,
+                motif=phrase_motif,
+                density=local_density,
+                variation=variation,
+                dance_type=dance_type,
+                tonic=tonic,
+                mode=mode,
+                transform_q=transform_q,
+                register_bias=reg,
+                sequence_semitones=seq,
+                start_pitch=last_pitch if phrase_i > 0 else None,
+                key_offset=key_offset,
+                cadence=cadence,
+                rhythm_cells=rhythm_cells,
+                pause_frequency=pause_frequency,
+                drama_tag=tag,
+                energy=energy0,
+            )
         if phrase_covers_payoff:
             for n in emitted:
                 n["motif_role"] = "payoff"
@@ -1788,6 +1837,14 @@ def _melody_for_section(
         if section_name == "A" and phrase_i == 0:
             # Snapshot first phrase contour for coda fallback
             lead_ps = [n["pitch"] for n in emitted if n.get("voice") == "lead"]
+            theme_state["a_phrase0_snapshot"] = {
+                "start_beat": float(abs_start * beats_per_bar),
+                "notes": [
+                    {k: v for k, v in n.items() if not str(k).startswith("_")}
+                    for n in emitted
+                ],
+                "last_pitch": last_pitch,
+            }
             mid = max(1, len(lead_ps) // 2)
             theme_state["cells"] = [lead_ps[:mid], lead_ps[mid:] or lead_ps[-2:]]
         phrase_i += 1
@@ -1892,6 +1949,12 @@ def build_skeleton(
         rng, sections, climax_bar=climax0, n_cells=len(cells)
     )
     theme_state["setup_payoff"] = setup_payoff
+    theme_state["motif_development_plans"] = plan_motif_developments(
+        cells,
+        sections,
+        climax_bar=climax0,
+        rng=rng,
+    )
     section_groove = _roll_section_groove(
         rng,
         dance_type,
@@ -2062,6 +2125,10 @@ def build_skeleton(
             )
             for name in dict.fromkeys(form_labels)
         },
+        "motif_development_plans": [
+            motif_plan_to_dict(p)
+            for p in (theme_state.get("motif_development_plans") or [])
+        ],
         "tension_curve": [
             round(float((drama.get("energy") or {}).get(i, 0.5)), 3)
             for i in range(total_bars)
