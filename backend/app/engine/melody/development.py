@@ -1,10 +1,13 @@
-"""M6 motivic development techniques (pure contract — not wired into skeleton yet)."""
+"""M6 motivic development techniques and phrase-level transforms."""
 
 from __future__ import annotations
 
 import random
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Literal
+
+from app.engine.melody.rhythm_cell import intervals_to_adjacent_steps
 
 
 class DevelopmentTechnique(str, Enum):
@@ -85,8 +88,20 @@ class MotifPlan:
     payoff_technique: DevelopmentTechnique
 
 
+def _as_pitch_intervals(seq: list[int]) -> list[int]:
+    """Normalize a pitch list to cumulative intervals from the head."""
+    if not seq:
+        return seq
+    if max(abs(x) for x in seq) <= 24:
+        return list(seq)
+    head = seq[0]
+    return [int(p) - int(head) for p in seq]
+
+
 def pitch_cell_similarity(intervals_a: list[int], intervals_b: list[int]) -> float:
     """Return similarity in [0, 1] between two pitch-cell interval lists."""
+    intervals_a = _as_pitch_intervals(intervals_a)
+    intervals_b = _as_pitch_intervals(intervals_b)
     if not intervals_a and not intervals_b:
         return 1.0
     if not intervals_a or not intervals_b:
@@ -220,3 +235,129 @@ def plan_motif_developments(
         )
 
     return plans
+
+
+def apply_pitch_technique(
+    intervals: list[int],
+    technique: DevelopmentTechnique,
+    rng: random.Random,
+    *,
+    alternate_intervals: list[int] | None = None,
+    sequence_semitones: int = 2,
+) -> list[int]:
+    """Transform pitch-cell interval DNA for a development technique."""
+    ivs = list(intervals)
+    if not ivs:
+        return ivs
+
+    if technique == DevelopmentTechnique.LITERAL:
+        return ivs
+    if technique == DevelopmentTechnique.SEQUENCE:
+        return [iv + sequence_semitones for iv in ivs]
+    if technique == DevelopmentTechnique.PITCH_SWAP:
+        if alternate_intervals:
+            return list(alternate_intervals)
+        return [-iv for iv in ivs]
+    if technique == DevelopmentTechnique.ORNAMENTATION:
+        out: list[int] = []
+        for iv in ivs:
+            out.append(iv)
+            if rng.random() < 0.35:
+                out.append(iv + rng.choice([-1, 1, 2]))
+        return out[: len(ivs) + 2]
+    if technique == DevelopmentTechnique.FRAGMENTATION:
+        return ivs[: max(2, len(ivs) // 2 + 1)]
+    if technique == DevelopmentTechnique.EXTENSION and len(ivs) >= 2:
+        tail = ivs[-1] + (ivs[-1] - ivs[-2])
+        return ivs + [tail]
+    return ivs
+
+
+def apply_rhythm_to_motif(
+    motif: dict[str, Any],
+    technique: DevelopmentTechnique,
+    *,
+    alternate_motif: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Return a shallow motif copy with rhythm_question/answer adjusted."""
+    working = dict(motif)
+    if technique != DevelopmentTechnique.RHYTHM_SWAP or alternate_motif is None:
+        return working
+    alt_rq = alternate_motif.get("rhythm_question")
+    if alt_rq:
+        working["rhythm_question"] = list(alt_rq)
+    alt_ra = alternate_motif.get("rhythm_answer")
+    if alt_ra:
+        working["rhythm_answer"] = list(alt_ra)
+    return working
+
+
+def prepare_phrase_motif_for_technique(
+    motif: dict[str, Any],
+    technique: DevelopmentTechnique,
+    rng: random.Random,
+    *,
+    alternate_motif: dict[str, Any] | None = None,
+    sequence_semitones: int = 2,
+) -> tuple[dict[str, Any], Literal["prime", "invert", "answer", "sequence"], int]:
+    """Select/transform motivic cell DNA before phrase emission."""
+    working = dict(motif)
+    transform_q: Literal["prime", "invert", "answer", "sequence"] = "prime"
+    seq = 0
+
+    if technique == DevelopmentTechnique.PITCH_SWAP:
+        own_ivs = list(working.get("intervals") or [])
+        if alternate_motif is not None:
+            alt_ivs = list(alternate_motif.get("intervals") or [])
+            if tuple(own_ivs) != tuple(alt_ivs):
+                ivs = [-iv for iv in own_ivs]
+            else:
+                working = dict(alternate_motif)
+                ivs = alt_ivs
+        else:
+            ivs = [-iv for iv in own_ivs]
+        working["intervals"] = ivs
+        working["steps"] = intervals_to_adjacent_steps(ivs)
+        return working, "prime", 0
+
+    if technique == DevelopmentTechnique.SEQUENCE:
+        return working, "sequence", sequence_semitones
+
+    if technique == DevelopmentTechnique.LITERAL:
+        return working, "prime", 0
+
+    if technique == DevelopmentTechnique.RHYTHM_SWAP:
+        working = apply_rhythm_to_motif(working, technique, alternate_motif=alternate_motif)
+        return working, "prime", 0
+
+    if technique in (
+        DevelopmentTechnique.ORNAMENTATION,
+        DevelopmentTechnique.FRAGMENTATION,
+        DevelopmentTechnique.EXTENSION,
+    ):
+        alt_ivs = list((alternate_motif or {}).get("intervals") or [])
+        ivs = apply_pitch_technique(
+            list(working.get("intervals") or []),
+            technique,
+            rng,
+            alternate_intervals=alt_ivs or None,
+        )
+        working["intervals"] = ivs
+        working["steps"] = intervals_to_adjacent_steps(ivs)
+        return working, "prime", 0
+
+    return working, "prime", 0
+
+
+def motif_plan_to_dict(plan: MotifPlan) -> dict[str, Any]:
+    """JSON-serializable motif development plan."""
+    return {
+        "cell_id": plan.cell_id,
+        "first_appearance": plan.first_appearance,
+        "payoff_bar": plan.payoff_bar,
+        "payoff_technique": plan.payoff_technique.value,
+        "developments": [
+            {"bar": bar, "technique": tech.value}
+            for bar, tech in plan.developments
+        ],
+    }
