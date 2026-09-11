@@ -4,8 +4,8 @@
     "T-0016": {
       "by": "maker",
       "since": "2026-09-11T17:21:27Z",
-      "branch": null,
-      "pr": null
+      "branch": "cursor/t-0016-motif-development-plans-export",
+      "pr": "https://github.com/jackyckma/TangoAtelier/pull/26"
     }
   }
 }
