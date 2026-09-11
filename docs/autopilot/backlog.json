@@ -382,10 +382,11 @@
         "T-0013"
       ],
       "flag": null,
-      "status": "ready",
+      "status": "in_progress",
       "retries": 0,
       "feedback": [
-        "2026-09-08: REPLAN — parallel M6 export slice; keeps READY_MIN≥2 while T-0014/T-0015 chain runs."
+        "2026-09-08: REPLAN — parallel M6 export slice; keeps READY_MIN≥2 while T-0014/T-0015 chain runs.",
+        "2026-09-11: Maker IMPLEMENT lease on main."
       ]
     }
   ]
