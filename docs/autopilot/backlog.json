@@ -390,6 +390,131 @@
         "2026-09-11: Maker IMPLEMENT complete — PR #26 on cursor/t-0016-motif-development-plans-export; export already on main via T-0015, added pytest contract; acceptance + agent-verify green.",
         "2026-09-11: Checker REVIEW — verify-all + task acceptance green; merged PR #26 (merge commit 1a34ef3)."
       ]
+    },
+    {
+      "id": "T-0017",
+      "lane": "engine",
+      "phase": "M5",
+      "title": "M5: FUNCTION_TRANSITIONS + CHORD_CHOICE contract",
+      "description": "Create backend/app/engine/harmony/grammar.py with FUNCTION_TRANSITIONS and CHORD_CHOICE per MUSICALITY_OVERHAUL.md §5.1 (tonic/subdominant/dominant/colour regions). Add pure helpers: pick_function_transition(rng, current_function, colour_allowed: bool) -> str; pick_chord_for_function(rng, function: str, mode: str, tendencies: dict) -> str (symbols must exist in harmony_vocab for mode). When colour_allowed is False, zero out colour transitions and renormalize. Export from backend/app/engine/harmony/__init__.py. Do NOT wire into skeleton/form yet.",
+      "acceptance": [
+        "./scripts/agent-verify.sh",
+        "cd backend && test -x .venv/bin/python || (python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt)",
+        "test -f backend/app/engine/harmony/grammar.py",
+        "cd backend && .venv/bin/python -c \"import random; from app.engine.harmony.grammar import pick_function_transition, pick_chord_for_function, FUNCTION_TRANSITIONS; rng=random.Random(1); f='tonic'; seen=set(); for _ in range(20): f=pick_function_transition(rng,f,colour_allowed=False); seen.add(f); assert 'colour' not in seen; sym=pick_chord_for_function(rng,'dominant','minor',{}); assert sym in ('V7','V7b9','V','vii°7','subV7','Ger+6'); print('grammar contract ok', len(FUNCTION_TRANSITIONS))\""
+      ],
+      "deps": [],
+      "flag": null,
+      "status": "ready",
+      "retries": 0,
+      "feedback": [
+        "2026-09-12: REPLAN — queued under approved epic E-05 (M5 functional grammar). Parallel entry with T-0018."
+      ]
+    },
+    {
+      "id": "T-0018",
+      "lane": "engine",
+      "phase": "M5",
+      "title": "M5: progression constraint validators",
+      "description": "In backend/app/engine/harmony/grammar.py add validate_progression_constraints(symbols: list[str], mode: str) -> list[str] returning error codes (empty list = pass). Enforce MUSICALITY_OVERHAUL.md §5.4: (1) V7/iv→iv, V7/V→V or V7, V7/VI→VI, V7/III→III; (2) bII followed by V7 or i/I; (3) Ger+6 followed by V7; (4) no chord repeats >4 consecutive bars; (5) every symbol must chord_spec() without UnknownChordSymbol. Add progression_entropy(symbols) helper for later acceptance. Pure only — no skeleton wiring.",
+      "acceptance": [
+        "./scripts/agent-verify.sh",
+        "cd backend && test -x .venv/bin/python || (python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt)",
+        "cd backend && .venv/bin/python -c \"from app.engine.harmony.grammar import validate_progression_constraints, progression_entropy; assert validate_progression_constraints(['i','V7/iv','iv','V7','i'],'minor')==[]; assert any('bII' in e or 'neapolitan' in e.lower() for e in validate_progression_constraints(['i','bII','i'],'minor')); assert validate_progression_constraints(['i']*5,'minor'); ent=progression_entropy(['i','iv','V7','i']); assert ent>0; print('constraints ok', ent)\""
+      ],
+      "deps": [],
+      "flag": null,
+      "status": "ready",
+      "retries": 0,
+      "feedback": [
+        "2026-09-12: REPLAN — parallel pure slice; may share grammar.py with T-0017 — Maker should land one before the other or merge carefully."
+      ]
+    },
+    {
+      "id": "T-0019",
+      "lane": "engine",
+      "phase": "M5",
+      "title": "M5: generate_functional_progression (bars + tension)",
+      "description": "In grammar.py implement generate_functional_progression(rng, bars: int, mode: str, tension: float, tendencies: dict, climax_bar: int | None) -> list[str]. Walk function regions using pick_function_transition/pick_chord_for_function; open colour only when tension>=0.65 or bar within 2 of climax_bar. After generation, run validate_progression_constraints; resample up to 20 times; on persistent failure return a safe legacy template (e.g. i-iv-V7-i cycle) so callers never crash. Fixed seed reproducible. Do NOT change form.py wiring yet.",
+      "acceptance": [
+        "./scripts/agent-verify.sh",
+        "cd backend && test -x .venv/bin/python || (python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt)",
+        "cd backend && .venv/bin/python -c \"import random; from app.engine.harmony.grammar import generate_functional_progression, validate_progression_constraints; rng=random.Random(42); low=generate_functional_progression(rng,16,'minor',tension=0.2,tendencies={},climax_bar=12); high=generate_functional_progression(random.Random(42),16,'minor',tension=0.9,tendencies={},climax_bar=12); assert len(low)==16 and len(high)==16; assert validate_progression_constraints(low,'minor')==[]; a=generate_functional_progression(random.Random(7),8,'minor',0.3,{},None); b=generate_functional_progression(random.Random(7),8,'minor',0.3,{},None); assert a==b; print('gen ok', low[:4], high[:4])\""
+      ],
+      "deps": [
+        "T-0017",
+        "T-0018"
+      ],
+      "flag": null,
+      "status": "blocked",
+      "retries": 0,
+      "feedback": [
+        "2026-09-12: REPLAN — blocked until T-0017/T-0018 land."
+      ]
+    },
+    {
+      "id": "T-0020",
+      "lane": "engine",
+      "phase": "M5",
+      "title": "M5: chromatic_bass_run helper",
+      "description": "In backend/app/engine/harmony/grammar.py add chromatic_bass_run(rng, start_chord: str, bars: int, mode: str) -> list[str] per MUSICALITY_OVERHAUL.md §5.3 (e.g. i→iM7→i7→i6). Only emit symbols valid in harmony_vocab. Caller controls injection — max once per 16-bar section. Pure helper; optional call from generate_functional_progression in a follow-up if not wired here.",
+      "acceptance": [
+        "./scripts/agent-verify.sh",
+        "cd backend && test -x .venv/bin/python || (python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt)",
+        "cd backend && .venv/bin/python -c \"import random; from app.engine.harmony.grammar import chromatic_bass_run; from app.engine.harmony_vocab import chord_spec; seq=chromatic_bass_run(random.Random(3),'i',4,'minor'); assert len(seq)==4; assert seq[0]=='i'; [chord_spec(s,'minor') for s in seq]; print('chromatic ok', seq)\""
+      ],
+      "deps": [
+        "T-0017"
+      ],
+      "flag": null,
+      "status": "blocked",
+      "retries": 0,
+      "feedback": [
+        "2026-09-12: REPLAN — optional colour slice after grammar contract."
+      ]
+    },
+    {
+      "id": "T-0021",
+      "lane": "engine",
+      "phase": "M5",
+      "title": "M5: wire harmonic_grammar=functional in form/skeleton",
+      "description": "When generation_options.harmonic_grammar=='functional', section chord grids in form.py (or skeleton harmony path) use generate_functional_progression for mid-phrase bars while M2 cadence slots still apply hard termination rules at phrase ends. When 'legacy_templates' (default), behaviour unchanged for fixed seeds in acceptance. Export skeleton metadata harmonic_grammar_mode. Register M5_FUNCTIONAL_GRAMMAR in ENGINE_KNOWLEDGE_REGISTRY as experimental/off. No prod default flip.",
+      "acceptance": [
+        "./scripts/agent-verify.sh",
+        "cd backend && test -x .venv/bin/python || (python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt)",
+        "cd backend && .venv/bin/python -c \"from app.engine.skeleton import build_skeleton; kw=dict(seed=42,dance_type='tango',mode='minor'); a=build_skeleton(**kw,generation_options={'harmonic_grammar':'legacy_templates'}); b=build_skeleton(**kw,generation_options={'harmonic_grammar':'legacy_templates'}); assert a==b; c=build_skeleton(**kw,generation_options={'harmonic_grammar':'functional'}); assert c is not None; assert len(c.get('chords') or c.get('harmony') or [])>0 or 'progression' in str(c); print('wire ok')\"",
+        "grep -q 'M5_FUNCTIONAL_GRAMMAR' docs/product/ENGINE_KNOWLEDGE_REGISTRY.md"
+      ],
+      "deps": [
+        "T-0019"
+      ],
+      "flag": "harmonic_grammar",
+      "status": "blocked",
+      "retries": 0,
+      "feedback": [
+        "2026-09-12: REPLAN — integration slice; flag already in generation_options.py."
+      ]
+    },
+    {
+      "id": "T-0022",
+      "lane": "engine",
+      "phase": "M5",
+      "title": "M5: entropy + secondary-dominant acceptance",
+      "description": "After T-0021: add backend/tests/harmony/test_functional_grammar.py (or extend existing) with fixed-seed checks on 100 seeds: functional mode progression_entropy mean > legacy baseline for same seeds; secondary-dominant rate 15–30% and borrowed/colour rate 10–25% (count V7/* and bII/III+/colour function chords); CHORD_SPELLING_INVALID stays zero (all symbols chord_spec). Document thresholds in test comments. Do not weaken M2 cadence tests.",
+      "acceptance": [
+        "./scripts/agent-verify.sh",
+        "cd backend && test -x .venv/bin/python || (python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt)",
+        "cd backend && .venv/bin/python -m pytest -q tests/harmony/test_functional_grammar.py"
+      ],
+      "deps": [
+        "T-0021"
+      ],
+      "flag": "harmonic_grammar",
+      "status": "blocked",
+      "retries": 0,
+      "feedback": [
+        "2026-09-12: REPLAN — final M5 DoD slice per MUSICALITY_OVERHAUL.md §M5."
+      ]
     }
   ]
 }

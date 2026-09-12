@@ -63,7 +63,7 @@
       "id": "E-04",
       "title": "M6 Motivic development techniques",
       "goal": "Teachable motivic development: per-phrase DevelopmentTechnique assignment, MotifPlan setup/payoff scheduling, and skeleton export of motif_id + development_technique — per docs/product/MUSICALITY_OVERHAUL.md §M6 and PROJECT_PLAN musicality line (post-expectancy gate).",
-      "status": "approved",
+      "status": "done",
       "phase": "M6",
       "decomposes_into": [
         "T-0012",
@@ -73,7 +73,24 @@
         "T-0016"
       ],
       "decisions": [],
-      "notes": "Extend M4 PitchCell/RhythmCell + E11 motivic_cells; do NOT parallel-rewrite melody engine. Expectancy gate stays on (generation_options.expectancy_gate default true). M5 functional grammar is a separate future epic — do not scope here."
+      "notes": "Extend M4 PitchCell/RhythmCell + E11 motivic_cells; do NOT parallel-rewrite melody engine. Expectancy gate stays on (generation_options.expectancy_gate default true). Completed 2026-09-11 (Checker merged PR #26 for T-0016)."
+    },
+    {
+      "id": "E-05",
+      "title": "M5 Functional harmony grammar (restrained)",
+      "goal": "Replace fixed progression templates with weighted functional grammar (tonic↔subdominant↔dominant; colour only at high tension) behind generation_options.harmonic_grammar=functional (default off). Per docs/product/MUSICALITY_OVERHAUL.md §M5 and PROJECT_PLAN musicality line (post-M6).",
+      "status": "approved",
+      "phase": "M5",
+      "decomposes_into": [
+        "T-0017",
+        "T-0018",
+        "T-0019",
+        "T-0020",
+        "T-0021",
+        "T-0022"
+      ],
+      "decisions": [],
+      "notes": "Founder constraint: no colour stacking for entropy — default path is tonic/subdominant/dominant serving phrase tension; colour/secondary/borrowed only when tension high or near climax. M2 cadence hard rules remain. Fallback to legacy_templates on validation failure. Extend harmony_vocab ChordSpec.function — do NOT parallel-rewrite form.py melody paths."
     }
   ]
 }
