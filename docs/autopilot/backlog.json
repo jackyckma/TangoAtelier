@@ -405,12 +405,13 @@
       ],
       "deps": [],
       "flag": null,
-      "status": "in_review",
+      "status": "done",
       "retries": 0,
       "feedback": [
         "2026-09-12: REPLAN — queued under approved epic E-05 (M5 functional grammar). Parallel entry with T-0018.",
         "2026-09-13: Maker lease — in_progress on main before branch.",
-        "2026-09-13: Maker IMPLEMENT complete — PR #27 on cursor/t-0017-m5-function-transitions-chord-choice; acceptance + agent-verify green."
+        "2026-09-13: Maker IMPLEMENT complete — PR #27 on cursor/t-0017-m5-function-transitions-chord-choice; acceptance + agent-verify green.",
+        "2026-09-13: Checker REVIEW — verify-all + task acceptance green; merged PR #27 (merge commit 1a4a2c1)."
       ]
     },
     {
