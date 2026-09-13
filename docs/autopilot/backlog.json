@@ -405,10 +405,11 @@
       ],
       "deps": [],
       "flag": null,
-      "status": "ready",
+      "status": "in_progress",
       "retries": 0,
       "feedback": [
-        "2026-09-12: REPLAN — queued under approved epic E-05 (M5 functional grammar). Parallel entry with T-0018."
+        "2026-09-12: REPLAN — queued under approved epic E-05 (M5 functional grammar). Parallel entry with T-0018.",
+        "2026-09-13: Maker lease — in_progress on main before branch."
       ]
     },
     {
