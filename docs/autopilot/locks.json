@@ -4,8 +4,8 @@
     "T-0017": {
       "by": "maker",
       "since": "2026-09-13T17:04:41Z",
-      "branch": null,
-      "pr": null
+      "branch": "cursor/t-0017-m5-function-transitions-chord-choice",
+      "pr": "https://github.com/jackyckma/TangoAtelier/pull/27"
     }
   }
 }
