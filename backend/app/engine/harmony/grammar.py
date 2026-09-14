@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import math
 import random
+from collections import Counter
 from typing import Any
 
 from app.engine.harmony_vocab import MAJOR_VOCAB, MINOR_VOCAB, UnknownChordSymbol, chord_spec
@@ -128,3 +130,80 @@ def pick_chord_for_function(
         return fallback if fallback in vocab else next(iter(vocab))
 
     return _weighted_choice(rng, weights)
+
+
+# MUSICALITY_OVERHAUL.md §5.4 — progression validation (pure; no skeleton wiring)
+_SECONDARY_DOMINANT_RESOLUTION: dict[str, frozenset[str]] = {
+    "V7/iv": frozenset({"iv"}),
+    "V7/V": frozenset({"V", "V7"}),
+    "V7/VI": frozenset({"VI"}),
+    "V7/III": frozenset({"III"}),
+}
+
+_NEAPOLITAN_OK_NEXT = frozenset({"V7", "I"})
+
+
+def validate_progression_constraints(symbols: list[str], mode: str) -> list[str]:
+    """Return error codes; empty list means all constraints pass."""
+    errors: list[str] = []
+
+    for sym in symbols:
+        try:
+            chord_spec(sym, mode)
+        except UnknownChordSymbol:
+            errors.append(f"unknown_chord_symbol:{sym}")
+
+    for i, sym in enumerate(symbols):
+        if sym not in _SECONDARY_DOMINANT_RESOLUTION:
+            continue
+        if i + 1 >= len(symbols):
+            errors.append(f"secondary_dominant_unresolved:{sym}")
+            continue
+        nxt = symbols[i + 1]
+        allowed = _SECONDARY_DOMINANT_RESOLUTION[sym]
+        if nxt not in allowed:
+            errors.append(f"secondary_dominant_resolution:{sym}→{','.join(sorted(allowed))}")
+
+    for i, sym in enumerate(symbols):
+        if sym != "bII":
+            continue
+        if i + 1 >= len(symbols):
+            errors.append("neapolitan_resolution:bII_unresolved")
+            continue
+        nxt = symbols[i + 1]
+        if nxt not in _NEAPOLITAN_OK_NEXT:
+            errors.append("neapolitan_resolution:bII→V7_or_tonic")
+
+    for i, sym in enumerate(symbols):
+        if sym != "Ger+6":
+            continue
+        if i + 1 >= len(symbols):
+            errors.append("german_augmented_resolution:Ger+6_unresolved")
+            continue
+        if symbols[i + 1] != "V7":
+            errors.append("german_augmented_resolution:Ger+6→V7")
+
+    run_len = 1
+    for i in range(1, len(symbols)):
+        if symbols[i] == symbols[i - 1]:
+            run_len += 1
+            if run_len > 4:
+                errors.append("chord_repeat_max_4")
+                break
+        else:
+            run_len = 1
+
+    return errors
+
+
+def progression_entropy(symbols: list[str]) -> float:
+    """Shannon entropy (bits) of chord-symbol distribution — for acceptance baselines."""
+    if not symbols:
+        return 0.0
+    counts = Counter(symbols)
+    n = len(symbols)
+    ent = 0.0
+    for c in counts.values():
+        p = c / n
+        ent -= p * math.log2(p)
+    return ent
