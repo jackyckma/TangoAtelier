@@ -427,7 +427,7 @@
       ],
       "deps": [],
       "flag": null,
-      "status": "ready",
+      "status": "in_progress",
       "retries": 0,
       "feedback": [
         "2026-09-12: REPLAN — parallel pure slice; may share grammar.py with T-0017 — Maker should land one before the other or merge carefully."
