@@ -427,11 +427,12 @@
       ],
       "deps": [],
       "flag": null,
-      "status": "in_review",
+      "status": "done",
       "retries": 0,
       "feedback": [
         "2026-09-12: REPLAN — parallel pure slice; may share grammar.py with T-0017 — Maker should land one before the other or merge carefully.",
-        "2026-09-14: Maker IMPLEMENT — PR #28 on cursor/t-0018-progression-constraints; acceptance + agent-verify green."
+        "2026-09-14: Maker IMPLEMENT — PR #28 on cursor/t-0018-progression-constraints; acceptance + agent-verify green.",
+        "2026-09-14: Checker REVIEW — verify-all + task acceptance green; merged PR #28 (merge commit 74b683e)."
       ]
     },
     {
